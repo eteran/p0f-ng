@@ -753,7 +753,7 @@ static void packet_to_sig(struct packet_data* pk, struct tcp_sig* ts) {
   ts->fuzzy       = 0;
   ts->dist        = 0;
 
-};
+}
 
 
 /* Dump unknown signature. */
@@ -768,11 +768,11 @@ static u8* dump_sig(struct packet_data* pk, struct tcp_sig* ts, u16 syn_mss) {
   u32 i;
   u8  dist = guess_dist(pk->ttl);
 
-#define RETF(_par...) do { \
-    s32 _len = snprintf(NULL, 0, _par); \
+#define RETF(...) do { \
+	s32 _len = snprintf(NULL, 0, __VA_ARGS__); \
     if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
     ret = DFL_ck_realloc_kb(ret, rlen + _len + 1); \
-    snprintf((char*)ret + rlen, _len + 1, _par); \
+	snprintf((char*)ret + rlen, _len + 1, __VA_ARGS__); \
     rlen += _len; \
   } while (0)
 
@@ -1302,18 +1302,16 @@ void check_ts_tcp(u8 to_srv, struct packet_data* pk, struct packet_flow* f) {
 
   /* Round the frequency neatly. */
 
-	if(freq == 0) {
-		freq = 1;
-	} else if(freq >= 1 && freq <= 10) {
-	} else if(freq >= 11 && freq <= 50) {
-		freq = (freq + 3) / 5 * 5;
-	} else if(freq >= 51 && freq <= 100) {
-		freq = (freq + 7) / 10 * 10;
-	} else if(freq >= 101 && freq <= 500) {
-		freq = (freq + 33) / 50 * 50;
-	} else {
-		freq = (freq + 67) / 100 * 100;
-	}
+
+
+	if(freq == 0)           freq = 1;
+	else if(freq >= 1 && freq <= 10) {}
+	else if(freq >= 11 && freq <= 50) freq = (freq + 3) / 5 * 5;
+	else if(freq >= 51 && freq <= 100) freq = (freq + 7) / 10 * 10;
+	else if(freq >= 101 && freq <= 500)  freq = (freq + 33) / 50 * 50;
+	else          freq = (freq + 67) / 100 * 100;
+
+
 
   if (to_srv) f->cli_tps = freq; else f->srv_tps = freq;
 

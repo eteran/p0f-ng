@@ -116,39 +116,40 @@ u32 TRK_cnt[ALLOC_BUCKETS];
 
 static void usage(void) {
 
-	const char message[] = "Usage: p0f [ ...options... ] [ 'filter rule' ]\n"
-						   "\n"
-						   "Network interface options:\n"
-						   "\n"
-						   "  -i iface  - listen on the specified network interface\n"
-						   "  -r file   - read offline pcap data from a given file\n"
-						   "  -p        - put the listening interface in promiscuous mode\n"
-						   "  -L        - list all available interfaces\n"
-						   "\n"
-						   "Operating mode and output settings:\n"
-						   "\n"
-						   "  -f file   - read fingerprint database from 'file' (%s)\n"
-						   "  -o file   - write information to the specified log file\n"
-						   #ifndef __CYGWIN__
-						   "  -s name   - answer to API queries at a named unix socket\n"
-						   #endif /* !__CYGWIN__ */
-						   "  -u user   - switch to the specified unprivileged account and chroot\n"
-						   "  -d        - fork into background (requires -o or -s)\n"
-						   "\n"
-						   "Performance-related options:\n"
-						   "\n"
-						   #ifndef __CYGWIN__
-						   "  -S limit  - limit number of parallel API connections (%u)\n"
-						   #endif /* !__CYGWIN__ */
-						   "  -t c,h    - set connection / host cache age limits (%us,%um)\n"
-						   "  -m c,h    - cap the number of active connections / hosts (%u,%u)\n"
-						   "\n"
-						   "Optional filter expressions (man tcpdump) can be specified in the command\n"
-						   "line to prevent p0f from looking at incidental network traffic.\n"
-						   "\n"
-						   "Problems? You can reach the author at <lcamtuf@coredump.cx>.\n";
+  ERRORF(
 
-  ERRORF(message,
+"Usage: p0f [ ...options... ] [ 'filter rule' ]\n"
+"\n"
+"Network interface options:\n"
+"\n"
+"  -i iface  - listen on the specified network interface\n"
+"  -r file   - read offline pcap data from a given file\n"
+"  -p        - put the listening interface in promiscuous mode\n"
+"  -L        - list all available interfaces\n"
+"\n"
+"Operating mode and output settings:\n"
+"\n"
+"  -f file   - read fingerprint database from 'file' (%s)\n"
+"  -o file   - write information to the specified log file\n"
+#ifndef __CYGWIN__
+"  -s name   - answer to API queries at a named unix socket\n"
+#endif /* !__CYGWIN__ */
+"  -u user   - switch to the specified unprivileged account and chroot\n"
+"  -d        - fork into background (requires -o or -s)\n"
+"\n"
+"Performance-related options:\n"
+"\n"
+#ifndef __CYGWIN__
+"  -S limit  - limit number of parallel API connections (%u)\n"
+#endif /* !__CYGWIN__ */
+"  -t c,h    - set connection / host cache age limits (%us,%um)\n"
+"  -m c,h    - cap the number of active connections / hosts (%u,%u)\n"
+"\n"
+"Optional filter expressions (man tcpdump) can be specified in the command\n"
+"line to prevent p0f from looking at incidental network traffic.\n"
+"\n"
+"Problems? You can reach the author at <lcamtuf@coredump.cx>.\n",
+
     FP_FILE,
 #ifndef __CYGWIN__
     API_MAX_CONN,
@@ -200,7 +201,7 @@ static void close_spare_fds(void) {
   }
 
   while ((de = readdir(d))) {
-	i = (s32)atol(de->d_name);
+    i = atol(de->d_name);
     if (i > 2 && !close(i)) closed++;
   }
 
@@ -254,7 +255,7 @@ static void open_log(void) {
 
 static void open_api(void) {
 
-  u32 old_umask;
+  s32 old_umask;
   u32 i;
 
   struct sockaddr_un u;
@@ -536,9 +537,10 @@ static void prepare_pcap(void) {
 static void prepare_bpf(void) {
 
   struct bpf_program flt;
+  memset(&flt, 0, sizeof(flt));
 
-  u8*  final_rule;
-  u8   vlan_support;
+  u8*  final_rule = NULL;
+  u8   vlan_support = 0;
 
   /* VLAN matching is somewhat brain-dead: you need to request it explicitly,
      and it alters the semantics of the remainder of the expression. */
@@ -721,7 +723,6 @@ static void fork_off(void) {
 /* Handler for Ctrl-C and related signals */
 
 static void abort_handler(int sig) {
-	(void)sig;
   if (stop_soon) exit(1);
   stop_soon = 1;
 }

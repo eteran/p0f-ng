@@ -1434,10 +1434,22 @@ void add_nat_score(u8 to_srv, struct packet_flow* f, u16 reason, u8 score) {
   if (!score) return;
 
   for (i = 0; i < NAT_SCORES; i++) {
-	if(scores[i] >= 6 && scores[i] <= 255) ++over_5;
-	if(scores[i] >= 3 && scores[i] <= 5)   ++over_2;
-	if(scores[i] >= 2)                     ++over_1;
-	if(scores[i] >= 1)                     ++over_0;
+		u8 score = scores[i];
+		if(score >= 6) {
+			over_5++;
+			over_2++;
+			over_1++;
+			over_0++;
+		} else if(score >= 3 && score <= 5) {
+			over_2++;
+			over_1++;
+			over_0++;
+		} else if(score == 2) {
+			over_1++;
+			over_0++;
+		} else if(score == 1) {
+			over_0++;
+		}
   }
 
   if (over_5 > 2 || over_2 > 4 || over_1 > 6 || over_0 > 8) {

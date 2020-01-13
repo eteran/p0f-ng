@@ -236,13 +236,14 @@ static void config_parse_sys(u8* val) {
 
 static void config_parse_line(u8* line) {
 
-  u8 *val,*eon;
+  u8 *val = NULL;
+  u8 *eon = NULL;
 
   /* Special handling for [module:direction]... */
 
   if (*line == '[') {
 
-    u8* dir;
+	u8* dir = NULL;
 
     line++;
 

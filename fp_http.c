@@ -33,7 +33,12 @@
 #include "fp_http.h"
 #include "languages.h"
 
-static u8** hdr_names;                 /* List of header names by ID         */
+struct header_name {
+	size_t size;
+	u8* name;
+};
+
+static struct header_name* hdr_names;                 /* List of header names by ID         */
 static u32  hdr_cnt;                   /* Number of headers registered       */
 
 static u32* hdr_by_hash[SIG_BUCKETS];  /* Hashed header names                */
@@ -75,8 +80,7 @@ static s32 lookup_hdr(u8* name, u32 len, u8 create) {
   u32  i = hbh_cnt[bucket];
 
   while (i--) {
-    if (!memcmp(hdr_names[*p], name, len) /* ASAN won't like this... */ &&
-        !hdr_names[*p][len]) return *p;
+	  if(hdr_names[*p].size == len && !memcmp(hdr_names[*p].name, name, len) && !hdr_names[*p].name[len]) return *p;
     p++;
   }
 
@@ -84,8 +88,9 @@ static s32 lookup_hdr(u8* name, u32 len, u8 create) {
 
   if (!create) return -1;
 
-  hdr_names = DFL_ck_realloc(hdr_names, (hdr_cnt + 1) * sizeof(u8*));
-  hdr_names[hdr_cnt] = DFL_ck_memdup_str(name, len);
+  hdr_names = DFL_ck_realloc(hdr_names, (hdr_cnt + 1) * sizeof(struct header_name));
+  hdr_names[hdr_cnt].name = DFL_ck_memdup_str(name, len);
+  hdr_names[hdr_cnt].size = len;
 
   hdr_by_hash[bucket] = DFL_ck_realloc(hdr_by_hash[bucket],
     (hbh_cnt[bucket] + 1) * 4);
@@ -507,11 +512,11 @@ static u8* dump_sig(u8 to_srv, struct http_sig* hsig) {
 
   u8* val;
 
-#define RETF(_par...) do { \
-    s32 _len = snprintf(NULL, 0, _par); \
+#define RETF(...) do { \
+	s32 _len = snprintf(NULL, 0, __VA_ARGS__); \
     if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
     ret = DFL_ck_realloc_kb(ret, rlen + _len + 1); \
-    snprintf((char*)ret + rlen, _len + 1, _par); \
+	snprintf((char*)ret + rlen, _len + 1, __VA_ARGS__); \
     rlen += _len; \
   } while (0)
     
@@ -535,7 +540,7 @@ static u8* dump_sig(u8 to_srv, struct http_sig* hsig) {
       if (list->name) optional = 1;
 
       RETF("%s%s%s", had_prev ? "," : "", optional ? "?" : "",
-           hdr_names[hsig->hdr[i].id]);
+		   hdr_names[hsig->hdr[i].id].name);
       had_prev = 1;
 
       if (!(val = hsig->hdr[i].value)) continue;

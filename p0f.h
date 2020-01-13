@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_P0F_H_
-#define HAVE_P0F_H_
+#ifndef _HAVE_P0F_H
+#define _HAVE_P0F_H
 
 #include "types.h"
 #include "process.h"
@@ -45,4 +45,4 @@ struct api_client {
 
 };
 
-#endif /* !HAVE_P0F_H_ */
+#endif /* !_HAVE_P0F_H */
