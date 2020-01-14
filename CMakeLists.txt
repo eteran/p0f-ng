@@ -58,15 +58,13 @@ add_executable(p0f
 	types.h
 )
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all -O2")
-
-
 target_compile_definitions(p0f
-	PUBLIC -DVERSION=\"3.09b\")
-
-target_compile_options(p0f
-	PUBLIC -W -Wall -pedantic
+	PUBLIC -DVERSION=\"3.09b\" -DALIGN_ACCESS -D_GNU_SOURCE -DDEBUG_BUILD
 )
+
+#target_compile_options(p0f
+#	PUBLIC -W
+#)
 
 target_include_directories(p0f
 	PUBLIC ${PCAP_INCLUDE_DIR}

@@ -12,81 +12,81 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <ctype.h>
 #include <netinet/in.h>
 #include <sys/types.h>
-#include <ctype.h>
 
-#include "types.h"
+#include "alloc-inl.h"
 #include "config.h"
 #include "debug.h"
-#include "alloc-inl.h"
+#include "p0f.h"
 #include "process.h"
 #include "readfp.h"
-#include "p0f.h"
 #include "tcp.h"
+#include "types.h"
 
 #include "fp_mtu.h"
 
-static struct mtu_sig_record* sigs[SIG_BUCKETS];
+static struct mtu_sig_record *sigs[SIG_BUCKETS];
 static u32 sig_cnt[SIG_BUCKETS];
-
 
 /* Register a new MTU signature. */
 
-void mtu_register_sig(u8* name, u8* val, u32 line_no) {
+void mtu_register_sig(u8 *name, u8 *val, u32 line_no) {
 
-  u8* nxt = val;
-  s32 mtu;
-  u32 bucket;
+	u8 *nxt = val;
+	s32 mtu;
+	u32 bucket;
 
-  while (isdigit(*nxt)) nxt++;
+	while (isdigit(*nxt))
+		nxt++;
 
-  if (nxt == val || *nxt) FATAL("Malformed MTU value in line %u.", line_no);
+	if (nxt == val || *nxt) FATAL("Malformed MTU value in line %u.", line_no);
 
-  mtu = atol((char*)val);
+	mtu = atol((char *)val);
 
-  if (mtu <= 0 || mtu > 65535) FATAL("Malformed MTU value in line %u.", line_no);
+	if (mtu <= 0 || mtu > 65535) FATAL("Malformed MTU value in line %u.", line_no);
 
-  bucket = mtu % SIG_BUCKETS;
+	bucket = mtu % SIG_BUCKETS;
 
-  sigs[bucket] = DFL_ck_realloc(sigs[bucket], (sig_cnt[bucket] + 1) *
-                                sizeof(struct mtu_sig_record));
+	sigs[bucket] = realloc(sigs[bucket], (sig_cnt[bucket] + 1) *
+											 sizeof(struct mtu_sig_record));
 
-  sigs[bucket][sig_cnt[bucket]].mtu = mtu;
-  sigs[bucket][sig_cnt[bucket]].name = name;
+	sigs[bucket][sig_cnt[bucket]].mtu  = mtu;
+	sigs[bucket][sig_cnt[bucket]].name = name;
 
-  sig_cnt[bucket]++;
-
+	sig_cnt[bucket]++;
 }
 
+void fingerprint_mtu(u8 to_srv, struct packet_data *pk, struct packet_flow *f) {
 
+	u32 bucket, i, mtu;
 
-void fingerprint_mtu(u8 to_srv, struct packet_data* pk, struct packet_flow* f) {
+	if (!pk->mss || f->sendsyn) return;
 
-  u32 bucket, i, mtu;
+	start_observation("mtu", 2, to_srv, f);
 
-  if (!pk->mss || f->sendsyn) return;
+	if (pk->ip_ver == IP_VER4)
+		mtu = pk->mss + MIN_TCP4;
+	else
+		mtu = pk->mss + MIN_TCP6;
 
-  start_observation("mtu", 2, to_srv, f);
+	bucket = (mtu) % SIG_BUCKETS;
 
-  if (pk->ip_ver == IP_VER4) mtu = pk->mss + MIN_TCP4;
-  else mtu = pk->mss + MIN_TCP6;
+	for (i = 0; i < sig_cnt[bucket]; i++)
+		if (sigs[bucket][i].mtu == mtu) break;
 
-  bucket = (mtu) % SIG_BUCKETS;
+	if (i == sig_cnt[bucket])
+		add_observation_field("link", NULL);
+	else {
 
-  for (i = 0; i < sig_cnt[bucket]; i++)
-    if (sigs[bucket][i].mtu == mtu) break;
+		add_observation_field("link", sigs[bucket][i].name);
 
-  if (i == sig_cnt[bucket]) add_observation_field("link", NULL);
-  else {
+		if (to_srv)
+			f->client->link_type = sigs[bucket][i].name;
+		else
+			f->server->link_type = sigs[bucket][i].name;
+	}
 
-    add_observation_field("link", sigs[bucket][i].name);
-
-    if (to_srv) f->client->link_type = sigs[bucket][i].name;
-    else f->server->link_type = sigs[bucket][i].name;
-
-  }
-
-  OBSERVF("raw_mtu", "%u", mtu);
-
+	OBSERVF("raw_mtu", "%u", mtu);
 }
