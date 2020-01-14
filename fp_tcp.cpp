@@ -30,16 +30,18 @@
 
 #include "fp_tcp.h"
 
+namespace {
+
 struct tcp_context_t {
 	/* TCP signature buckets: */
 	struct tcp_sig_record *sigs[2][SIG_BUCKETS];
 	uint32_t sig_cnt[2][SIG_BUCKETS];
 };
 
-static tcp_context_t tcp_context;
+tcp_context_t tcp_context;
 
 /* Figure out what the TTL distance might have been for an unknown sig. */
-static uint8_t guess_dist(uint8_t ttl) {
+uint8_t guess_dist(uint8_t ttl) {
 	if (ttl <= 32) return 32 - ttl;
 	if (ttl <= 64) return 64 - ttl;
 	if (ttl <= 128) return 128 - ttl;
@@ -49,7 +51,7 @@ static uint8_t guess_dist(uint8_t ttl) {
 /* Figure out if window size is a multiplier of MSS or MTU. We don't take window
    scaling into account, because neither do TCP stack developers. */
 
-static int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t syn_mss) {
+int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t syn_mss) {
 
 	uint16_t win = ts->win;
 	int32_t mss = ts->mss, mss12 = mss - 12;
@@ -73,7 +75,7 @@ static int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint
 	if (ts->ts1) RET_IF_DIV(mss12, 0, "MSS - 12");
 
 	/* Some systems use MTU on the wrong interface, so let's check for the most
-     common case. */
+	 common case. */
 
 	RET_IF_DIV(1500 - MIN_TCP4, 0, "MSS (MTU = 1500, IPv4)");
 	RET_IF_DIV(1500 - MIN_TCP4 - 12, 0, "MSS (MTU = 1500, IPv4 - 12)");
@@ -105,8 +107,7 @@ static int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint
 }
 
 /* See if any of the p0f.fp signatures matches the collected data. */
-
-static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
+void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 						   uint16_t syn_mss) {
 
 	struct tcp_sig_record *fmatch = nullptr;
@@ -129,8 +130,8 @@ static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 		if (ref->sig->opt_hash != ts->opt_hash) continue;
 
 		/* If the p0f.fp signature has no IP version specified, we need
-       to remove IPv6-specific quirks from it when matching IPv4
-       packets, and vice versa. */
+	   to remove IPv6-specific quirks from it when matching IPv4
+	   packets, and vice versa. */
 
 		if (refs->ip_ver == -1)
 			ref_quirks &= ((ts->ip_ver == IP_VER4) ? ~(QUIRK_FLOW) : ~(QUIRK_DF | QUIRK_NZ_ID | QUIRK_ZERO_ID));
@@ -141,7 +142,7 @@ static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 					 added   = (ref_quirks ^ ts->quirks) & ts->quirks;
 
 			/* If there is a difference in quirks, but it amounts to 'df' or 'id+'
-         disappearing, or 'id-' or 'ecn' appearing, allow a fuzzy match. */
+		 disappearing, or 'id-' or 'ecn' appearing, allow a fuzzy match. */
 
 			if (fmatch || (deleted & ~(QUIRK_DF | QUIRK_NZ_ID)) ||
 				(added & ~(QUIRK_ZERO_ID | QUIRK_ECN))) continue;
@@ -232,7 +233,7 @@ static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 	if (dupe_det) return;
 
 	/* If we found a generic signature, and nothing better, let's just use
-     that. */
+	 that. */
 
 	if (gmatch) {
 
@@ -247,7 +248,7 @@ static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 	if (fmatch && fmatch->class_id == -1) return;
 
 	/* Let's try to guess distance if no match; or if match TTL out of
-     range. */
+	 range. */
 
 	if (!fmatch || fmatch->sig->ttl < ts->ttl ||
 		(!fmatch->bad_ttl && fmatch->sig->ttl - ts->ttl > MAX_DIST))
@@ -261,6 +262,416 @@ static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 
 	if (fmatch) ts->fuzzy = 1;
 }
+
+/* Convert struct packet_data to a simplified struct tcp_sig representation
+   suitable for signature matching. Compute hashes. */
+void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
+
+	ts->opt_hash = hash32(pk->opt_layout, pk->opt_cnt);
+
+	ts->quirks      = pk->quirks;
+	ts->opt_eol_pad = pk->opt_eol_pad;
+	ts->ip_opt_len  = pk->ip_opt_len;
+	ts->ip_ver      = pk->ip_ver;
+	ts->ttl         = pk->ttl;
+	ts->mss         = pk->mss;
+	ts->win         = pk->win;
+	ts->win_type    = WIN_TYPE_NORMAL; /* Keep as-is. */
+	ts->wscale      = pk->wscale;
+	ts->pay_class   = !!pk->pay_len;
+	ts->tot_hdr     = pk->tot_hdr;
+	ts->ts1         = pk->ts1;
+	ts->recv_ms     = get_unix_time_ms();
+	ts->matched     = nullptr;
+	ts->fuzzy       = 0;
+	ts->dist        = 0;
+}
+
+/* Dump unknown signature. */
+uint8_t *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uint16_t syn_mss) {
+
+	std::ostringstream ss;
+
+	uint8_t win_mtu;
+	int16_t win_m;
+	uint32_t i;
+	uint8_t dist = guess_dist(pk->ttl);
+
+	if (dist > MAX_DIST) {
+		append_format(ss, "%u:%u+?:%u:", pk->ip_ver, pk->ttl, pk->ip_opt_len);
+	} else {
+		append_format(ss, "%u:%u+%u:%u:", pk->ip_ver, pk->ttl, dist, pk->ip_opt_len);
+	}
+
+	/* Detect a system echoing back MSS from p0f-sendsyn queries, suggest using
+	 a wildcard in such a case. */
+	if (pk->mss == SPECIAL_MSS && pk->tcp_type == (TCP_SYN | TCP_ACK))
+		append_format(ss, "*:");
+	else
+		append_format(ss, "%u:", pk->mss);
+
+	win_m = detect_win_multi(ts, &win_mtu, syn_mss);
+
+	if (win_m > 0)
+		append_format(ss, "%s*%u", win_mtu ? "mtu" : "mss", win_m);
+	else
+		append_format(ss, "%u", pk->win);
+
+	append_format(ss, ",%u:", pk->wscale);
+
+	for (i = 0; i < pk->opt_cnt; i++) {
+
+		switch (pk->opt_layout[i]) {
+
+		case TCPOPT_EOL:
+			append_format(ss, "%seol+%u", i ? "," : "", pk->opt_eol_pad);
+			break;
+
+		case TCPOPT_NOP:
+			append_format(ss, "%snop", i ? "," : "");
+			break;
+
+		case TCPOPT_MAXSEG:
+			append_format(ss, "%smss", i ? "," : "");
+			break;
+
+		case TCPOPT_WSCALE:
+			append_format(ss, "%sws", i ? "," : "");
+			break;
+
+		case TCPOPT_SACKOK:
+			append_format(ss, "%ssok", i ? "," : "");
+			break;
+
+		case TCPOPT_SACK:
+			append_format(ss, "%ssack", i ? "," : "");
+			break;
+
+		case TCPOPT_TSTAMP:
+			append_format(ss, "%sts", i ? "," : "");
+			break;
+
+		default:
+			append_format(ss, "%s?%u", i ? "," : "", pk->opt_layout[i]);
+		}
+	}
+
+	append_format(ss, ":");
+
+	if (pk->quirks) {
+
+		uint8_t sp = 0;
+
+#define MAYBE_CM(_str)                   \
+	do {                                 \
+		if (sp)                          \
+			append_format(ss, "," _str); \
+		else                             \
+			append_format(ss, _str);     \
+		sp = 1;                          \
+	} while (0)
+
+		if (pk->quirks & QUIRK_DF) MAYBE_CM("df");
+		if (pk->quirks & QUIRK_NZ_ID) MAYBE_CM("id+");
+		if (pk->quirks & QUIRK_ZERO_ID) MAYBE_CM("id-");
+		if (pk->quirks & QUIRK_ECN) MAYBE_CM("ecn");
+		if (pk->quirks & QUIRK_NZ_MBZ) MAYBE_CM("0+");
+		if (pk->quirks & QUIRK_FLOW) MAYBE_CM("flow");
+
+		if (pk->quirks & QUIRK_ZERO_SEQ) MAYBE_CM("seq-");
+		if (pk->quirks & QUIRK_NZ_ACK) MAYBE_CM("ack+");
+		if (pk->quirks & QUIRK_ZERO_ACK) MAYBE_CM("ack-");
+		if (pk->quirks & QUIRK_NZ_URG) MAYBE_CM("uptr+");
+		if (pk->quirks & QUIRK_URG) MAYBE_CM("urgf+");
+		if (pk->quirks & QUIRK_PUSH) MAYBE_CM("pushf+");
+
+		if (pk->quirks & QUIRK_OPT_ZERO_TS1) MAYBE_CM("ts1-");
+		if (pk->quirks & QUIRK_OPT_NZ_TS2) MAYBE_CM("ts2+");
+		if (pk->quirks & QUIRK_OPT_EOL_NZ) MAYBE_CM("opt+");
+		if (pk->quirks & QUIRK_OPT_EXWS) MAYBE_CM("exws");
+		if (pk->quirks & QUIRK_OPT_BAD) MAYBE_CM("bad");
+
+#undef MAYBE_CM
+	}
+
+	if (pk->pay_len)
+		append_format(ss, ":+");
+	else
+		append_format(ss, ":0");
+
+	static std::string ret;
+	ret = ss.str();
+	return (uint8_t *)ret.c_str();
+}
+
+/* Dump signature-related flags. */
+uint8_t *dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
+
+	std::ostringstream ss;
+
+	append_format(ss, "");
+
+	if (ts->matched) {
+
+		if (ts->matched->generic) append_format(ss, " generic");
+		if (ts->fuzzy) append_format(ss, " fuzzy");
+		if (ts->matched->bad_ttl) append_format(ss, " random_ttl");
+	}
+
+	if (ts->dist > MAX_DIST) append_format(ss, " excess_dist");
+	if (pk->tos) append_format(ss, " tos:0x%02x", pk->tos);
+
+	static std::string ret;
+	ret = ss.str();
+
+	if (!ret.empty())
+		return (uint8_t *)ret.c_str() + 1;
+	else
+		return (uint8_t *)"none";
+}
+
+/* Compare current signature with historical data, draw conclusions. This
+   is called only for OS sigs. */
+void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
+
+	struct host_data *hd;
+	struct tcp_sig *ref;
+	uint8_t score = 0, diff_already = 0;
+	uint16_t reason = 0;
+	int32_t ttl_diff;
+
+	if (to_srv) {
+
+		hd  = f->client;
+		ref = hd->last_syn;
+
+	} else {
+
+		hd  = f->server;
+		ref = hd->last_synack;
+	}
+
+	if (!ref) {
+
+		/* No previous signature of matching type at all. We can perhaps still check
+	   if class / name is the same as on file, as that data might have been
+	   obtained from other types of sigs. */
+
+		if (sig->matched && hd->last_class_id != -1) {
+
+			if (hd->last_name_id != sig->matched->name_id) {
+
+				DEBUG("[#] New TCP signature different OS type than host data.\n");
+
+				reason |= NAT_OS_SIG;
+				score += 8;
+			}
+		}
+
+		goto log_and_update;
+	}
+
+	/* We have some previous data. */
+
+	if (!sig->matched || !ref->matched) {
+
+		/* One or both of the signatures are unknown. Let's see if they differ.
+	   The scoring here isn't too strong, because we don't know if the
+	   unrecognized signature isn't originating from userland tools. */
+
+		if ((sig->quirks ^ ref->quirks) & ~(QUIRK_ECN | QUIRK_DF | QUIRK_NZ_ID |
+											QUIRK_ZERO_ID)) {
+
+			DEBUG("[#] Non-fuzzy quirks changed compared to previous sig.\n");
+
+			reason |= NAT_UNK_DIFF;
+			score += 2;
+
+		} else if (to_srv && sig->opt_hash != ref->opt_hash) {
+
+			/* We only match option layout for SYNs; it may change on SYN+ACK,
+		 and the user may have gaps in SYN+ACK sigs if he ignored our
+		 advice on using p0f-sendsyn. */
+
+			DEBUG("[#] SYN option layout changed compared to previous sig.\n");
+
+			reason |= NAT_UNK_DIFF;
+			score += 1;
+		}
+
+		/* Progression from known to unknown is also of interest for SYNs. */
+
+		if (to_srv && sig->matched != ref->matched) {
+
+			DEBUG("[#] SYN signature changed from %s.\n",
+				  sig->matched ? "unknown to known" : "known to unknown");
+
+			score += 1;
+			reason |= NAT_TO_UNK;
+		}
+
+	} else {
+
+		/* Both signatures known! */
+
+		if (ref->matched->name_id != sig->matched->name_id) {
+
+			DEBUG("[#] TCP signature different OS type on previous sig.\n");
+			score += 8;
+			reason |= NAT_OS_SIG;
+
+			diff_already = 1;
+
+		} else if (to_srv) {
+
+			/* SYN signatures match superficially, but... */
+
+			if (ref->matched->label_id != sig->matched->label_id) {
+
+				/* SYN label changes are a weak but useful signal. SYN+ACK signatures
+		   may need less intuitive groupings, so we don't check that. */
+
+				DEBUG("[#] SYN signature label different on previous sig.\n");
+				score += 2;
+				reason |= NAT_OS_SIG;
+
+			} else if (ref->matched->line_no != sig->matched->line_no) {
+
+				/* Change in line number is an extremely weak but still noteworthy
+		   signal. */
+
+				DEBUG("[#] SYN signature changes within the same label.\n");
+				score += 1;
+				reason |= NAT_OS_SIG;
+
+			} else if (sig->fuzzy != ref->fuzzy) {
+
+				/* Fuzziness change on a perfectly matched signature? */
+
+				DEBUG("[#] SYN signature fuzziness changes.\n");
+				score += 1;
+				reason |= NAT_FUZZY;
+			}
+		}
+	}
+
+	/* Unless the signatures are already known to differ radically, mismatch
+	 between host data and current sig is of additional note. */
+
+	if (!diff_already && sig->matched && hd->last_class_id != -1 &&
+		hd->last_name_id != sig->matched->name_id) {
+
+		DEBUG("[#] New OS signature different OS type than host data.\n");
+		score += 8;
+		reason |= NAT_OS_SIG;
+		diff_already = 1;
+	}
+
+	/* TTL differences in absence of major signature mismatches is also
+	 interesting, unless the signatures are tagged as "bad TTL", or unless
+	 the difference is barely 1 and the host is distant. */
+
+#define ABS(_x) ((_x) < 0 ? -(_x) : (_x))
+
+	ttl_diff = ((int16_t)sig->ttl) - ref->ttl;
+
+	if (!diff_already && ttl_diff && (!sig->matched || !sig->matched->bad_ttl) &&
+		(!ref->matched || !ref->matched->bad_ttl) && (sig->dist <= NEAR_TTL_LIMIT || ttl_diff > 1)) {
+
+		DEBUG("[#] Signature TTL differs by %d (dist = %u).\n", ttl_diff, sig->dist);
+
+		if (sig->dist > LOCAL_TTL_LIMIT && ABS(ttl_diff) <= SMALL_TTL_CHG)
+			score += 1;
+		else
+			score += 4;
+
+		reason |= NAT_TTL;
+	}
+
+	/* Source port going back frequently is of some note, although it will happen
+	 spontaneously every now and then. Require the drop to be by at least
+	 few dozen, to account for simple case of several simultaneously opened
+	 connections arriving in odd order. */
+
+	if (to_srv && hd->last_port && f->cli_port < hd->last_port &&
+		hd->last_port - f->cli_port >= MIN_PORT_DROP) {
+
+		DEBUG("[#] Source port drops from %u to %u.\n", hd->last_port, f->cli_port);
+
+		score += 1;
+		reason |= NAT_PORT;
+	}
+
+	/* Change of MTU is always sketchy. */
+
+	if (sig->mss != ref->mss) {
+
+		DEBUG("[#] MSS for signature changed from %u to %u.\n", ref->mss, sig->mss);
+
+		score += 1;
+		reason |= NAT_MSS;
+	}
+
+	/* Check timestamp progression to possibly adjust current score. Don't rate
+	 on TS alone, because some systems may be just randomizing that. */
+
+	if (score && sig->ts1 && ref->ts1) {
+
+		uint64_t ms_diff = sig->recv_ms - ref->recv_ms;
+
+		/* Require a timestamp within the last day; if the apparent TS progression
+	   is much higher than 1 kHz, complain. */
+
+		if (ms_diff < MAX_NAT_TS) {
+
+			uint64_t use_ms = (ms_diff < TSTAMP_GRACE) ? TSTAMP_GRACE : ms_diff;
+			uint64_t max_ts = use_ms * MAX_TSCALE / 1000;
+
+			uint32_t ts_diff = sig->ts1 - ref->ts1;
+
+			if (ts_diff > max_ts && (ms_diff >= TSTAMP_GRACE || ~ts_diff > max_ts)) {
+
+				DEBUG("[#] Dodgy timestamp progression across signatures (%d "
+					  "in %lu ms).\n",
+					  ts_diff, ms_diff);
+				score += 4;
+				reason |= NAT_TS;
+
+			} else {
+
+				DEBUG("[#] Timestamp consistent across signatures (%d in %lu ms), "
+					  "reducing score.\n",
+					  ts_diff, ms_diff);
+				score /= 2;
+			}
+
+		} else
+			DEBUG("[#] Timestamps available, but with bad interval (%lu ms).\n",
+				  ms_diff);
+	}
+
+log_and_update:
+
+	add_nat_score(to_srv, f, reason, score);
+
+	/* Update some of the essential records. */
+
+	if (sig->matched) {
+
+		hd->last_class_id = sig->matched->class_id;
+		hd->last_name_id  = sig->matched->name_id;
+		hd->last_flavor   = sig->matched->flavor;
+
+		hd->last_quality = (sig->fuzzy * P0F_MATCH_FUZZY) |
+						   (sig->matched->generic * P0F_MATCH_GENERIC);
+	}
+
+	hd->last_port = f->cli_port;
+}
+
+}
+
+
 
 /* Parse TCP-specific bits and register a signature read from p0f.fp. This
    function is too long. */
@@ -728,417 +1139,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	/* All done, phew. */
 }
 
-/* Convert struct packet_data to a simplified struct tcp_sig representation
-   suitable for signature matching. Compute hashes. */
-
-static void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
-
-	ts->opt_hash = hash32(pk->opt_layout, pk->opt_cnt);
-
-	ts->quirks      = pk->quirks;
-	ts->opt_eol_pad = pk->opt_eol_pad;
-	ts->ip_opt_len  = pk->ip_opt_len;
-	ts->ip_ver      = pk->ip_ver;
-	ts->ttl         = pk->ttl;
-	ts->mss         = pk->mss;
-	ts->win         = pk->win;
-	ts->win_type    = WIN_TYPE_NORMAL; /* Keep as-is. */
-	ts->wscale      = pk->wscale;
-	ts->pay_class   = !!pk->pay_len;
-	ts->tot_hdr     = pk->tot_hdr;
-	ts->ts1         = pk->ts1;
-	ts->recv_ms     = get_unix_time_ms();
-	ts->matched     = nullptr;
-	ts->fuzzy       = 0;
-	ts->dist        = 0;
-}
-
-/* Dump unknown signature. */
-static uint8_t *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uint16_t syn_mss) {
-
-	std::ostringstream ss;
-
-	uint8_t win_mtu;
-	int16_t win_m;
-	uint32_t i;
-	uint8_t dist = guess_dist(pk->ttl);
-
-	if (dist > MAX_DIST) {
-		append_format(ss, "%u:%u+?:%u:", pk->ip_ver, pk->ttl, pk->ip_opt_len);
-	} else {
-		append_format(ss, "%u:%u+%u:%u:", pk->ip_ver, pk->ttl, dist, pk->ip_opt_len);
-	}
-
-	/* Detect a system echoing back MSS from p0f-sendsyn queries, suggest using
-     a wildcard in such a case. */
-	if (pk->mss == SPECIAL_MSS && pk->tcp_type == (TCP_SYN | TCP_ACK))
-		append_format(ss, "*:");
-	else
-		append_format(ss, "%u:", pk->mss);
-
-	win_m = detect_win_multi(ts, &win_mtu, syn_mss);
-
-	if (win_m > 0)
-		append_format(ss, "%s*%u", win_mtu ? "mtu" : "mss", win_m);
-	else
-		append_format(ss, "%u", pk->win);
-
-	append_format(ss, ",%u:", pk->wscale);
-
-	for (i = 0; i < pk->opt_cnt; i++) {
-
-		switch (pk->opt_layout[i]) {
-
-		case TCPOPT_EOL:
-			append_format(ss, "%seol+%u", i ? "," : "", pk->opt_eol_pad);
-			break;
-
-		case TCPOPT_NOP:
-			append_format(ss, "%snop", i ? "," : "");
-			break;
-
-		case TCPOPT_MAXSEG:
-			append_format(ss, "%smss", i ? "," : "");
-			break;
-
-		case TCPOPT_WSCALE:
-			append_format(ss, "%sws", i ? "," : "");
-			break;
-
-		case TCPOPT_SACKOK:
-			append_format(ss, "%ssok", i ? "," : "");
-			break;
-
-		case TCPOPT_SACK:
-			append_format(ss, "%ssack", i ? "," : "");
-			break;
-
-		case TCPOPT_TSTAMP:
-			append_format(ss, "%sts", i ? "," : "");
-			break;
-
-		default:
-			append_format(ss, "%s?%u", i ? "," : "", pk->opt_layout[i]);
-		}
-	}
-
-	append_format(ss, ":");
-
-	if (pk->quirks) {
-
-		uint8_t sp = 0;
-
-#define MAYBE_CM(_str)                   \
-	do {                                 \
-		if (sp)                          \
-			append_format(ss, "," _str); \
-		else                             \
-			append_format(ss, _str);     \
-		sp = 1;                          \
-	} while (0)
-
-		if (pk->quirks & QUIRK_DF) MAYBE_CM("df");
-		if (pk->quirks & QUIRK_NZ_ID) MAYBE_CM("id+");
-		if (pk->quirks & QUIRK_ZERO_ID) MAYBE_CM("id-");
-		if (pk->quirks & QUIRK_ECN) MAYBE_CM("ecn");
-		if (pk->quirks & QUIRK_NZ_MBZ) MAYBE_CM("0+");
-		if (pk->quirks & QUIRK_FLOW) MAYBE_CM("flow");
-
-		if (pk->quirks & QUIRK_ZERO_SEQ) MAYBE_CM("seq-");
-		if (pk->quirks & QUIRK_NZ_ACK) MAYBE_CM("ack+");
-		if (pk->quirks & QUIRK_ZERO_ACK) MAYBE_CM("ack-");
-		if (pk->quirks & QUIRK_NZ_URG) MAYBE_CM("uptr+");
-		if (pk->quirks & QUIRK_URG) MAYBE_CM("urgf+");
-		if (pk->quirks & QUIRK_PUSH) MAYBE_CM("pushf+");
-
-		if (pk->quirks & QUIRK_OPT_ZERO_TS1) MAYBE_CM("ts1-");
-		if (pk->quirks & QUIRK_OPT_NZ_TS2) MAYBE_CM("ts2+");
-		if (pk->quirks & QUIRK_OPT_EOL_NZ) MAYBE_CM("opt+");
-		if (pk->quirks & QUIRK_OPT_EXWS) MAYBE_CM("exws");
-		if (pk->quirks & QUIRK_OPT_BAD) MAYBE_CM("bad");
-
-#undef MAYBE_CM
-	}
-
-	if (pk->pay_len)
-		append_format(ss, ":+");
-	else
-		append_format(ss, ":0");
-
-	static std::string ret;
-	ret = ss.str();
-	return (uint8_t *)ret.c_str();
-}
-
-/* Dump signature-related flags. */
-
-static uint8_t *dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
-
-	std::ostringstream ss;
-
-	append_format(ss, "");
-
-	if (ts->matched) {
-
-		if (ts->matched->generic) append_format(ss, " generic");
-		if (ts->fuzzy) append_format(ss, " fuzzy");
-		if (ts->matched->bad_ttl) append_format(ss, " random_ttl");
-	}
-
-	if (ts->dist > MAX_DIST) append_format(ss, " excess_dist");
-	if (pk->tos) append_format(ss, " tos:0x%02x", pk->tos);
-
-	static std::string ret;
-	ret = ss.str();
-
-	if (!ret.empty())
-		return (uint8_t *)ret.c_str() + 1;
-	else
-		return (uint8_t *)"none";
-}
-
-/* Compare current signature with historical data, draw conclusions. This
-   is called only for OS sigs. */
-
-static void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
-
-	struct host_data *hd;
-	struct tcp_sig *ref;
-	uint8_t score = 0, diff_already = 0;
-	uint16_t reason = 0;
-	int32_t ttl_diff;
-
-	if (to_srv) {
-
-		hd  = f->client;
-		ref = hd->last_syn;
-
-	} else {
-
-		hd  = f->server;
-		ref = hd->last_synack;
-	}
-
-	if (!ref) {
-
-		/* No previous signature of matching type at all. We can perhaps still check
-       if class / name is the same as on file, as that data might have been
-       obtained from other types of sigs. */
-
-		if (sig->matched && hd->last_class_id != -1) {
-
-			if (hd->last_name_id != sig->matched->name_id) {
-
-				DEBUG("[#] New TCP signature different OS type than host data.\n");
-
-				reason |= NAT_OS_SIG;
-				score += 8;
-			}
-		}
-
-		goto log_and_update;
-	}
-
-	/* We have some previous data. */
-
-	if (!sig->matched || !ref->matched) {
-
-		/* One or both of the signatures are unknown. Let's see if they differ.
-       The scoring here isn't too strong, because we don't know if the 
-       unrecognized signature isn't originating from userland tools. */
-
-		if ((sig->quirks ^ ref->quirks) & ~(QUIRK_ECN | QUIRK_DF | QUIRK_NZ_ID |
-											QUIRK_ZERO_ID)) {
-
-			DEBUG("[#] Non-fuzzy quirks changed compared to previous sig.\n");
-
-			reason |= NAT_UNK_DIFF;
-			score += 2;
-
-		} else if (to_srv && sig->opt_hash != ref->opt_hash) {
-
-			/* We only match option layout for SYNs; it may change on SYN+ACK,
-         and the user may have gaps in SYN+ACK sigs if he ignored our
-         advice on using p0f-sendsyn. */
-
-			DEBUG("[#] SYN option layout changed compared to previous sig.\n");
-
-			reason |= NAT_UNK_DIFF;
-			score += 1;
-		}
-
-		/* Progression from known to unknown is also of interest for SYNs. */
-
-		if (to_srv && sig->matched != ref->matched) {
-
-			DEBUG("[#] SYN signature changed from %s.\n",
-				  sig->matched ? "unknown to known" : "known to unknown");
-
-			score += 1;
-			reason |= NAT_TO_UNK;
-		}
-
-	} else {
-
-		/* Both signatures known! */
-
-		if (ref->matched->name_id != sig->matched->name_id) {
-
-			DEBUG("[#] TCP signature different OS type on previous sig.\n");
-			score += 8;
-			reason |= NAT_OS_SIG;
-
-			diff_already = 1;
-
-		} else if (to_srv) {
-
-			/* SYN signatures match superficially, but... */
-
-			if (ref->matched->label_id != sig->matched->label_id) {
-
-				/* SYN label changes are a weak but useful signal. SYN+ACK signatures
-           may need less intuitive groupings, so we don't check that. */
-
-				DEBUG("[#] SYN signature label different on previous sig.\n");
-				score += 2;
-				reason |= NAT_OS_SIG;
-
-			} else if (ref->matched->line_no != sig->matched->line_no) {
-
-				/* Change in line number is an extremely weak but still noteworthy
-           signal. */
-
-				DEBUG("[#] SYN signature changes within the same label.\n");
-				score += 1;
-				reason |= NAT_OS_SIG;
-
-			} else if (sig->fuzzy != ref->fuzzy) {
-
-				/* Fuzziness change on a perfectly matched signature? */
-
-				DEBUG("[#] SYN signature fuzziness changes.\n");
-				score += 1;
-				reason |= NAT_FUZZY;
-			}
-		}
-	}
-
-	/* Unless the signatures are already known to differ radically, mismatch
-     between host data and current sig is of additional note. */
-
-	if (!diff_already && sig->matched && hd->last_class_id != -1 &&
-		hd->last_name_id != sig->matched->name_id) {
-
-		DEBUG("[#] New OS signature different OS type than host data.\n");
-		score += 8;
-		reason |= NAT_OS_SIG;
-		diff_already = 1;
-	}
-
-	/* TTL differences in absence of major signature mismatches is also
-     interesting, unless the signatures are tagged as "bad TTL", or unless
-     the difference is barely 1 and the host is distant. */
-
-#define ABS(_x) ((_x) < 0 ? -(_x) : (_x))
-
-	ttl_diff = ((int16_t)sig->ttl) - ref->ttl;
-
-	if (!diff_already && ttl_diff && (!sig->matched || !sig->matched->bad_ttl) &&
-		(!ref->matched || !ref->matched->bad_ttl) && (sig->dist <= NEAR_TTL_LIMIT || ttl_diff > 1)) {
-
-		DEBUG("[#] Signature TTL differs by %d (dist = %u).\n", ttl_diff, sig->dist);
-
-		if (sig->dist > LOCAL_TTL_LIMIT && ABS(ttl_diff) <= SMALL_TTL_CHG)
-			score += 1;
-		else
-			score += 4;
-
-		reason |= NAT_TTL;
-	}
-
-	/* Source port going back frequently is of some note, although it will happen
-     spontaneously every now and then. Require the drop to be by at least
-     few dozen, to account for simple case of several simultaneously opened
-     connections arriving in odd order. */
-
-	if (to_srv && hd->last_port && f->cli_port < hd->last_port &&
-		hd->last_port - f->cli_port >= MIN_PORT_DROP) {
-
-		DEBUG("[#] Source port drops from %u to %u.\n", hd->last_port, f->cli_port);
-
-		score += 1;
-		reason |= NAT_PORT;
-	}
-
-	/* Change of MTU is always sketchy. */
-
-	if (sig->mss != ref->mss) {
-
-		DEBUG("[#] MSS for signature changed from %u to %u.\n", ref->mss, sig->mss);
-
-		score += 1;
-		reason |= NAT_MSS;
-	}
-
-	/* Check timestamp progression to possibly adjust current score. Don't rate
-     on TS alone, because some systems may be just randomizing that. */
-
-	if (score && sig->ts1 && ref->ts1) {
-
-		uint64_t ms_diff = sig->recv_ms - ref->recv_ms;
-
-		/* Require a timestamp within the last day; if the apparent TS progression
-       is much higher than 1 kHz, complain. */
-
-		if (ms_diff < MAX_NAT_TS) {
-
-			uint64_t use_ms = (ms_diff < TSTAMP_GRACE) ? TSTAMP_GRACE : ms_diff;
-			uint64_t max_ts = use_ms * MAX_TSCALE / 1000;
-
-			uint32_t ts_diff = sig->ts1 - ref->ts1;
-
-			if (ts_diff > max_ts && (ms_diff >= TSTAMP_GRACE || ~ts_diff > max_ts)) {
-
-				DEBUG("[#] Dodgy timestamp progression across signatures (%d "
-					  "in %lu ms).\n",
-					  ts_diff, ms_diff);
-				score += 4;
-				reason |= NAT_TS;
-
-			} else {
-
-				DEBUG("[#] Timestamp consistent across signatures (%d in %lu ms), "
-					  "reducing score.\n",
-					  ts_diff, ms_diff);
-				score /= 2;
-			}
-
-		} else
-			DEBUG("[#] Timestamps available, but with bad interval (%lu ms).\n",
-				  ms_diff);
-	}
-
-log_and_update:
-
-	add_nat_score(to_srv, f, reason, score);
-
-	/* Update some of the essential records. */
-
-	if (sig->matched) {
-
-		hd->last_class_id = sig->matched->class_id;
-		hd->last_name_id  = sig->matched->name_id;
-		hd->last_flavor   = sig->matched->flavor;
-
-		hd->last_quality = (sig->fuzzy * P0F_MATCH_FUZZY) |
-						   (sig->matched->generic * P0F_MATCH_GENERIC);
-	}
-
-	hd->last_port = f->cli_port;
-}
-
 /* Fingerprint SYN or SYN+ACK. */
-
 struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk,
 								struct packet_flow *f) {
 
@@ -1213,7 +1214,6 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk,
 
 /* Perform uptime detection. This is the only FP function that gets called not
    only on SYN or SYN+ACK, but also on ACK traffic. */
-
 void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f) {
 
 	uint32_t ts_diff;

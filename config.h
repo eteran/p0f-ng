@@ -190,7 +190,7 @@
 /* Headers that should be tagged as optional by the HTTP fingerprinter in any
    generated signatures: */
 
-static const struct http_id req_optional_init[] = {
+static constexpr struct http_id req_optional_init[] = {
 	{"Cookie", 0},
 	{"Referer", 0},
 	{"Origin", 0},
@@ -204,7 +204,7 @@ static const struct http_id req_optional_init[] = {
 	{"Cache-Control", 0},
 	{0, 0}};
 
-static const struct http_id resp_optional_init[] = {
+static constexpr struct http_id resp_optional_init[] = {
 	{"Set-Cookie", 0},
 	{"Last-Modified", 0},
 	{"ETag", 0},
@@ -222,7 +222,7 @@ static const struct http_id resp_optional_init[] = {
 /* Common headers that are expected to be present at all times, and deserve
    a special mention if absent in a signature: */
 
-static const struct http_id req_common_init[] = {
+static constexpr struct http_id req_common_init[] = {
 	{"Host", 0},
 	{"User-Agent", 0},
 	{"Connection", 0},
@@ -245,12 +245,12 @@ static const struct http_id resp_common_init[] = {
    should not be included in proposed signatures. This is on top of the
    "optional" header lists, which already implies skipping the value. */
 
-static const struct http_id req_skipval_init[] = {
+static constexpr struct http_id req_skipval_init[] = {
 	{"Host", 0},
 	{"User-Agent", 0},
 	{0, 0}};
 
-static const struct http_id resp_skipval_init[] = {
+static constexpr struct http_id resp_skipval_init[] = {
 	{"Date", 0},
 	{"Content-Type", 0},
 	{"Server", 0},
