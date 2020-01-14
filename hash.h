@@ -21,7 +21,7 @@ static inline uint32_t hash32(const void *key, uint32_t len) {
 	uint32_t seed = 0;
 
 	uint32_t a, b, c;
-	const uint8_t *k = key;
+	const uint8_t *k = (const uint8_t *)key;
 
 	a = b = c = 0xdeadbeef + len + seed;
 

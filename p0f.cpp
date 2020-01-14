@@ -263,7 +263,7 @@ static void open_api(void) {
 	if (fcntl(api_fd, F_SETFL, O_NONBLOCK))
 		PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
 
-	api_cl = calloc(api_max_conn * sizeof(struct api_client), 1);
+	api_cl = (struct api_client *)calloc(api_max_conn * sizeof(struct api_client), 1);
 
 	for (i = 0; i < api_max_conn; i++)
 		api_cl[i].fd = -1;
@@ -274,7 +274,7 @@ static void open_api(void) {
 
 /* Open log entry. */
 
-void start_observation(char *keyword, uint8_t field_cnt, uint8_t to_srv,
+void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv,
 					   struct packet_flow *f) {
 
 	if (obs_fields) FATAL("Premature end of observation.");
@@ -311,14 +311,14 @@ void start_observation(char *keyword, uint8_t field_cnt, uint8_t to_srv,
 
 /* Add log item. */
 
-void add_observation_field(char *key, uint8_t *value) {
+void add_observation_field(const char *key, uint8_t *value) {
 
 	if (!obs_fields) FATAL("Unexpected observation field ('%s').", key);
 
 	if (!daemon_mode)
-		SAYF("| %-8s = %s\n", key, value ? value : (uint8_t *)"???");
+		SAYF("| %-8s = %s\n", key, value ? value : (const uint8_t *)"???");
 
-	if (log_file) LOGF("|%s=%s", key, value ? value : (uint8_t *)"???");
+	if (log_file) LOGF("|%s=%s", key, value ? value : (const uint8_t *)"???");
 
 	obs_fields--;
 
@@ -511,14 +511,14 @@ retry_no_vlan:
 
 		if (vlan_support) {
 
-			final_rule = ck_alloc(strlen((char *)orig_rule) * 2 + 64);
+			final_rule = (uint8_t *)ck_alloc(strlen((char *)orig_rule) * 2 + 64);
 
 			sprintf((char *)final_rule, "(tcp and (%s)) or (vlan and tcp and (%s))",
 					orig_rule, orig_rule);
 
 		} else {
 
-			final_rule = ck_alloc(strlen((char *)orig_rule) + 16);
+			final_rule = (uint8_t *)ck_alloc(strlen((char *)orig_rule) + 16);
 
 			sprintf((char *)final_rule, "tcp and (%s)", orig_rule);
 		}
@@ -725,10 +725,10 @@ static void live_event_loop(void) {
 
 	/* We need room for pcap, and possibly api_fd + api_clients. */
 
-	pfds = ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) *
+	pfds = (struct pollfd *)ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) *
 					sizeof(struct pollfd));
 
-	ctable = ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) *
+	ctable = (struct api_client **)ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) *
 					  sizeof(struct api_client *));
 
 	pfd_count = regen_pfds(pfds, ctable);

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(p0f C)
+project(p0f CXX)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
 
@@ -36,23 +36,23 @@ find_package(PCAP REQUIRED)
 
 add_executable(p0f
 	alloc-inl.h
-	api.c
+	api.cpp
 	api.h
 	config.h
 	debug.h
-	fp_http.c
+	fp_http.cpp
 	fp_http.h
-	fp_mtu.c
+	fp_mtu.cpp
 	fp_mtu.h
-	fp_tcp.c
+	fp_tcp.cpp
 	fp_tcp.h
 	hash.h
 	languages.h
-	p0f.c
+	p0f.cpp
 	p0f.h
-	process.c
+	process.cpp
 	process.h
-	readfp.c
+	readfp.cpp
 	readfp.h
 	tcp.h
 	types.h
@@ -75,7 +75,7 @@ target_link_libraries(p0f PUBLIC
 )
 
 
-set_property(TARGET p0f PROPERTY C_EXTENSIONS ON)
-set_property(TARGET p0f PROPERTY C_STANDARD 99)
+set_property(TARGET p0f PROPERTY CXX_EXTENSIONS ON)
+set_property(TARGET p0f PROPERTY CXX_STANDARD 14)
 
 

@@ -19,18 +19,18 @@ extern int32_t link_type;
 extern uint32_t max_conn, max_hosts, conn_max_age, host_idle_limit;
 extern uint8_t *read_file;
 
-void start_observation(char *keyword, uint8_t field_cnt, uint8_t to_srv,
+void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv,
 					   struct packet_flow *pf);
 
-void add_observation_field(char *key, uint8_t *value);
+void add_observation_field(const char *key, uint8_t *value);
 
-#define OBSERVF(_key, ...)                        \
-	do {                                          \
-		char *_val;                               \
-		if (asprintf(&_val, __VA_ARGS__) != -1) { \
-			add_observation_field(_key, _val);    \
-			free(_val);                           \
-		}                                         \
+#define OBSERVF(_key, ...)                                \
+	do {                                                  \
+		char *_val;                                       \
+		if (asprintf(&_val, __VA_ARGS__) != -1) {         \
+			add_observation_field(_key, (uint8_t *)_val); \
+			free(_val);                                   \
+		}                                                 \
 	} while (0)
 
 #include "api.h"

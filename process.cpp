@@ -863,7 +863,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
 
-	nh = ck_alloc(sizeof(struct host_data));
+	nh = (struct host_data *)ck_alloc(sizeof(struct host_data));
 
 	/* Insert into the bucketed linked list. */
 
@@ -1018,7 +1018,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	DEBUG("%s/%u (bucket %u)\n",
 		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, bucket);
 
-	nf = ck_alloc(sizeof(struct packet_flow));
+	nf = (struct packet_flow *)ck_alloc(sizeof(struct packet_flow));
 
 	nf->client = lookup_host(pk->src, pk->ip_ver);
 
@@ -1297,7 +1297,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 				uint32_t read_amt = MIN(pk->pay_len, MAX_FLOW_DATA - f->req_len);
 
-				f->request = ck_realloc_kb(f->request, f->req_len + read_amt + 1);
+				f->request = (uint8_t *)ck_realloc_kb(f->request, f->req_len + read_amt + 1);
 				memcpy(f->request + f->req_len, pk->payload, read_amt);
 				f->req_len += read_amt;
 			}
@@ -1325,7 +1325,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 				uint32_t read_amt = MIN(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
 
-				f->response = ck_realloc_kb(f->response, f->resp_len + read_amt + 1);
+				f->response = (uint8_t *)ck_realloc_kb(f->response, f->resp_len + read_amt + 1);
 				memcpy(f->response + f->resp_len, pk->payload, read_amt);
 				f->resp_len += read_amt;
 			}

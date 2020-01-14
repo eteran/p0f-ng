@@ -72,7 +72,7 @@ static void config_parse_classes(uint8_t *val) {
 		if (nxt == val || (*nxt && *nxt != ','))
 			FATAL("Malformed class entry in line %u.", line_no);
 
-		fp_os_classes = realloc(fp_os_classes, (class_cnt + 1) * sizeof(uint8_t *));
+		fp_os_classes = (uint8_t **)realloc(fp_os_classes, (class_cnt + 1) * sizeof(uint8_t *));
 
 		fp_os_classes[class_cnt++] = DFL_ck_memdup_str(val, nxt - val);
 
@@ -93,7 +93,7 @@ uint32_t lookup_name_id(uint8_t *name, uint8_t len) {
 
 		sig_name = name_cnt;
 
-		fp_os_names             = realloc(fp_os_names, (name_cnt + 1) * sizeof(uint8_t *));
+		fp_os_names             = (uint8_t **)realloc(fp_os_names, (name_cnt + 1) * sizeof(uint8_t *));
 		fp_os_names[name_cnt++] = DFL_ck_memdup_str(name, len);
 	}
 
@@ -217,12 +217,12 @@ static void config_parse_sys(uint8_t *val) {
 				if (!strcasecmp((char *)val, (char *)fp_os_names[i])) break;
 
 			if (i == name_cnt) {
-				fp_os_names             = realloc(fp_os_names, (name_cnt + 1) * sizeof(uint8_t *));
+				fp_os_names             = (uint8_t **)realloc(fp_os_names, (name_cnt + 1) * sizeof(uint8_t *));
 				fp_os_names[name_cnt++] = DFL_ck_memdup_str(val, nxt - val);
 			}
 		}
 
-		cur_sys                = realloc(cur_sys, (cur_sys_cnt + 1) * 4);
+		cur_sys                = (uint32_t *)realloc(cur_sys, (cur_sys_cnt + 1) * 4);
 		cur_sys[cur_sys_cnt++] = i;
 
 		*nxt = orig;
@@ -395,7 +395,7 @@ void read_config(uint8_t *fname) {
 		goto end_fp_read;
 	}
 
-	cur = data = ck_alloc(st.st_size + 1);
+	cur = data = (uint8_t *)ck_alloc(st.st_size + 1);
 
 	if (read(f, data, st.st_size) != st.st_size)
 		FATAL("Short read from '%s'.", fname);
@@ -421,7 +421,7 @@ void read_config(uint8_t *fname) {
 
 		if (*cur != ';' && cur != eol) {
 
-			uint8_t *line = ck_memdup_str(cur, eol - cur);
+			uint8_t *line = (uint8_t *)ck_memdup_str(cur, eol - cur);
 
 			config_parse_line(line);
 

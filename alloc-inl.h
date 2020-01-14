@@ -32,7 +32,7 @@ static inline uint8_t *DFL_ck_strdup(uint8_t *str) {
 	size = strlen((char *)str) + 1;
 
 	void *ret = calloc(size, 1);
-	return memcpy(ret, str, size);
+	return (uint8_t *)memcpy(ret, str, size);
 }
 
 static inline void *DFL_ck_memdup(void *mem, uint32_t size) {
@@ -47,7 +47,7 @@ static inline uint8_t *DFL_ck_memdup_str(uint8_t *mem, uint32_t size) {
 
 	if (!mem || !size) return NULL;
 
-	ret = calloc(size + 1, 1);
+	ret = (uint8_t *)calloc(size + 1, 1);
 
 	memcpy(ret, mem, size);
 	ret[size] = 0;
@@ -110,7 +110,7 @@ static inline void TRK_alloc_buf(void *ptr, const char *file, const char *func,
 	/* No space available. */
 
 	if (!(i % ALLOC_TRK_CHUNK)) {
-		TRK[bucket] = realloc(TRK[bucket], (TRK_cnt[bucket] + ALLOC_TRK_CHUNK) * sizeof(struct TRK_obj));
+		TRK[bucket] = (struct TRK_obj *)realloc(TRK[bucket], (TRK_cnt[bucket] + ALLOC_TRK_CHUNK) * sizeof(struct TRK_obj));
 	}
 
 	TRK[bucket][i].ptr  = ptr;
@@ -206,7 +206,7 @@ static inline void *TRK_ck_memdup(void *mem, uint32_t size, const char *file,
 static inline void *TRK_ck_memdup_str(void *mem, uint32_t size, const char *file,
 									  const char *func, uint32_t line) {
 
-	void *ret = DFL_ck_memdup_str(mem, size);
+	void *ret = DFL_ck_memdup_str((uint8_t *)mem, size);
 	TRK_alloc_buf(ret, file, func, line);
 	return ret;
 }

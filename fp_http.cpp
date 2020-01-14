@@ -86,11 +86,11 @@ static int32_t lookup_hdr(uint8_t *name, uint32_t len, uint8_t create) {
 
 	if (!create) return -1;
 
-	hdr_names               = realloc(hdr_names, (hdr_cnt + 1) * sizeof(struct header_name));
+	hdr_names               = (struct header_name *)realloc(hdr_names, (hdr_cnt + 1) * sizeof(struct header_name));
 	hdr_names[hdr_cnt].name = DFL_ck_memdup_str(name, len);
 	hdr_names[hdr_cnt].size = len;
 
-	hdr_by_hash[bucket] = realloc(hdr_by_hash[bucket],
+	hdr_by_hash[bucket] = (uint32_t *)realloc(hdr_by_hash[bucket],
 								  (hbh_cnt[bucket] + 1) * 4);
 
 	hdr_by_hash[bucket][hbh_cnt[bucket]++] = hdr_cnt++;
@@ -285,9 +285,9 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 
 	uint8_t *nxt;
 
-	hsig = calloc(sizeof(struct http_sig), 1);
+	hsig = (struct http_sig *)calloc(sizeof(struct http_sig), 1);
 
-	sigs[to_srv] = realloc(sigs[to_srv], sizeof(struct http_sig_record) *
+	sigs[to_srv] = (struct http_sig_record *)realloc(sigs[to_srv], sizeof(struct http_sig_record) *
 											 (sig_cnt[to_srv] + 1));
 
 	hrec = &sigs[to_srv][sig_cnt[to_srv]];
@@ -476,7 +476,7 @@ void http_parse_ua(uint8_t *val, uint32_t line_no) {
 			val = nxt + 1;
 		}
 
-		ua_map = realloc(ua_map, (ua_map_cnt + 1) *
+		ua_map = (struct ua_map_record *)realloc(ua_map, (ua_map_cnt + 1) *
 									 sizeof(struct ua_map_record));
 
 		ua_map[ua_map_cnt].id = id;
@@ -512,7 +512,7 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 	do {                                                     \
 		int32_t _len = snprintf(NULL, 0, __VA_ARGS__);       \
 		if (_len < 0) FATAL("Whoa, snprintf() fails?!");     \
-		ret = realloc(ret, rlen + _len + 1);                 \
+		ret = (uint8_t *)realloc(ret, rlen + _len + 1);                 \
 		snprintf((char *)ret + rlen, _len + 1, __VA_ARGS__); \
 		rlen += _len;                                        \
 	} while (0)
@@ -879,7 +879,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 		/* For server response, always store the signature. */
 
 		ck_free(f->server->http_resp);
-		f->server->http_resp = ck_memdup(&f->http_tmp, sizeof(struct http_sig));
+		f->server->http_resp = (struct http_sig *)ck_memdup(&f->http_tmp, sizeof(struct http_sig));
 
 		f->server->http_resp->hdr_cnt = 0;
 		f->server->http_resp->sw      = NULL;
@@ -923,7 +923,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 				/* Client request - only OS sig is of any note. */
 
 				ck_free(f->client->http_req_os);
-				f->client->http_req_os = ck_memdup(&f->http_tmp,
+				f->client->http_req_os = (struct http_sig *)ck_memdup(&f->http_tmp,
 												   sizeof(struct http_sig));
 
 				f->client->http_req_os->hdr_cnt = 0;
@@ -1117,7 +1117,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 
 			/* Header ID not found, store literal value. */
 
-			f->http_tmp.hdr[hcount].name = ck_memdup_str(pay + f->http_pos, nlen);
+			f->http_tmp.hdr[hcount].name = (uint8_t *)ck_memdup_str(pay + f->http_pos, nlen);
 
 		} else {
 
@@ -1131,7 +1131,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 
 		if (vlen) {
 
-			uint8_t *val = ck_memdup_str(pay + vstart, vlen);
+			uint8_t *val = (uint8_t *)ck_memdup_str(pay + vstart, vlen);
 
 			f->http_tmp.hdr[hcount].value = val;
 
