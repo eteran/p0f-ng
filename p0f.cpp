@@ -64,7 +64,7 @@
 #define O_LARGEFILE 0
 #endif /* !O_LARGEFILE */
 
-uint8_t *read_file;                         /* File to read pcap data from        */
+char *read_file;                            /* File to read pcap data from        */
 uint32_t max_conn        = MAX_CONN;        /* Connection entry count limit       */
 uint32_t max_hosts       = MAX_HOSTS;       /* Host cache entry count limit       */
 uint32_t conn_max_age    = CONN_MAX_AGE;    /* Maximum age of a connection entry  */
@@ -77,12 +77,12 @@ int32_t link_type;                          /* PCAP link type                   
 namespace {
 
 struct p0f_context_t {
-	uint8_t *use_iface        = nullptr;      /* Interface to listen on             */
-	uint8_t *orig_rule        = nullptr;      /* Original filter rule               */
-	uint8_t *switch_user      = nullptr;      /* Target username                    */
-	uint8_t *log_file         = nullptr;      /* Binary log file name               */
-	uint8_t *api_sock         = nullptr;      /* API socket file name               */
-	uint8_t *fp_file          = nullptr;      /* Location of p0f.fp                 */
+	char *use_iface           = nullptr;      /* Interface to listen on             */
+	char *orig_rule           = nullptr;      /* Original filter rule               */
+	char *switch_user         = nullptr;      /* Target username                    */
+	char *log_file            = nullptr;      /* Binary log file name               */
+	char *api_sock            = nullptr;      /* API socket file name               */
+	char *fp_file             = nullptr;      /* Location of p0f.fp                 */
 	uint32_t api_max_conn     = API_MAX_CONN; /* Maximum number of API connections  */
 	struct api_client *api_cl = nullptr;      /* Array with API client state        */
 
@@ -181,7 +181,7 @@ void open_log() {
 	struct stat st;
 	int32_t log_fd;
 
-	log_fd = open((char *)p0f_context.log_file, O_WRONLY | O_APPEND | O_NOFOLLOW | O_LARGEFILE);
+	log_fd = open(p0f_context.log_file, O_WRONLY | O_APPEND | O_NOFOLLOW | O_LARGEFILE);
 
 	if (log_fd >= 0) {
 
@@ -193,7 +193,7 @@ void open_log() {
 
 		if (errno != ENOENT) PFATAL("Cannot open '%s'.", p0f_context.log_file);
 
-		log_fd = open((char *)p0f_context.log_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
+		log_fd = open(p0f_context.log_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
 					  LOG_MODE);
 
 		if (log_fd < 0) PFATAL("Cannot open '%s'.", p0f_context.log_file);
@@ -225,18 +225,18 @@ void open_api() {
 	memset(&u, 0, sizeof(u));
 	u.sun_family = AF_UNIX;
 
-	if (strlen((char *)p0f_context.api_sock) >= sizeof(u.sun_path))
+	if (strlen(p0f_context.api_sock) >= sizeof(u.sun_path))
 		FATAL("API socket filename is too long for sockaddr_un (blame Unix).");
 
-	strcpy(u.sun_path, (char *)p0f_context.api_sock);
+	strcpy(u.sun_path, p0f_context.api_sock);
 
 	/* This is bad, but you can't do any better with standard unix socket
      semantics today :-( */
 
-	if (!stat((char *)p0f_context.api_sock, &st) && !S_ISSOCK(st.st_mode))
+	if (!stat(p0f_context.api_sock, &st) && !S_ISSOCK(st.st_mode))
 		FATAL("'%s' exists but is not a socket.", p0f_context.api_sock);
 
-	if (unlink((char *)p0f_context.api_sock) && errno != ENOENT)
+	if (unlink(p0f_context.api_sock) && errno != ENOENT)
 		PFATAL("unlink('%s') failed.", p0f_context.api_sock);
 
 	old_umask = umask(0777 ^ API_MODE);
@@ -323,7 +323,7 @@ uint8_t *find_interface(int num) {
 	do {
 
 		if (!num--) {
-			uint8_t *ret = ck_strdup((char *)dev->name);
+			uint8_t *ret = ck_strdup(dev->name);
 			pcap_freealldevs(dev);
 			return ret;
 		}
@@ -339,7 +339,7 @@ uint8_t *find_interface(int num) {
 void prepare_pcap() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
-	uint8_t *orig_iface = p0f_context.use_iface;
+	char *orig_iface = p0f_context.use_iface;
 
 	if (read_file) {
 
@@ -349,10 +349,10 @@ void prepare_pcap() {
 		if (p0f_context.use_iface)
 			FATAL("Options -i and -r are mutually exclusive.");
 
-		if (access((char *)read_file, R_OK))
+		if (access(read_file, R_OK))
 			PFATAL("Can't access file '%s'.", read_file);
 
-		p0f_context.pt = pcap_open_offline((char *)read_file, pcap_err);
+		p0f_context.pt = pcap_open_offline(read_file, pcap_err);
 
 		if (!p0f_context.pt) FATAL("pcap_open_offline: %s", pcap_err);
 
@@ -366,7 +366,7 @@ void prepare_pcap() {
 		 Also, this returns something stupid on Windows, but hey... */
 
 			if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT)
-				p0f_context.use_iface = (uint8_t *)pcap_lookupdev(pcap_err);
+				p0f_context.use_iface = pcap_lookupdev(pcap_err);
 
 			if (!p0f_context.use_iface)
 				FATAL("libpcap is out of ideas; use -i to specify interface.");
@@ -382,19 +382,19 @@ void prepare_pcap() {
 
 			int iface_id;
 
-			if (sscanf((char *)use_iface, "%u", &iface_id) == 1) {
-				use_iface = find_interface(iface_id);
+			if (sscanf(p0f_context.use_iface, "%u", &iface_id) == 1) {
+				p0f_context.use_iface = find_interface(iface_id);
 			}
 		}
 
-		p0f_context.pt = pcap_open_live((char *)use_iface, SNAPLEN, p0f_context.set_promisc, 250, pcap_err);
+		p0f_context.pt = pcap_open_live(p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 250, pcap_err);
 
 #else
 
 		/* PCAP timeouts tend to be broken, so we'll use a very small value
 	   and rely on select() instead. */
 
-		p0f_context.pt = pcap_open_live((char *)p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 5, pcap_err);
+		p0f_context.pt = pcap_open_live(p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 5, pcap_err);
 
 #endif /* ^__CYGWIN__ */
 
@@ -415,7 +415,7 @@ void prepare_bpf() {
 	struct bpf_program flt;
 	memset(&flt, 0, sizeof(flt));
 
-	uint8_t *final_rule  = nullptr;
+	char *final_rule     = nullptr;
 	uint8_t vlan_support = 0;
 
 	/* VLAN matching is somewhat brain-dead: you need to request it explicitly,
@@ -428,31 +428,31 @@ retry_no_vlan:
 	if (!p0f_context.orig_rule) {
 
 		if (vlan_support) {
-			final_rule = (uint8_t *)"tcp or (vlan and tcp)";
+			final_rule = "tcp or (vlan and tcp)";
 		} else {
-			final_rule = (uint8_t *)"tcp";
+			final_rule = "tcp";
 		}
 
 	} else {
 
 		if (vlan_support) {
 
-			final_rule = (uint8_t *)calloc(strlen((char *)p0f_context.orig_rule) * 2 + 64, 1);
+			final_rule = (char *)calloc(strlen(p0f_context.orig_rule) * 2 + 64, 1);
 
-			sprintf((char *)final_rule, "(tcp and (%s)) or (vlan and tcp and (%s))",
+			sprintf(final_rule, "(tcp and (%s)) or (vlan and tcp and (%s))",
 					p0f_context.orig_rule, p0f_context.orig_rule);
 
 		} else {
 
-			final_rule = (uint8_t *)calloc(strlen((char *)p0f_context.orig_rule) + 16, 1);
+			final_rule = (char *)calloc(strlen(p0f_context.orig_rule) + 16, 1);
 
-			sprintf((char *)final_rule, "tcp and (%s)", p0f_context.orig_rule);
+			sprintf(final_rule, "tcp and (%s)", p0f_context.orig_rule);
 		}
 	}
 
 	DEBUG("[#] Computed rule: %s\n", final_rule);
 
-	if (pcap_compile(p0f_context.pt, &flt, (char *)final_rule, 1, 0)) {
+	if (pcap_compile(p0f_context.pt, &flt, final_rule, 1, 0)) {
 
 		if (vlan_support) {
 
@@ -482,7 +482,7 @@ retry_no_vlan:
 	} else {
 
 		SAYF("[+] Custom filtering rule enabled: %s%s\n",
-			 p0f_context.orig_rule ? p0f_context.orig_rule : (uint8_t *)"tcp",
+			 p0f_context.orig_rule ? p0f_context.orig_rule : "tcp",
 			 vlan_support ? " [+VLAN]" : "");
 
 		free(final_rule);
@@ -492,7 +492,7 @@ retry_no_vlan:
 /* Drop privileges and chroot(), with some sanity checks */
 void drop_privs() {
 
-	struct passwd *pw = getpwnam((char *)p0f_context.switch_user);
+	struct passwd *pw = getpwnam(p0f_context.switch_user);
 
 	if (!pw)
 		FATAL("User '%s' not found.", p0f_context.switch_user);
@@ -705,7 +705,7 @@ void live_event_loop() {
 						FATAL("Inconsistent p0f_api_response state.\n");
 
 					i = write(pfds[cur].fd,
-							  ((char *)&ctable[cur]->out_data) + ctable[cur]->out_off,
+							  (&ctable[cur]->out_data) + ctable[cur]->out_off,
 							  sizeof(struct p0f_api_response) - ctable[cur]->out_off);
 
 					if (i <= 0) PFATAL("write() on API socket fails despite POLLOUT.");
@@ -777,7 +777,7 @@ void live_event_loop() {
 						FATAL("Inconsistent p0f_api_query state.\n");
 
 					i = read(pfds[cur].fd,
-							 ((char *)&ctable[cur]->in_data) + ctable[cur]->in_off,
+							 (&ctable[cur]->in_data) + ctable[cur]->in_off,
 							 sizeof(struct p0f_api_query) - ctable[cur]->in_off);
 
 					if (i < 0) PFATAL("read() on API socket fails despite POLLIN.");
@@ -861,12 +861,12 @@ void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, c
 
 	if (p0f_context.log_file) {
 
-		uint8_t tmp[64];
+		char tmp[64];
 
 		time_t ut     = get_unix_time();
 		struct tm *lt = localtime(&ut);
 
-		strftime((char *)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
+		strftime(tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
 
 		LOGF("[%s] mod=%s|cli=%s/%u|", tmp, keyword, addr_to_str(f->client->addr, f->client->ip_ver), f->cli_port);
 
@@ -878,14 +878,14 @@ void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, c
 }
 
 /* Add log item. */
-void add_observation_field(const char *key, const uint8_t *value) {
+void add_observation_field(const char *key, const char *value) {
 
 	if (!p0f_context.obs_fields) FATAL("Unexpected observation field ('%s').", key);
 
 	if (!daemon_mode)
-		SAYF("| %-8s = %s\n", key, value ? value : (const uint8_t *)"???");
+		SAYF("| %-8s = %s\n", key, value ? value : "???");
 
-	if (p0f_context.log_file) LOGF("|%s=%s", key, value ? value : (const uint8_t *)"???");
+	if (p0f_context.log_file) LOGF("|%s=%s", key, value ? value : "???");
 
 	p0f_context.obs_fields--;
 
@@ -942,7 +942,7 @@ int main(int argc, char **argv) {
 			if (p0f_context.fp_file)
 				FATAL("Multiple -f options not supported.");
 
-			p0f_context.fp_file = (uint8_t *)optarg;
+			p0f_context.fp_file = optarg;
 			break;
 
 		case 'i':
@@ -950,7 +950,7 @@ int main(int argc, char **argv) {
 			if (p0f_context.use_iface)
 				FATAL("Multiple -i options not supported (try '-i any').");
 
-			p0f_context.use_iface = (uint8_t *)optarg;
+			p0f_context.use_iface = optarg;
 
 			break;
 
@@ -970,7 +970,7 @@ int main(int argc, char **argv) {
 			if (p0f_context.log_file)
 				FATAL("Multiple -o options not supported.");
 
-			p0f_context.log_file = (uint8_t *)optarg;
+			p0f_context.log_file = optarg;
 
 			break;
 
@@ -982,12 +982,9 @@ int main(int argc, char **argv) {
 			break;
 
 		case 'r':
-
 			if (read_file)
 				FATAL("Multiple -r options not supported.");
-
-			read_file = (uint8_t *)optarg;
-
+			read_file = optarg;
 			break;
 
 		case 's':
@@ -1001,7 +998,7 @@ int main(int argc, char **argv) {
 			if (p0f_context.api_sock)
 				FATAL("Multiple -s options not supported.");
 
-			p0f_context.api_sock = (uint8_t *)optarg;
+			p0f_context.api_sock = optarg;
 
 			break;
 
@@ -1024,7 +1021,7 @@ int main(int argc, char **argv) {
 			if (p0f_context.switch_user)
 				FATAL("Split personality mode not supported.");
 
-			p0f_context.switch_user = (uint8_t *)optarg;
+			p0f_context.switch_user = optarg;
 
 			break;
 
@@ -1035,7 +1032,7 @@ int main(int argc, char **argv) {
 	if (optind < argc) {
 
 		if (optind + 1 == argc)
-			p0f_context.orig_rule = (uint8_t *)argv[optind];
+			p0f_context.orig_rule = argv[optind];
 		else
 			FATAL("Filter rule must be a single parameter (use quotes).");
 	}
@@ -1074,7 +1071,7 @@ int main(int argc, char **argv) {
 
 	http_init();
 
-	read_config(p0f_context.fp_file ? p0f_context.fp_file : (uint8_t *)FP_FILE);
+	read_config(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE);
 
 	prepare_pcap();
 	prepare_bpf();

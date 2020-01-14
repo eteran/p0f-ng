@@ -31,8 +31,8 @@
 #include "readfp.h"
 #include "types.h"
 
-uint8_t **fp_os_classes; /* Map of OS classes                  */
-uint8_t **fp_os_names;   /* Map of OS names                    */
+char **fp_os_classes; /* Map of OS classes                  */
+char **fp_os_names;   /* Map of OS names                    */
 
 namespace {
 
@@ -44,9 +44,9 @@ struct fp_context_t {
 	uint8_t mod_to_srv = 0;            /* Traffic direction                  */
 	uint8_t generic    = 0;            /* Generic signature?                 */
 
-	int32_t sig_class   = 0;       /* Signature class ID (-1 = userland) */
-	uint32_t sig_name   = 0;       /* Signature name                     */
-	uint8_t *sig_flavor = nullptr; /* Signature flavor                   */
+	int32_t sig_class = 0;       /* Signature class ID (-1 = userland) */
+	uint32_t sig_name = 0;       /* Signature name                     */
+	char *sig_flavor  = nullptr; /* Signature flavor                   */
 
 	uint32_t *cur_sys    = nullptr; /* Current 'sys' values               */
 	uint32_t cur_sys_cnt = 0;       /* Number of 'sys' entries            */
@@ -60,11 +60,11 @@ struct fp_context_t {
 fp_context_t fp_context;
 
 /* Parse 'classes' parameter by populating fp_os_classes. */
-void config_parse_classes(uint8_t *val) {
+void config_parse_classes(char *val) {
 
 	while (*val) {
 
-		uint8_t *nxt;
+		char *nxt;
 
 		while (isblank(*val) || *val == ',')
 			val++;
@@ -77,7 +77,7 @@ void config_parse_classes(uint8_t *val) {
 		if (nxt == val || (*nxt && *nxt != ','))
 			FATAL("Malformed class entry in line %u.", fp_context.line_no);
 
-		fp_os_classes = (uint8_t **)realloc(fp_os_classes, (fp_context.class_cnt + 1) * sizeof(uint8_t *));
+		fp_os_classes = (char **)realloc(fp_os_classes, (fp_context.class_cnt + 1) * sizeof(char *));
 
 		fp_os_classes[fp_context.class_cnt++] = ck_memdup_str(val, nxt - val);
 
@@ -86,9 +86,9 @@ void config_parse_classes(uint8_t *val) {
 }
 
 /* Parse 'label' parameter by looking up ID and recording name / flavor. */
-void config_parse_label(uint8_t *val) {
+void config_parse_label(char *val) {
 
-	uint8_t *nxt;
+	char *nxt;
 	uint32_t i;
 
 	/* Simplified handling for [mtu] signatures. */
@@ -127,7 +127,7 @@ void config_parse_label(uint8_t *val) {
 		*nxt = 0;
 
 		for (i = 0; i < fp_context.class_cnt; i++)
-			if (!strcasecmp((char *)val, (char *)fp_os_classes[i])) break;
+			if (!strcasecmp(val, fp_os_classes[i])) break;
 
 		if (i == fp_context.class_cnt) FATAL("Unknown class '%s' in line %u.", val, fp_context.line_no);
 
@@ -152,7 +152,7 @@ void config_parse_label(uint8_t *val) {
 }
 
 /* Parse 'sys' parameter into fp_context.cur_sys[]. */
-void config_parse_sys(uint8_t *val) {
+void config_parse_sys(char *val) {
 
 	if (fp_context.cur_sys) {
 		fp_context.cur_sys     = nullptr;
@@ -161,7 +161,7 @@ void config_parse_sys(uint8_t *val) {
 
 	while (*val) {
 
-		uint8_t *nxt;
+		char *nxt;
 		uint8_t is_cl = 0, orig;
 		uint32_t i;
 
@@ -187,7 +187,7 @@ void config_parse_sys(uint8_t *val) {
 		if (is_cl) {
 
 			for (i = 0; i < fp_context.class_cnt; i++)
-				if (!strcasecmp((char *)val, (char *)fp_os_classes[i])) break;
+				if (!strcasecmp(val, fp_os_classes[i])) break;
 
 			if (i == fp_context.class_cnt)
 				FATAL("Unknown class '%s' in line %u.", val, fp_context.line_no);
@@ -197,10 +197,10 @@ void config_parse_sys(uint8_t *val) {
 		} else {
 
 			for (i = 0; i < fp_context.name_cnt; i++)
-				if (!strcasecmp((char *)val, (char *)fp_os_names[i])) break;
+				if (!strcasecmp(val, fp_os_names[i])) break;
 
 			if (i == fp_context.name_cnt) {
-				fp_os_names                        = (uint8_t **)realloc(fp_os_names, (fp_context.name_cnt + 1) * sizeof(uint8_t *));
+				fp_os_names                        = (char **)realloc(fp_os_names, (fp_context.name_cnt + 1) * sizeof(char *));
 				fp_os_names[fp_context.name_cnt++] = ck_memdup_str(val, nxt - val);
 			}
 		}
@@ -214,40 +214,40 @@ void config_parse_sys(uint8_t *val) {
 }
 
 /* Read p0f.fp line, dispatching it to fingerprinting modules as necessary. */
-static void config_parse_line(uint8_t *line) {
+static void config_parse_line(char *line) {
 
-	uint8_t *val = nullptr;
-	uint8_t *eon = nullptr;
+	char *val = nullptr;
+	char *eon = nullptr;
 
 	/* Special handling for [module:direction]... */
 
 	if (*line == '[') {
 
-		uint8_t *dir = nullptr;
+		char *dir = nullptr;
 
 		line++;
 
 		/* Simplified case for [mtu]. */
 
-		if (!strcmp((char *)line, "mtu]")) {
+		if (!strcmp(line, "mtu]")) {
 
 			fp_context.mod_type = CF_MOD_MTU;
 			fp_context.state    = CF_NEED_LABEL;
 			return;
 		}
 
-		dir = (uint8_t *)strchr((char *)line, ':');
+		dir = strchr(line, ':');
 
 		if (!dir) FATAL("Malformed section identifier in line %u.", fp_context.line_no);
 
 		*dir = 0;
 		dir++;
 
-		if (!strcmp((char *)line, "tcp")) {
+		if (!strcmp(line, "tcp")) {
 
 			fp_context.mod_type = CF_MOD_TCP;
 
-		} else if (!strcmp((char *)line, "http")) {
+		} else if (!strcmp(line, "http")) {
 
 			fp_context.mod_type = CF_MOD_HTTP;
 
@@ -256,11 +256,11 @@ static void config_parse_line(uint8_t *line) {
 			FATAL("Unrecognized fingerprinting module '%s' in line %u.", line, fp_context.line_no);
 		}
 
-		if (!strcmp((char *)dir, "request]")) {
+		if (!strcmp(dir, "request]")) {
 
 			fp_context.mod_to_srv = 1;
 
-		} else if (!strcmp((char *)dir, "response]")) {
+		} else if (!strcmp(dir, "response]")) {
 
 			fp_context.mod_to_srv = 0;
 
@@ -292,21 +292,21 @@ static void config_parse_line(uint8_t *line) {
 
 	*eon = 0;
 
-	if (!strcmp((char *)line, "classes")) {
+	if (!strcmp(line, "classes")) {
 
 		if (fp_context.state != CF_NEED_SECT)
 			FATAL("misplaced 'classes' in line %u.", fp_context.line_no);
 
 		config_parse_classes(val);
 
-	} else if (!strcmp((char *)line, "ua_os")) {
+	} else if (!strcmp(line, "ua_os")) {
 
 		if (fp_context.state != CF_NEED_LABEL || fp_context.mod_to_srv != 1 || fp_context.mod_type != CF_MOD_HTTP)
 			FATAL("misplaced 'us_os' in line %u.", fp_context.line_no);
 
 		http_parse_ua(val, fp_context.line_no);
 
-	} else if (!strcmp((char *)line, "label")) {
+	} else if (!strcmp(line, "label")) {
 
 		/* We will drop sig_sys / fp_context.sig_flavor on the floor if no signatures
 	   actually created, but it's not worth tracking that. */
@@ -321,7 +321,7 @@ static void config_parse_line(uint8_t *line) {
 		else
 			fp_context.state = CF_NEED_SIG;
 
-	} else if (!strcmp((char *)line, "sys")) {
+	} else if (!strcmp(line, "sys")) {
 
 		if (fp_context.state != CF_NEED_SYS)
 			FATAL("Misplaced 'sys' in line %u.", fp_context.line_no);
@@ -330,7 +330,7 @@ static void config_parse_line(uint8_t *line) {
 
 		fp_context.state = CF_NEED_SIG;
 
-	} else if (!strcmp((char *)line, "sig")) {
+	} else if (!strcmp(line, "sig")) {
 
 		if (fp_context.state != CF_NEED_SIG) FATAL("Misplaced 'sig' in line %u.", fp_context.line_no);
 
@@ -362,18 +362,18 @@ static void config_parse_line(uint8_t *line) {
 }
 
 /* Look up or create OS or application id. */
-uint32_t lookup_name_id(const uint8_t *name, uint8_t len) {
+uint32_t lookup_name_id(const char *name, uint8_t len) {
 
 	uint32_t i;
 
 	for (i = 0; i < fp_context.name_cnt; i++)
-		if (!strncasecmp((char *)name, (char *)fp_os_names[i], len) && !fp_os_names[i][len]) break;
+		if (!strncasecmp(name, fp_os_names[i], len) && !fp_os_names[i][len]) break;
 
 	if (i == fp_context.name_cnt) {
 
 		fp_context.sig_name = fp_context.name_cnt;
 
-		fp_os_names                        = (uint8_t **)realloc(fp_os_names, (fp_context.name_cnt + 1) * sizeof(uint8_t *));
+		fp_os_names                        = (char **)realloc(fp_os_names, (fp_context.name_cnt + 1) * sizeof(char *));
 		fp_os_names[fp_context.name_cnt++] = ck_memdup_str(name, len);
 	}
 
@@ -381,13 +381,13 @@ uint32_t lookup_name_id(const uint8_t *name, uint8_t len) {
 }
 
 /* Top-level file parsing. */
-void read_config(const uint8_t *fname) {
+void read_config(const char *fname) {
 
-	int32_t f;
 	struct stat st;
-	uint8_t *data, *cur;
+	char *data;
+	char *cur;
 
-	f = open((char *)fname, O_RDONLY);
+	int32_t f = open(fname, O_RDONLY);
 	if (f < 0) PFATAL("Cannot open '%s' for reading.", fname);
 
 	if (fstat(f, &st)) PFATAL("fstat() on '%s' failed.", fname);
@@ -397,7 +397,7 @@ void read_config(const uint8_t *fname) {
 		goto end_fp_read;
 	}
 
-	cur = data = (uint8_t *)calloc(st.st_size + 1, 1);
+	cur = data = (char *)calloc(st.st_size + 1, 1);
 
 	if (read(f, data, st.st_size) != st.st_size)
 		FATAL("Short read from '%s'.", fname);
@@ -410,7 +410,7 @@ void read_config(const uint8_t *fname) {
 
 	while (1) {
 
-		uint8_t *eol;
+		char *eol;
 
 		fp_context.line_no++;
 
@@ -422,11 +422,8 @@ void read_config(const uint8_t *fname) {
 			eol++;
 
 		if (*cur != ';' && cur != eol) {
-
-			uint8_t *line = (uint8_t *)ck_memdup_str(cur, eol - cur);
-
+			char *line = ck_memdup_str(cur, eol - cur);
 			config_parse_line(line);
-
 			free(line);
 		}
 

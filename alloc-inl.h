@@ -17,13 +17,13 @@
 #include "config.h"
 #include "types.h"
 
-inline uint8_t *ck_strdup(const uint8_t *str) {
+inline char *ck_strdup(const char *str) {
 	if (!str)
 		return nullptr;
 
-	size_t size = strlen((char *)str) + 1;
+	size_t size = strlen(str) + 1;
 	void *ret   = malloc(size);
-	return (uint8_t *)memcpy(ret, str, size);
+	return (char *)memcpy(ret, str, size);
 }
 
 inline void *ck_memdup(const void *mem, uint32_t size) {
@@ -35,12 +35,12 @@ inline void *ck_memdup(const void *mem, uint32_t size) {
 	return memcpy(ret, mem, size);
 }
 
-inline uint8_t *ck_memdup_str(const uint8_t *mem, uint32_t size) {
+inline char *ck_memdup_str(const char *mem, uint32_t size) {
 
 	if (!mem || !size)
 		return nullptr;
 
-	uint8_t *ret = (uint8_t *)malloc(size + 1);
+	auto ret = (char *)malloc(size + 1);
 	memcpy(ret, mem, size);
 	ret[size] = 0;
 	return ret;

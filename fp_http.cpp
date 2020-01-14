@@ -35,13 +35,13 @@
 #include "fp_http.h"
 #include "languages.h"
 
-#define SLOF(_str) (uint8_t *)_str, strlen((const char *)_str)
+#define SLOF(_str) _str, strlen(_str)
 
 namespace {
 
 struct header_name {
 	size_t size;
-	uint8_t *name;
+	char *name;
 };
 
 struct http_context_t {
@@ -81,7 +81,7 @@ constexpr uint64_t bloom4_64(uint32_t val) {
 }
 
 /* Look up or register new header */
-int32_t lookup_hdr(const uint8_t *name, uint32_t len, uint8_t create) {
+int32_t lookup_hdr(const char *name, uint32_t len, uint8_t create) {
 
 	uint32_t bucket = hash32(name, len) % SIG_BUCKETS;
 
@@ -224,8 +224,8 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 
 			if (rs->hdr[rs_hdr].value &&
 				(!ts->hdr[ts_hdr].value ||
-				 !strstr((char *)ts->hdr[ts_hdr].value,
-						 (char *)rs->hdr[rs_hdr].value))) goto next_sig;
+				 !strstr(ts->hdr[ts_hdr].value,
+						 rs->hdr[rs_hdr].value))) goto next_sig;
 
 			ts_hdr++;
 			rs_hdr++;
@@ -268,7 +268,7 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 		if (!ref->generic) {
 			ts->matched = ref;
 
-			if (rs->sw && ts->sw && !strstr((char *)ts->sw, (char *)rs->sw)) {
+			if (rs->sw && ts->sw && !strstr(ts->sw, rs->sw)) {
 				ts->dishonest = 1;
 			}
 
@@ -288,20 +288,20 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 
 		ts->matched = gmatch;
 
-		if (gmatch->sig->sw && ts->sw && !strstr((char *)ts->sw, (char *)gmatch->sig->sw)) ts->dishonest = 1;
+		if (gmatch->sig->sw && ts->sw && !strstr(ts->sw, gmatch->sig->sw)) ts->dishonest = 1;
 	}
 }
 
 /* Register new HTTP signature. */
 
 void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name,
-					   uint8_t *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
-					   uint8_t *val, uint32_t line_no) {
+					   char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
+					   char *val, uint32_t line_no) {
 
 	struct http_sig *hsig;
 	struct http_sig_record *hrec;
 
-	uint8_t *nxt;
+	char *nxt;
 
 	hsig = (struct http_sig *)calloc(sizeof(struct http_sig), 1);
 
@@ -426,7 +426,7 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 
 	if (*val) {
 
-		if (strchr((char *)val, ':'))
+		if (strchr(val, ':'))
 			FATAL("Malformed signature in line %u.", line_no);
 
 		hsig->sw = ck_strdup(val);
@@ -454,14 +454,14 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 
 /* Register new HTTP signature. */
 
-void http_parse_ua(uint8_t *val, uint32_t line_no) {
+void http_parse_ua(char *val, uint32_t line_no) {
 
-	uint8_t *nxt;
+	char *nxt;
 
 	while (*val) {
 
 		uint32_t id;
-		uint8_t *name = nullptr;
+		char *name = nullptr;
 
 		nxt = val;
 		while (*nxt && (isalnum(*nxt) || strchr(NAME_CHARS, *nxt)))
@@ -510,7 +510,7 @@ void http_parse_ua(uint8_t *val, uint32_t line_no) {
 }
 
 /* Dump a HTTP signature. */
-static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
+static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 	uint32_t i;
 	uint8_t had_prev = 0;
@@ -520,7 +520,7 @@ static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 	uint32_t tpos;
 
 	std::stringstream ss;
-	uint8_t *val;
+	char *val;
 
 	append_format(ss, "%u:", hsig->http_ver);
 
@@ -564,7 +564,7 @@ static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 			tpos = 0;
 
-			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && val[tpos] < 0x80 &&
+			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && (uint8_t)val[tpos] < 0x80 &&
 				   val[tpos] != ']' && val[tpos] != '|') {
 
 				tmp[tpos] = val[tpos];
@@ -586,7 +586,7 @@ static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 			tpos = 0;
 
-			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && val[tpos] < 0x80 &&
+			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && (uint8_t)val[tpos] < 0x80 &&
 				   val[tpos] != ']') {
 				tmp[tpos] = val[tpos];
 				tpos++;
@@ -624,7 +624,7 @@ static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 		tpos = 0;
 
-		while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && val[tpos] < 0x80 &&
+		while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && (uint8_t)val[tpos] < 0x80 &&
 			   val[tpos] != ']') {
 			tmp[tpos] = val[tpos];
 			tpos++;
@@ -638,12 +638,12 @@ static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 	static std::string ret;
 	ret = ss.str();
 
-	return (uint8_t *)ret.c_str();
+	return ret.c_str();
 }
 
 /* Dump signature flags. */
 
-static const uint8_t *dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
+static const char *dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
 
 	std::stringstream ss;
 
@@ -655,9 +655,9 @@ static const uint8_t *dump_flags(const struct http_sig *hsig, const struct http_
 	ret = ss.str();
 
 	if (!ret.empty()) {
-		return (uint8_t *)ret.c_str() + 1;
+		return ret.c_str() + 1;
 	} else {
-		return (uint8_t *)"none";
+		return "none";
 	}
 }
 
@@ -776,7 +776,7 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 		uint32_t i;
 
 		for (i = 0; i < http_context.ua_map_cnt; i++)
-			if (strstr((char *)f->http_tmp.sw, (char *)http_context.ua_map[i].name)) break;
+			if (strstr(f->http_tmp.sw, http_context.ua_map[i].name)) break;
 
 		if (i != http_context.ua_map_cnt) {
 
@@ -836,7 +836,7 @@ header_check:
 static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 
 	struct http_sig_record *m;
-	uint8_t *lang = nullptr;
+	const char *lang = nullptr;
 
 	http_find_match(to_srv, &f->http_tmp, 0);
 
@@ -846,7 +846,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 
 		observf((m->class_id < 0) ? "app" : "os", "%s%s%s",
 				fp_os_names[m->name_id], m->flavor ? " " : "",
-				m->flavor ? m->flavor : (uint8_t *)"");
+				m->flavor ? m->flavor : "");
 
 	} else
 		add_observation_field("app", nullptr);
@@ -867,10 +867,10 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 			add_observation_field("lang", nullptr);
 		else
 			add_observation_field("lang",
-								  (lang = (uint8_t *)languages[lh][pos + 1]));
+								  (lang = languages[lh][pos + 1]));
 
 	} else
-		add_observation_field("lang", (const uint8_t *)"none");
+		add_observation_field("lang", "none");
 
 	add_observation_field("params", dump_flags(&f->http_tmp, m));
 
@@ -969,10 +969,10 @@ void free_sig_hdrs(struct http_sig *h) {
 
 /* Parse HTTP date field. */
 
-static uint32_t parse_date(uint8_t *str) {
+static time_t parse_date(const char *str) {
 	struct tm t;
 
-	if (!strptime((char *)str, "%a, %d %b %Y %H:%M:%S %Z", &t)) {
+	if (!strptime(str, "%a, %d %b %Y %H:%M:%S %Z", &t)) {
 		DEBUG("[#] Invalid 'Date' field ('%s').\n", str);
 		return 0;
 	}
@@ -992,7 +992,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 
 	while ((off = f->http_pos) < plen) {
 
-		uint8_t *pay = to_srv ? f->request : f->response;
+		char *pay = to_srv ? f->request : f->response;
 
 		uint32_t nlen, vlen, vstart;
 		int32_t hid;
@@ -1122,7 +1122,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 
 			/* Header ID not found, store literal value. */
 
-			f->http_tmp.hdr[hcount].name = (uint8_t *)ck_memdup_str(pay + f->http_pos, nlen);
+			f->http_tmp.hdr[hcount].name = ck_memdup_str(pay + f->http_pos, nlen);
 
 		} else {
 
@@ -1136,7 +1136,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 
 		if (vlen) {
 
-			uint8_t *val = (uint8_t *)ck_memdup_str(pay + vstart, vlen);
+			auto val = ck_memdup_str(pay + vstart, vlen);
 
 			f->http_tmp.hdr[hcount].value = val;
 
@@ -1199,7 +1199,7 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 	if (to_srv) {
 
-		uint8_t *pay         = f->request;
+		char *pay            = f->request;
 		uint8_t can_get_more = (f->req_len < MAX_FLOW_DATA);
 		uint32_t off;
 
@@ -1210,7 +1210,7 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 		if (!f->in_http) {
 
 			uint8_t chr;
-			uint8_t *sig_at;
+			char *sig_at;
 
 			/* Ooh, new flow! */
 
@@ -1222,8 +1222,8 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 			/* We only care about GET and HEAD requests at this point. */
 
-			if (!off && strncmp((char *)pay, "GET /", 5) &&
-				strncmp((char *)pay, "HEAD /", 6)) {
+			if (!off && strncmp(pay, "GET /", 5) &&
+				strncmp(pay, "HEAD /", 6)) {
 				DEBUG("[#] Does not seem like a GET / HEAD request.\n");
 				f->in_http = -1;
 				return 0;
@@ -1273,7 +1273,7 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 			/* Bad HTTP/1.x signature? */
 
-			if (strncmp((char *)sig_at, "HTTP/1.", 7)) {
+			if (strncmp(sig_at, "HTTP/1.", 7)) {
 
 				DEBUG("[#] Not HTTP - bad signature.\n");
 
@@ -1293,7 +1293,7 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 	} else {
 
-		uint8_t *pay         = f->response;
+		char *pay            = f->response;
 		uint8_t can_get_more = (f->resp_len < MAX_FLOW_DATA);
 		uint32_t off;
 
@@ -1355,7 +1355,7 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 			/* Bad HTTP/1.x signature? */
 
-			if (strncmp((char *)pay, "HTTP/1.", 7)) {
+			if (strncmp(pay, "HTTP/1.", 7)) {
 
 				DEBUG("[#] Invalid HTTP response - bad signature.\n");
 

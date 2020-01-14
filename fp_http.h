@@ -23,7 +23,7 @@ struct http_id {
 /* Another internal structure for UA -> OS maps: */
 
 struct ua_map_record {
-	uint8_t *name;
+	char *name;
 	uint32_t id;
 };
 
@@ -31,8 +31,8 @@ struct ua_map_record {
 
 struct http_hdr {
 	int32_t id;       /* Lookup ID (-1 = none)              */
-	uint8_t *name;    /* Text name (nullptr = use lookup ID)   */
-	uint8_t *value;   /* Value, if any                      */
+	char *name;       /* Text name (nullptr = use lookup ID)   */
+	char *value;      /* Value, if any                      */
 	uint8_t optional; /* Optional header?                   */
 };
 
@@ -50,9 +50,9 @@ struct http_sig {
 	uint32_t miss[HTTP_MAX_HDRS]; /* Missing headers                    */
 	uint32_t miss_cnt;
 
-	uint8_t *sw;   /* Software string (U-A or Server)    */
-	uint8_t *lang; /* Accept-Language                    */
-	uint8_t *via;  /* Via or X-Forwarded-For             */
+	char *sw;   /* Software string (U-A or Server)    */
+	char *lang; /* Accept-Language                    */
+	char *via;  /* Via or X-Forwarded-For             */
 
 	uint32_t date;      /* Parsed 'Date'                      */
 	uint32_t recv_date; /* Actual receipt date                */
@@ -69,7 +69,7 @@ struct http_sig_record {
 
 	int32_t class_id; /* OS class ID (-1 = user)            */
 	int32_t name_id;  /* OS name ID                         */
-	uint8_t *flavor;  /* Human-readable flavor string       */
+	char *flavor;     /* Human-readable flavor string       */
 
 	uint32_t label_id; /* Signature label ID                 */
 
@@ -87,11 +87,11 @@ struct http_sig_record {
 
 struct packet_flow;
 
-void http_parse_ua(uint8_t *val, uint32_t line_no);
+void http_parse_ua(char *val, uint32_t line_no);
 
 void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name,
-					   uint8_t *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
-					   uint8_t *val, uint32_t line_no);
+					   char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
+					   char *val, uint32_t line_no);
 
 uint8_t process_http(uint8_t to_srv, struct packet_flow *f);
 

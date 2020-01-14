@@ -68,24 +68,24 @@ void handle_query(struct p0f_api_query *q, struct p0f_api_response *r) {
 
 	if (h->last_name_id != -1) {
 
-		strncpy((char *)r->os_name, (char *)fp_os_names[h->last_name_id],
-				P0F_STR_MAX + 1);
+		strncpy((char *)r->os_name, fp_os_names[h->last_name_id], P0F_STR_MAX + 1);
 
-		if (h->last_flavor)
-			strncpy((char *)r->os_flavor, (char *)h->last_flavor, P0F_STR_MAX + 1);
+		if (h->last_flavor) {
+			strncpy((char *)r->os_flavor, h->last_flavor, P0F_STR_MAX + 1);
+		}
 	}
 
 	if (h->http_name_id != -1) {
 
-		strncpy((char *)r->http_name, (char *)fp_os_names[h->http_name_id],
+		strncpy((char *)r->http_name, fp_os_names[h->http_name_id],
 				P0F_STR_MAX + 1);
 
 		if (h->http_flavor)
-			strncpy((char *)r->http_flavor, (char *)h->http_flavor, P0F_STR_MAX + 1);
+			strncpy((char *)r->http_flavor, h->http_flavor, P0F_STR_MAX + 1);
 	}
 
 	if (h->link_type)
-		strncpy((char *)r->link_type, (char *)h->link_type, P0F_STR_MAX + 1);
+		strncpy((char *)r->link_type, h->link_type, P0F_STR_MAX + 1);
 
 	if (h->language)
 		strncpy((char *)r->language, (char *)h->language, P0F_STR_MAX + 1);

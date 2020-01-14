@@ -1293,7 +1293,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->req_len);
 
-				f->request = (uint8_t *)realloc(f->request, f->req_len + read_amt + 1);
+				f->request = (char *)realloc(f->request, f->req_len + read_amt + 1);
 				memcpy(f->request + f->req_len, pk->payload, read_amt);
 				f->req_len += read_amt;
 			}
@@ -1321,7 +1321,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
 
-				f->response = (uint8_t *)realloc(f->response, f->resp_len + read_amt + 1);
+				f->response = (char *)realloc(f->response, f->resp_len + read_amt + 1);
 				memcpy(f->response + f->resp_len, pk->payload, read_amt);
 				f->resp_len += read_amt;
 			}
@@ -1358,7 +1358,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score) {
 
-	static uint8_t rea[1024];
+	static char rea[1024];
 
 	struct host_data *hd = nullptr;
 	uint8_t *scores      = nullptr;
@@ -1425,12 +1425,12 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 		hd->last_chg = get_unix_time();
 	}
 
-	uint8_t *rptr = rea;
-	*rptr         = 0;
+	char *rptr = rea;
+	*rptr      = '\0';
 
-#define REAF(...)                                   \
-	do {                                            \
-		rptr += sprintf((char *)rptr, __VA_ARGS__); \
+#define REAF(...)                           \
+	do {                                    \
+		rptr += sprintf(rptr, __VA_ARGS__); \
 	} while (0)
 
 	if (reason & NAT_APP_SIG) REAF(" app_vs_os");

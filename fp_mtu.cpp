@@ -35,9 +35,9 @@ struct mtu_context_t {
 static mtu_context_t mtu_context;
 
 /* Register a new MTU signature. */
-void mtu_register_sig(uint8_t *name, uint8_t *val, uint32_t line_no) {
+void mtu_register_sig(char *name, char *val, uint32_t line_no) {
 
-	uint8_t *nxt = val;
+	char *nxt = val;
 	int32_t mtu;
 	uint32_t bucket;
 
@@ -46,7 +46,7 @@ void mtu_register_sig(uint8_t *name, uint8_t *val, uint32_t line_no) {
 
 	if (nxt == val || *nxt) FATAL("Malformed MTU value in line %u.", line_no);
 
-	mtu = atoi((char *)val);
+	mtu = atoi(val);
 
 	if (mtu <= 0 || mtu > 65535) FATAL("Malformed MTU value in line %u.", line_no);
 

@@ -57,21 +57,21 @@ struct tcp_sig {
 
 struct tcp_sig_record {
 
-	uint8_t generic;  /* Generic entry?                     */
-	int32_t class_id; /* OS class ID (-1 = user)            */
-	int32_t name_id;  /* OS name ID                         */
-	uint8_t *flavor;  /* Human-readable flavor string       */
+	uint8_t generic  = 0;       /* Generic entry?                     */
+	int32_t class_id = 0;       /* OS class ID (-1 = user)            */
+	int32_t name_id  = 0;       /* OS name ID                         */
+	char *flavor     = nullptr; /* Human-readable flavor string       */
 
-	uint32_t label_id; /* Signature label ID                 */
+	uint32_t label_id = 0; /* Signature label ID                 */
 
-	uint32_t *sys;    /* OS class / name IDs for user apps  */
-	uint32_t sys_cnt; /* Length of sys                      */
+	uint32_t *sys    = nullptr; /* OS class / name IDs for user apps  */
+	uint32_t sys_cnt = 0;       /* Length of sys                      */
 
-	uint32_t line_no; /* Line number in p0f.fp              */
+	uint32_t line_no = 0; /* Line number in p0f.fp              */
 
-	uint8_t bad_ttl; /* TTL is generated randomly          */
+	uint8_t bad_ttl = 0; /* TTL is generated randomly          */
 
-	struct tcp_sig *sig; /* Actual signature data              */
+	struct tcp_sig *sig = nullptr; /* Actual signature data              */
 };
 
 #include "process.h"
@@ -80,8 +80,8 @@ struct packet_data;
 struct packet_flow;
 
 void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name,
-					  uint8_t *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
-					  uint8_t *val, uint32_t line_no);
+					  char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
+					  char *val, uint32_t line_no);
 
 struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk,
 								struct packet_flow *f);

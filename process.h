@@ -100,11 +100,11 @@ struct host_data {
 
 	int32_t last_class_id; /* OS class ID (-1 = not found)       */
 	int32_t last_name_id;  /* OS name ID (-1 = not found)        */
-	uint8_t *last_flavor;  /* Last OS flavor                     */
+	char *last_flavor;     /* Last OS flavor                     */
 
 	uint8_t last_quality; /* Generic or fuzzy match?            */
 
-	uint8_t *link_type; /* MTU-derived link type              */
+	char *link_type; /* MTU-derived link type              */
 
 	uint8_t cli_scores[NAT_SCORES]; /* Scoreboard for client NAT          */
 	uint8_t srv_scores[NAT_SCORES]; /* Scoreboard for server NAT          */
@@ -126,9 +126,9 @@ struct host_data {
 	struct http_sig *http_resp;   /* Last response                      */
 
 	int32_t http_name_id; /* Client name ID (-1 = not found)    */
-	uint8_t *http_flavor; /* Client flavor                      */
+	char *http_flavor;    /* Client flavor                      */
 
-	uint8_t *language; /* Detected language                  */
+	const char *language; /* Detected language                  */
 
 	uint8_t bad_sw; /* Used dishonest U-A or Server?      */
 
@@ -172,11 +172,11 @@ struct packet_flow {
 	int16_t srv_tps; /* Computed TS divisor (-1 = bad)     */
 	int16_t cli_tps;
 
-	uint8_t *request;      /* Client-originating data            */
+	char *request;         /* Client-originating data            */
 	uint32_t req_len;      /* Captured data length               */
 	uint32_t next_cli_seq; /* Next seq on cli -> srv packet      */
 
-	uint8_t *response;     /* Server-originating data            */
+	char *response;        /* Server-originating data            */
 	uint32_t resp_len;     /* Captured data length               */
 	uint32_t next_srv_seq; /* Next seq on srv -> cli packet      */
 	uint16_t syn_mss;      /* MSS on SYN packet                  */

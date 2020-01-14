@@ -17,7 +17,7 @@
 
 struct mtu_sig_record {
 
-	uint8_t *name;
+	char *name;
 	uint16_t mtu;
 };
 
@@ -26,7 +26,7 @@ struct mtu_sig_record {
 struct packet_data;
 struct packet_flow;
 
-void mtu_register_sig(uint8_t *name, uint8_t *val, uint32_t line_no);
+void mtu_register_sig(char *name, char *val, uint32_t line_no);
 
 void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f);
 

@@ -21,10 +21,10 @@ extern uint32_t max_conn;
 extern uint32_t max_hosts;
 extern uint32_t conn_max_age;
 extern uint32_t host_idle_limit;
-extern uint8_t *read_file;
+extern char *read_file;
 
 void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const packet_flow *pf);
-void add_observation_field(const char *key, const uint8_t *value);
+void add_observation_field(const char *key, const char *value);
 
 template <class... T>
 void append_format(std::ostream &os, const char *fmt, T &&... args) {
@@ -47,7 +47,7 @@ void observf(const char *key, const char *fmt, T &&... args) {
 #pragma GCC diagnostic ignored "-Wformat-security"
 	if (asprintf(&ptr, fmt, std::forward<T>(args)...) != -1) {
 #pragma GCC diagnostic pop
-		add_observation_field(key, (uint8_t *)ptr);
+		add_observation_field(key, ptr);
 		free(ptr);
 	}
 }
