@@ -887,7 +887,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 
 		/* For server response, always store the signature. */
 
-		ck_free(f->server->http_resp);
+		free(f->server->http_resp);
 		f->server->http_resp = (struct http_sig *)ck_memdup(&f->http_tmp, sizeof(struct http_sig));
 
 		f->server->http_resp->hdr_cnt = 0;
@@ -931,7 +931,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 
 				/* Client request - only OS sig is of any note. */
 
-				ck_free(f->client->http_req_os);
+				free(f->client->http_req_os);
 				f->client->http_req_os = (struct http_sig *)ck_memdup(&f->http_tmp, sizeof(struct http_sig));
 
 				f->client->http_req_os->hdr_cnt = 0;
@@ -965,8 +965,8 @@ void free_sig_hdrs(struct http_sig *h) {
 	uint32_t i;
 
 	for (i = 0; i < h->hdr_cnt; i++) {
-		if (h->hdr[i].name) ck_free(h->hdr[i].name);
-		if (h->hdr[i].value) ck_free(h->hdr[i].value);
+		if (h->hdr[i].name) free(h->hdr[i].name);
+		if (h->hdr[i].value) free(h->hdr[i].value);
 	}
 }
 

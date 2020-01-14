@@ -814,13 +814,13 @@ static void destroy_host(struct host_data *h) {
 
 	/* Free memory. */
 
-	ck_free(h->last_syn);
-	ck_free(h->last_synack);
+	free(h->last_syn);
+	free(h->last_synack);
 
-	ck_free(h->http_resp);
-	ck_free(h->http_req_os);
+	free(h->http_resp);
+	free(h->http_req_os);
 
-	ck_free(h);
+	free(h);
 
 	host_cnt--;
 }
@@ -859,7 +859,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
 
-	nh = (struct host_data *)ck_alloc(sizeof(struct host_data));
+	nh = (struct host_data *)calloc(sizeof(struct host_data), 1);
 
 	/* Insert into the bucketed linked list. */
 
@@ -975,9 +975,9 @@ static void destroy_flow(struct packet_flow *f) {
 
 	free_sig_hdrs(&f->http_tmp);
 
-	ck_free(f->request);
-	ck_free(f->response);
-	ck_free(f);
+	free(f->request);
+	free(f->response);
+	free(f);
 
 	flow_cnt--;
 }
@@ -1014,7 +1014,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	DEBUG("%s/%u (bucket %u)\n",
 		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, bucket);
 
-	nf = (struct packet_flow *)ck_alloc(sizeof(struct packet_flow));
+	nf = (struct packet_flow *)calloc(sizeof(struct packet_flow), 1);
 
 	nf->client = lookup_host(pk->src, pk->ip_ver);
 
@@ -1181,7 +1181,7 @@ static void flow_dispatch(struct packet_data *pk) {
 			/* This can't be done in fingerprint_tcp because check_ts_tcp()
            depends on having original SYN / SYN+ACK data. */
 
-			ck_free(f->client->last_syn);
+			free(f->client->last_syn);
 			f->client->last_syn = tsig;
 		}
 
@@ -1234,7 +1234,7 @@ static void flow_dispatch(struct packet_data *pk) {
 		fingerprint_mtu(0, pk, f);
 		check_ts_tcp(0, pk, f);
 
-		ck_free(f->server->last_synack);
+		free(f->server->last_synack);
 		f->server->last_synack = tsig;
 
 		f->next_srv_seq = pk->seq + 1;
@@ -1293,7 +1293,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->req_len);
 
-				f->request = (uint8_t *)ck_realloc_kb(f->request, f->req_len + read_amt + 1);
+				f->request = (uint8_t *)realloc(f->request, f->req_len + read_amt + 1);
 				memcpy(f->request + f->req_len, pk->payload, read_amt);
 				f->req_len += read_amt;
 			}
@@ -1321,7 +1321,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
 
-				f->response = (uint8_t *)ck_realloc_kb(f->response, f->resp_len + read_amt + 1);
+				f->response = (uint8_t *)realloc(f->response, f->resp_len + read_amt + 1);
 				memcpy(f->response + f->resp_len, pk->payload, read_amt);
 				f->resp_len += read_amt;
 			}

@@ -395,7 +395,7 @@ void read_config(const uint8_t *fname) {
 		goto end_fp_read;
 	}
 
-	cur = data = (uint8_t *)ck_alloc(st.st_size + 1);
+	cur = data = (uint8_t *)calloc(st.st_size + 1, 1);
 
 	if (read(f, data, st.st_size) != st.st_size)
 		FATAL("Short read from '%s'.", fname);
@@ -425,7 +425,7 @@ void read_config(const uint8_t *fname) {
 
 			config_parse_line(line);
 
-			ck_free(line);
+			free(line);
 		}
 
 		if (!*eol) break;
@@ -433,7 +433,7 @@ void read_config(const uint8_t *fname) {
 		cur = eol + 1;
 	}
 
-	ck_free(data);
+	free(data);
 
 end_fp_read:
 

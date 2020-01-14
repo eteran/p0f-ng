@@ -101,12 +101,6 @@ int32_t link_type; /* PCAP link type                     */
 
 static uint8_t obs_fields; /* No of pending observation fields   */
 
-/* Memory allocator data: */
-
-#ifdef DEBUG_BUILD
-struct TRK_obj *TRK[ALLOC_BUCKETS];
-uint32_t TRK_cnt[ALLOC_BUCKETS];
-#endif /* DEBUG_BUILD */
 
 #define LOGF(...) fprintf(lf, __VA_ARGS__)
 
@@ -510,14 +504,14 @@ retry_no_vlan:
 
 		if (vlan_support) {
 
-			final_rule = (uint8_t *)ck_alloc(strlen((char *)orig_rule) * 2 + 64);
+			final_rule = (uint8_t *)calloc(strlen((char *)orig_rule) * 2 + 64, 1);
 
 			sprintf((char *)final_rule, "(tcp and (%s)) or (vlan and tcp and (%s))",
 					orig_rule, orig_rule);
 
 		} else {
 
-			final_rule = (uint8_t *)ck_alloc(strlen((char *)orig_rule) + 16);
+			final_rule = (uint8_t *)calloc(strlen((char *)orig_rule) + 16, 1);
 
 			sprintf((char *)final_rule, "tcp and (%s)", orig_rule);
 		}
@@ -529,7 +523,7 @@ retry_no_vlan:
 
 		if (vlan_support) {
 
-			if (orig_rule) ck_free(final_rule);
+			if (orig_rule) free(final_rule);
 			vlan_support = 0;
 			goto retry_no_vlan;
 		}
@@ -558,7 +552,7 @@ retry_no_vlan:
 			 orig_rule ? orig_rule : (uint8_t *)"tcp",
 			 vlan_support ? " [+VLAN]" : "");
 
-		ck_free(final_rule);
+		free(final_rule);
 	}
 }
 
@@ -724,9 +718,9 @@ static void live_event_loop() {
 
 	/* We need room for pcap, and possibly api_fd + api_clients. */
 
-	pfds = (struct pollfd *)ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) * sizeof(struct pollfd));
+	pfds = (struct pollfd *)calloc((1 + (api_sock ? (1 + api_max_conn) : 0)) * sizeof(struct pollfd), 1);
 
-	ctable = (struct api_client **)ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) * sizeof(struct api_client *));
+	ctable = (struct api_client **)calloc((1 + (api_sock ? (1 + api_max_conn) : 0)) * sizeof(struct api_client *), 1);
 
 	pfd_count = regen_pfds(pfds, ctable);
 
@@ -894,8 +888,8 @@ static void live_event_loop() {
 		}
 	}
 
-	ck_free(ctable);
-	ck_free(pfds);
+	free(ctable);
+	free(pfds);
 
 #else
 
@@ -1157,7 +1151,6 @@ int main(int argc, char **argv) {
 
 #ifdef DEBUG_BUILD
 	destroy_all_hosts();
-	TRK_report();
 #endif /* DEBUG_BUILD */
 
 	return 0;
