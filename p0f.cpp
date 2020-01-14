@@ -311,7 +311,7 @@ void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv,
 
 /* Add log item. */
 
-void add_observation_field(const char *key, uint8_t *value) {
+void add_observation_field(const char *key, const uint8_t *value) {
 
 	if (!obs_fields) FATAL("Unexpected observation field ('%s').", key);
 

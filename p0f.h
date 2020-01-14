@@ -8,8 +8,8 @@
 
  */
 
-#ifndef _HAVE_P0F_H
-#define _HAVE_P0F_H
+#ifndef HAVE_P0F_H_
+#define HAVE_P0F_H_
 
 #include "process.h"
 #include "types.h"
@@ -22,7 +22,7 @@ extern uint8_t *read_file;
 void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv,
 					   struct packet_flow *pf);
 
-void add_observation_field(const char *key, uint8_t *value);
+void add_observation_field(const char *key, const uint8_t *value);
 
 #define OBSERVF(_key, ...)                                \
 	do {                                                  \

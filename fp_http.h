@@ -8,8 +8,8 @@
 
  */
 
-#ifndef _HAVE_FP_HTTP_H
-#define _HAVE_FP_HTTP_H
+#ifndef HAVE_FP_HTTP_H_
+#define HAVE_FP_HTTP_H_
 
 #include "types.h"
 

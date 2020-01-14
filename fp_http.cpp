@@ -53,7 +53,7 @@ static uint32_t sig_cnt[2];
 static struct ua_map_record *ua_map; /* Mappings between U-A and OS        */
 static uint32_t ua_map_cnt;
 
-#define SLOF(_str) (uint8_t *)_str, strlen((char *)_str)
+#define SLOF(_str) (uint8_t *)_str, strlen((const char *)_str)
 
 /* Ghetto Bloom filter 4-out-of-64 bitmask generator for adding 32-bit header
    IDs to a set. We expect around 10 members in a set. */
@@ -511,7 +511,6 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 #define RETF(...)                                            \
 	do {                                                     \
 		int32_t _len = snprintf(NULL, 0, __VA_ARGS__);       \
-		if (_len < 0) FATAL("Whoa, snprintf() fails?!");     \
 		ret = (uint8_t *)realloc(ret, rlen + _len + 1);                 \
 		snprintf((char *)ret + rlen, _len + 1, __VA_ARGS__); \
 		rlen += _len;                                        \
@@ -864,7 +863,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 								  (lang = (uint8_t *)languages[lh][pos + 1]));
 
 	} else
-		add_observation_field("lang", (uint8_t *)"none");
+		add_observation_field("lang", (const uint8_t *)"none");
 
 	add_observation_field("params", dump_flags(&f->http_tmp, m));
 
