@@ -257,7 +257,7 @@ static void open_api() {
 	if (fcntl(api_fd, F_SETFL, O_NONBLOCK))
 		PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
 
-	api_cl = (struct api_client *)calloc(api_max_conn * sizeof(struct api_client), 1);
+	api_cl = (struct api_client *)calloc(api_max_conn, sizeof(struct api_client));
 
 	for (i = 0; i < api_max_conn; i++)
 		api_cl[i].fd = -1;
@@ -560,9 +560,7 @@ retry_no_vlan:
 
 static void drop_privs() {
 
-	struct passwd *pw;
-
-	pw = getpwnam((char *)switch_user);
+	struct passwd *pw = getpwnam((char *)switch_user);
 
 	if (!pw) FATAL("User '%s' not found.", switch_user);
 
@@ -712,17 +710,11 @@ static void live_event_loop() {
      nasty busy loop, or a ton of Windows-specific code. If you need APi
      queries on Windows, you are welcome to fix this :-) */
 
-	struct pollfd *pfds;
-	struct api_client **ctable;
-	uint32_t pfd_count;
-
 	/* We need room for pcap, and possibly api_fd + api_clients. */
+	auto pfds  = (struct pollfd *)calloc((1 + (api_sock ? (1 + api_max_conn) : 0)), sizeof(struct pollfd));
+	auto ctable = (struct api_client **)calloc((1 + (api_sock ? (1 + api_max_conn) : 0)), sizeof(struct api_client *));
 
-	pfds = (struct pollfd *)calloc((1 + (api_sock ? (1 + api_max_conn) : 0)) * sizeof(struct pollfd), 1);
-
-	ctable = (struct api_client **)calloc((1 + (api_sock ? (1 + api_max_conn) : 0)) * sizeof(struct api_client *), 1);
-
-	pfd_count = regen_pfds(pfds, ctable);
+	uint32_t pfd_count = regen_pfds(pfds, ctable);
 
 	if (!daemon_mode)
 		SAYF("[+] Entered main event loop.\n\n");
@@ -947,20 +939,13 @@ int main(int argc, char **argv) {
 
 	while ((r = getopt(argc, argv, "+LS:df:i:m:o:pr:s:t:u:")) != -1)
 		switch (r) {
-
 		case 'L':
-
 			list_interfaces();
 			exit(0);
-
 		case 'S':
-
 #ifdef __CYGWIN__
-
 			FATAL("API mode not supported on Windows (see README).");
-
 #else
-
 			if (api_max_conn != API_MAX_CONN)
 				FATAL("Multiple -S options not supported.");
 
@@ -970,7 +955,6 @@ int main(int argc, char **argv) {
 				FATAL("Outlandish value specified for -S.");
 
 			break;
-
 #endif /* ^__CYGWIN__ */
 
 		case 'd':
