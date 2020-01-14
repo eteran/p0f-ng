@@ -114,12 +114,10 @@ static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 	uint8_t use_mtu   = 0;
 	int16_t win_multi = detect_win_multi(ts, &use_mtu, syn_mss);
 
-	CP(sigs[to_srv][bucket]);
-
 	for (i = 0; i < sig_cnt[to_srv][bucket]; i++) {
 
 		struct tcp_sig_record *ref = sigs[to_srv][bucket] + i;
-		struct tcp_sig *refs       = CP(ref->sig);
+		struct tcp_sig *refs       = ref->sig;
 
 		uint8_t fuzzy       = 0;
 		uint32_t ref_quirks = refs->quirks;

@@ -62,9 +62,9 @@ target_compile_definitions(p0f
 	PUBLIC -DVERSION=\"3.09b\" -DALIGN_ACCESS -D_GNU_SOURCE -DDEBUG_BUILD
 )
 
-#target_compile_options(p0f
-#	PUBLIC -W
-#)
+target_compile_options(p0f
+	PUBLIC -W -Wall
+)
 
 target_include_directories(p0f
 	PUBLIC ${PCAP_INCLUDE_DIR}

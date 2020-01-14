@@ -210,6 +210,8 @@ uint8_t *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 
 void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data) {
 
+	(void)junk;
+
 	struct tcp_hdr *tcp;
 	struct packet_data pk = {};
 
@@ -768,7 +770,7 @@ struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 	uint32_t bucket     = get_host_bucket(addr, ip_ver);
 	struct host_data *h = host_b[bucket];
 
-	while (CP(h)) {
+	while (h) {
 
 		if (ip_ver == h->ip_ver &&
 			!memcmp(addr, h->addr, (h->ip_ver == IP_VER4) ? 4 : 16))
@@ -786,7 +788,7 @@ static void destroy_host(struct host_data *h) {
 
 	uint32_t bucket;
 
-	bucket = get_host_bucket(CP(h)->addr, h->ip_ver);
+	bucket = get_host_bucket(h->addr, h->ip_ver);
 
 	if (h->use_cnt) FATAL("Attempt to destroy used host data.");
 
@@ -795,21 +797,21 @@ static void destroy_host(struct host_data *h) {
 
 	/* Remove it from the bucketed linked list. */
 
-	if (CP(h->next)) h->next->prev = h->prev;
+	if (h->next) h->next->prev = h->prev;
 
-	if (CP(h->prev))
+	if (h->prev)
 		h->prev->next = h->next;
 	else
 		host_b[bucket] = h->next;
 
 	/* Remove from the by-age linked list. */
 
-	if (CP(h->newer))
+	if (h->newer)
 		h->newer->older = h->older;
 	else
 		newest_host = h->older;
 
-	if (CP(h->older))
+	if (h->older)
 		h->older->newer = h->newer;
 	else
 		host_by_age = h->newer;
@@ -839,7 +841,7 @@ static void nuke_hosts(void) {
 
 	nuke_flows(1);
 
-	while (kcnt && CP(target)) {
+	while (kcnt && target) {
 		struct host_data *next = target->older;
 		if (!target->use_cnt) {
 			kcnt--;
@@ -865,7 +867,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	/* Insert into the bucketed linked list. */
 
-	if (CP(host_b[bucket])) {
+	if (host_b[bucket]) {
 		host_b[bucket]->prev = nh;
 		nh->next             = host_b[bucket];
 	}
@@ -874,7 +876,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	/* Insert into the by-age linked list. */
 
-	if (CP(newest_host)) {
+	if (newest_host) {
 
 		newest_host->newer = nh;
 		nh->older          = newest_host;
@@ -906,18 +908,15 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 static void touch_host(struct host_data *h) {
 
-	CP(h);
-
 	DEBUG("[#] Refreshing host data: %s\n", addr_to_str(h->addr, h->ip_ver));
 
-	if (h != CP(newest_host)) {
+	if (h != newest_host) {
 
 		/* Remove from the the by-age linked list. */
 
-		CP(h->newer);
 		h->newer->older = h->older;
 
-		if (CP(h->older))
+		if (h->older)
 			h->older->newer = h->newer;
 		else
 			host_by_age = h->newer;
@@ -943,10 +942,6 @@ static void touch_host(struct host_data *h) {
 
 static void destroy_flow(struct packet_flow *f) {
 
-	CP(f);
-	CP(f->client);
-	CP(f->server);
-
 	DEBUG("[#] Destroying flow: %s/%u -> ",
 		  addr_to_str(f->client->addr, f->client->ip_ver), f->cli_port);
 
@@ -956,25 +951,23 @@ static void destroy_flow(struct packet_flow *f) {
 
 	/* Remove it from the bucketed linked list. */
 
-	if (CP(f->next)) f->next->prev = f->prev;
+	if (f->next) f->next->prev = f->prev;
 
-	if (CP(f->prev))
+	if (f->prev)
 		f->prev->next = f->next;
 	else {
-		CP(flow_b[f->bucket]);
 		flow_b[f->bucket] = f->next;
 	}
 
 	/* Remove from the by-age linked list. */
 
-	if (CP(f->newer))
+	if (f->newer)
 		f->newer->older = f->older;
 	else {
-		CP(newest_flow);
 		newest_flow = f->older;
 	}
 
-	if (CP(f->older))
+	if (f->older)
 		f->older->newer = f->newer;
 	else
 		flow_by_age = f->newer;
@@ -1049,7 +1042,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 
 	/* Insert into the bucketed linked list.*/
 
-	if (CP(flow_b[bucket])) {
+	if (flow_b[bucket]) {
 		flow_b[bucket]->prev = nf;
 		nf->next             = flow_b[bucket];
 	}
@@ -1058,7 +1051,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 
 	/* Insert into the by-age linked list */
 
-	if (CP(newest_flow)) {
+	if (newest_flow) {
 		newest_flow->newer = nf;
 		nf->older          = newest_flow;
 	} else
@@ -1086,10 +1079,7 @@ static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) 
 	uint32_t bucket       = get_flow_bucket(pk);
 	struct packet_flow *f = flow_b[bucket];
 
-	while (CP(f)) {
-
-		CP(f->client);
-		CP(f->server);
+	while (f) {
 
 		if (pk->ip_ver != f->client->ip_ver) goto lookup_next;
 
@@ -1130,12 +1120,12 @@ static void expire_cache(void) {
 
 	DEBUG("[#] Cache expiration kicks in...\n");
 
-	while (CP(flow_by_age) && ct - flow_by_age->created > conn_max_age)
+	while (flow_by_age && ct - flow_by_age->created > conn_max_age)
 		destroy_flow(flow_by_age);
 
 	target = host_by_age;
 
-	while (CP(target) && ct - target->last_seen > host_idle_limit * 60) {
+	while (target && ct - target->last_seen > host_idle_limit * 60) {
 		struct host_data *newer = target->newer;
 		if (!target->use_cnt) destroy_host(target);
 		target = newer;
@@ -1480,8 +1470,6 @@ void verify_tool_class(uint8_t to_srv, struct packet_flow *f, uint32_t *sys, uin
 		hd = f->client;
 	else
 		hd = f->server;
-
-	CP(sys);
 
 	/* No existing data; although there is perhaps some value in detecting
      app-only conflicts in absence of other info, it's probably OK to just

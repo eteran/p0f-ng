@@ -19,8 +19,6 @@
 #include "debug.h"
 #include "types.h"
 
-#define CP(_p) (_p)
-
 static inline void *DFL_ck_alloc(uint32_t size) {
 	if (!size) return NULL;
 	return calloc(size, 1);
