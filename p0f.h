@@ -14,15 +14,15 @@
 #include "process.h"
 #include "types.h"
 
-extern u8 daemon_mode;
-extern s32 link_type;
-extern u32 max_conn, max_hosts, conn_max_age, host_idle_limit, hash_seed;
-extern u8 *read_file;
+extern uint8_t daemon_mode;
+extern int32_t link_type;
+extern uint32_t max_conn, max_hosts, conn_max_age, host_idle_limit, hash_seed;
+extern uint8_t *read_file;
 
-void start_observation(char *keyword, u8 field_cnt, u8 to_srv,
+void start_observation(char *keyword, uint8_t field_cnt, uint8_t to_srv,
 					   struct packet_flow *pf);
 
-void add_observation_field(char *key, u8 *value);
+void add_observation_field(char *key, uint8_t *value);
 
 #define OBSERVF(_key, ...)                        \
 	do {                                          \
@@ -37,13 +37,13 @@ void add_observation_field(char *key, u8 *value);
 
 struct api_client {
 
-	s32 fd; /* -1 if slot free                    */
+	int32_t fd; /* -1 if slot free                    */
 
 	struct p0f_api_query in_data; /* Query recv buffer                  */
-	u32 in_off;                   /* Query buffer offset                */
+	uint32_t in_off;              /* Query buffer offset                */
 
 	struct p0f_api_response out_data; /* Response transmit buffer           */
-	u32 out_off;                      /* Response buffer offset             */
+	uint32_t out_off;                 /* Response buffer offset             */
 };
 
 #endif /* !_HAVE_P0F_H */
