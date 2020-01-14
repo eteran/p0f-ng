@@ -64,6 +64,18 @@
 #define O_LARGEFILE 0
 #endif /* !O_LARGEFILE */
 
+uint8_t *read_file;                         /* File to read pcap data from        */
+uint32_t max_conn        = MAX_CONN;        /* Connection entry count limit       */
+uint32_t max_hosts       = MAX_HOSTS;       /* Host cache entry count limit       */
+uint32_t conn_max_age    = CONN_MAX_AGE;    /* Maximum age of a connection entry  */
+uint32_t host_idle_limit = HOST_IDLE_LIMIT; /* Host cache idle timeout            */
+uint8_t daemon_mode;                        /* Running in daemon mode?            */
+int32_t link_type;                          /* PCAP link type                     */
+
+#define LOGF(...) fprintf(p0f_context.lf, __VA_ARGS__)
+
+namespace {
+
 struct p0f_context_t {
 	uint8_t *use_iface        = nullptr;      /* Interface to listen on             */
 	uint8_t *orig_rule        = nullptr;      /* Original filter rule               */
@@ -80,32 +92,18 @@ struct p0f_context_t {
 	FILE *lf = nullptr; /* Log file stream                    */
 
 	uint8_t stop_soon = 0; /* Ctrl-C or so pressed?              */
+
+	uint8_t set_promisc = 0; /* Use promiscuous mode?              */
+
+	pcap_t *pt = nullptr; /* PCAP capture thingy                */
+
+	uint8_t obs_fields = 0; /* No of pending observation fields   */
 };
 
-static p0f_context_t p0f_context;
-
-uint8_t *read_file; /* File to read pcap data from        */
-
-uint32_t max_conn        = MAX_CONN;        /* Connection entry count limit       */
-uint32_t max_hosts       = MAX_HOSTS;       /* Host cache entry count limit       */
-uint32_t conn_max_age    = CONN_MAX_AGE;    /* Maximum age of a connection entry  */
-uint32_t host_idle_limit = HOST_IDLE_LIMIT; /* Host cache idle timeout            */
-
-uint8_t daemon_mode; /* Running in daemon mode?            */
-
-static uint8_t set_promisc; /* Use promiscuous mode?              */
-
-static pcap_t *pt; /* PCAP capture thingy                */
-
-int32_t link_type; /* PCAP link type                     */
-
-static uint8_t obs_fields; /* No of pending observation fields   */
-
-#define LOGF(...) fprintf(p0f_context.lf, __VA_ARGS__)
+p0f_context_t p0f_context;
 
 /* Display usage information */
-
-static void usage() {
+[[noreturn]] void usage() {
 
 	ERRORF(
 
@@ -151,7 +149,7 @@ static void usage() {
 }
 
 /* Get rid of unnecessary file descriptors */
-static void close_spare_fds() {
+void close_spare_fds() {
 
 	int32_t i, closed = 0;
 	DIR *d;
@@ -178,8 +176,7 @@ static void close_spare_fds() {
 }
 
 /* Create or open log file */
-
-static void open_log() {
+void open_log() {
 
 	struct stat st;
 	int32_t log_fd;
@@ -213,8 +210,7 @@ static void open_log() {
 }
 
 /* Create and start listening on API socket */
-
-static void open_api() {
+void open_api() {
 
 	int32_t old_umask;
 	uint32_t i;
@@ -265,73 +261,15 @@ static void open_api() {
 		 p0f_context.api_sock, p0f_context.api_max_conn);
 }
 
-/* Open log entry. */
-
-void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const struct packet_flow *f) {
-
-	if (obs_fields) FATAL("Premature end of observation.");
-
-	if (!daemon_mode) {
-
-		SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
-			 f->cli_port);
-		SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
-			 f->srv_port, keyword);
-
-		SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server",
-			 addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
-			 to_srv ? f->cli_port : f->srv_port);
-	}
-
-	if (p0f_context.log_file) {
-
-		uint8_t tmp[64];
-
-		time_t ut     = get_unix_time();
-		struct tm *lt = localtime(&ut);
-
-		strftime((char *)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
-
-		LOGF("[%s] mod=%s|cli=%s/%u|", tmp, keyword, addr_to_str(f->client->addr, f->client->ip_ver), f->cli_port);
-
-		LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
-			 f->srv_port, to_srv ? "cli" : "srv");
-	}
-
-	obs_fields = field_cnt;
-}
-
-/* Add log item. */
-
-void add_observation_field(const char *key, const uint8_t *value) {
-
-	if (!obs_fields) FATAL("Unexpected observation field ('%s').", key);
-
-	if (!daemon_mode)
-		SAYF("| %-8s = %s\n", key, value ? value : (const uint8_t *)"???");
-
-	if (p0f_context.log_file) LOGF("|%s=%s", key, value ? value : (const uint8_t *)"???");
-
-	obs_fields--;
-
-	if (!obs_fields) {
-
-		if (!daemon_mode) SAYF("|\n`----\n\n");
-
-		if (p0f_context.log_file) LOGF("\n");
-	}
-}
-
 /* Show PCAP interface list */
-
-static void list_interfaces() {
+void list_interfaces() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
 	pcap_if_t *dev;
 	uint8_t i = 0;
 
 	/* There is a bug in several years' worth of libpcap releases that causes it
-     to SEGV here if /sys/class/net is not readable. See http://goo.gl/nEnGx */
+	 to SEGV here if /sys/class/net is not readable. See http://goo.gl/nEnGx */
 
 	if (access("/sys/class/net", R_OK | X_OK) && errno != ENOENT)
 		FATAL("This operation requires access to /sys/class/net/, sorry.");
@@ -373,10 +311,8 @@ static void list_interfaces() {
 }
 
 #ifdef __CYGWIN__
-
 /* List PCAP-recognized interfaces */
-
-static uint8_t *find_interface(int num) {
+uint8_t *find_interface(int num) {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
 	pcap_if_t *dev;
@@ -400,15 +336,14 @@ static uint8_t *find_interface(int num) {
 #endif /* __CYGWIN__ */
 
 /* Initialize PCAP capture */
-
-static void prepare_pcap() {
+void prepare_pcap() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
 	uint8_t *orig_iface = p0f_context.use_iface;
 
 	if (read_file) {
 
-		if (set_promisc)
+		if (p0f_context.set_promisc)
 			FATAL("Dude, how am I supposed to make a file promiscuous?");
 
 		if (p0f_context.use_iface)
@@ -417,9 +352,9 @@ static void prepare_pcap() {
 		if (access((char *)read_file, R_OK))
 			PFATAL("Can't access file '%s'.", read_file);
 
-		pt = pcap_open_offline((char *)read_file, pcap_err);
+		p0f_context.pt = pcap_open_offline((char *)read_file, pcap_err);
 
-		if (!pt) FATAL("pcap_open_offline: %s", pcap_err);
+		if (!p0f_context.pt) FATAL("pcap_open_offline: %s", pcap_err);
 
 		SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
 
@@ -428,7 +363,7 @@ static void prepare_pcap() {
 		if (!p0f_context.use_iface) {
 
 			/* See the earlier note on libpcap SEGV - same problem here.
-         Also, this returns something stupid on Windows, but hey... */
+		 Also, this returns something stupid on Windows, but hey... */
 
 			if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT)
 				p0f_context.use_iface = (uint8_t *)pcap_lookupdev(pcap_err);
@@ -441,7 +376,7 @@ static void prepare_pcap() {
 #ifdef __CYGWIN__
 
 		/* On Windows, interface names are unwieldy, and people prefer to use
-       numerical IDs. */
+	   numerical IDs. */
 
 		else {
 
@@ -452,14 +387,14 @@ static void prepare_pcap() {
 			}
 		}
 
-		pt = pcap_open_live((char *)use_iface, SNAPLEN, set_promisc, 250, pcap_err);
+		p0f_context.pt = pcap_open_live((char *)use_iface, SNAPLEN, p0f_context.set_promisc, 250, pcap_err);
 
 #else
 
 		/* PCAP timeouts tend to be broken, so we'll use a very small value
-       and rely on select() instead. */
+	   and rely on select() instead. */
 
-		pt = pcap_open_live((char *)p0f_context.use_iface, SNAPLEN, set_promisc, 5, pcap_err);
+		p0f_context.pt = pcap_open_live((char *)p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 5, pcap_err);
 
 #endif /* ^__CYGWIN__ */
 
@@ -468,15 +403,14 @@ static void prepare_pcap() {
 		else
 			SAYF("[+] Intercepting traffic on interface '%s'.\n", p0f_context.use_iface);
 
-		if (!pt) FATAL("pcap_open_live: %s", pcap_err);
+		if (!p0f_context.pt) FATAL("pcap_open_live: %s", pcap_err);
 	}
 
-	link_type = pcap_datalink(pt);
+	link_type = pcap_datalink(p0f_context.pt);
 }
 
 /* Initialize BPF filtering */
-
-static void prepare_bpf() {
+void prepare_bpf() {
 
 	struct bpf_program flt;
 	memset(&flt, 0, sizeof(flt));
@@ -485,9 +419,9 @@ static void prepare_bpf() {
 	uint8_t vlan_support = 0;
 
 	/* VLAN matching is somewhat brain-dead: you need to request it explicitly,
-     and it alters the semantics of the remainder of the expression. */
+	 and it alters the semantics of the remainder of the expression. */
 
-	vlan_support = (pcap_datalink(pt) == DLT_EN10MB);
+	vlan_support = (pcap_datalink(p0f_context.pt) == DLT_EN10MB);
 
 retry_no_vlan:
 
@@ -518,7 +452,7 @@ retry_no_vlan:
 
 	DEBUG("[#] Computed rule: %s\n", final_rule);
 
-	if (pcap_compile(pt, &flt, (char *)final_rule, 1, 0)) {
+	if (pcap_compile(p0f_context.pt, &flt, (char *)final_rule, 1, 0)) {
 
 		if (vlan_support) {
 
@@ -527,7 +461,7 @@ retry_no_vlan:
 			goto retry_no_vlan;
 		}
 
-		pcap_perror(pt, "[-] pcap_compile");
+		pcap_perror(p0f_context.pt, "[-] pcap_compile");
 
 		if (!p0f_context.orig_rule)
 			FATAL("pcap_compile() didn't work, strange");
@@ -535,7 +469,7 @@ retry_no_vlan:
 			FATAL("Syntax error! See 'man tcpdump' for help on filters.");
 	}
 
-	if (pcap_setfilter(pt, &flt))
+	if (pcap_setfilter(p0f_context.pt, &flt))
 		FATAL("pcap_setfilter() didn't work, strange.");
 
 	pcap_freecode(&flt);
@@ -556,12 +490,12 @@ retry_no_vlan:
 }
 
 /* Drop privileges and chroot(), with some sanity checks */
-
-static void drop_privs() {
+void drop_privs() {
 
 	struct passwd *pw = getpwnam((char *)p0f_context.switch_user);
 
-	if (!pw) FATAL("User '%s' not found.", p0f_context.switch_user);
+	if (!pw)
+		FATAL("User '%s' not found.", p0f_context.switch_user);
 
 	if (!strcmp(pw->pw_dir, "/"))
 		FATAL("User '%s' must have a dedicated home directory.", p0f_context.switch_user);
@@ -598,46 +532,39 @@ static void drop_privs() {
 }
 
 /* Enter daemon mode. */
+void fork_off() {
 
-static void fork_off() {
-
-	int32_t npid;
-
-	fflush(0);
-
-	npid = fork();
+	fflush(nullptr);
+	int32_t npid = fork();
 
 	if (npid < 0) PFATAL("fork() failed.");
 
 	if (!npid) {
 
 		/* Let's assume all this is fairly unlikely to fail, so we can live
-       with the parent possibly proclaiming success prematurely. */
+	   with the parent possibly proclaiming success prematurely. */
 
 		if (dup2(p0f_context.null_fd, 0) < 0) PFATAL("dup2() failed.");
 
 		/* If stderr is redirected to a file, keep that fd and use it for
-       normal output. */
-
+		 * normal output. */
 		if (isatty(2)) {
-
 			if (dup2(p0f_context.null_fd, 1) < 0 || dup2(p0f_context.null_fd, 2) < 0)
 				PFATAL("dup2() failed.");
-
 		} else {
-
-			if (dup2(2, 1) < 0) PFATAL("dup2() failed.");
+			if (dup2(2, 1) < 0)
+				PFATAL("dup2() failed.");
 		}
 
 		close(p0f_context.null_fd);
 		p0f_context.null_fd = -1;
 
-		if (chdir("/")) PFATAL("chdir('/') failed.");
+		if (chdir("/"))
+			PFATAL("chdir('/') failed.");
 
 		setsid();
 
 	} else {
-
 		SAYF("[+] Daemon process created, PID %u (stderr %s).\n", npid,
 			 isatty(2) ? "not kept" : "kept as-is");
 
@@ -648,38 +575,41 @@ static void fork_off() {
 }
 
 /* Handler for Ctrl-C and related signals */
-
-static void abort_handler(int sig) {
+void abort_handler(int sig) {
 	(void)sig;
-	if (p0f_context.stop_soon) exit(1);
+
+	if (p0f_context.stop_soon)
+		exit(1);
+
 	p0f_context.stop_soon = 1;
 }
 
 #ifndef __CYGWIN__
-
 /* Regenerate pollfd data for poll() */
+uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
+	uint32_t i;
+	uint32_t count = 2;
 
-static uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
-	uint32_t i, count = 2;
-
-	pfds[0].fd     = pcap_fileno(pt);
+	pfds[0].fd     = pcap_fileno(p0f_context.pt);
 	pfds[0].events = (POLLIN | POLLERR | POLLHUP);
 
 	DEBUG("[#] Recomputing pollfd data, pcap_fd = %d.\n", pfds[0].fd);
 
-	if (!p0f_context.api_sock) return 1;
+	if (!p0f_context.api_sock)
+		return 1;
 
 	pfds[1].fd     = p0f_context.api_fd;
 	pfds[1].events = (POLLIN | POLLERR | POLLHUP);
 
 	for (i = 0; i < p0f_context.api_max_conn; i++) {
 
-		if (p0f_context.api_cl[i].fd == -1) continue;
+		if (p0f_context.api_cl[i].fd == -1)
+			continue;
 
 		ctable[count] = p0f_context.api_cl + i;
 
 		/* If we haven't received a complete query yet, wait for POLLIN.
-       Otherwise, we want to write stuff. */
+		 * Otherwise, we want to write stuff. */
 
 		if (p0f_context.api_cl[i].in_off < sizeof(struct p0f_api_query))
 			pfds[count].events = (POLLIN | POLLERR | POLLHUP);
@@ -691,23 +621,20 @@ static uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 
 	return count;
 }
-
 #endif /* !__CYGWIN__ */
 
 /* Event loop! Accepts and dispatches pcap data, API queries, etc. */
-
-static void live_event_loop() {
-
+void live_event_loop() {
 #ifndef __CYGWIN__
 
 	/* The huge problem with winpcap on cygwin is that you can't get a file
-     descriptor suitable for poll() / select() out of it:
+	 descriptor suitable for poll() / select() out of it:
 
-     http://www.winpcap.org/pipermail/winpcap-users/2009-April/003179.html
+	 http://www.winpcap.org/pipermail/winpcap-users/2009-April/003179.html
 
-     The only alternatives seem to be additional processes / threads, a
-     nasty busy loop, or a ton of Windows-specific code. If you need APi
-     queries on Windows, you are welcome to fix this :-) */
+	 The only alternatives seem to be additional processes / threads, a
+	 nasty busy loop, or a ton of Windows-specific code. If you need APi
+	 queries on Windows, you are welcome to fix this :-) */
 
 	/* We need room for pcap, and possibly p0f_context.api_fd + api_clients. */
 	auto pfds   = (struct pollfd *)calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct pollfd));
@@ -724,10 +651,10 @@ static void live_event_loop() {
 		uint32_t cur;
 
 		/* We had a 250 ms timeout to keep Ctrl-C responsive without resortng
-       to silly sigaction hackery or unsafe signal handler code. Unfortunately,
-       if poll() timeout is much longer than pcap timeout, we end up with
-       dropped packets on VMs. Seems like a kernel bug, but for now, this
-       loop is a bit busier than it needs to be... */
+	   to silly sigaction hackery or unsafe signal handler code. Unfortunately,
+	   if poll() timeout is much longer than pcap timeout, we end up with
+	   dropped packets on VMs. Seems like a kernel bug, but for now, this
+	   loop is a bit busier than it needs to be... */
 
 	poll_again:
 
@@ -800,7 +727,7 @@ static void live_event_loop() {
 
 					/* Process traffic on the capture interface. */
 
-					if (pcap_dispatch(pt, -1, (pcap_handler)parse_packet, 0) < 0)
+					if (pcap_dispatch(p0f_context.pt, -1, (pcap_handler)parse_packet, 0) < 0)
 						FATAL("Packet capture interface is down.");
 
 					break;
@@ -876,17 +803,16 @@ static void live_event_loop() {
 	free(pfds);
 
 #else
-
 	if (!daemon_mode)
 		SAYF("[+] Entered main event loop.\n\n");
 
 	/* Ugh. The only way to keep SIGINT and other signals working is to have this
-     funny loop with dummy I/O every 250 ms. Signal handlers don't get called
-     in pcap_dispatch() or pcap_loop() unless there's I/O. */
+	 funny loop with dummy I/O every 250 ms. Signal handlers don't get called
+	 in pcap_dispatch() or pcap_loop() unless there's I/O. */
 
 	while (!stop_soon) {
 
-		int32_t ret = pcap_dispatch(pt, -1, (pcap_handler)parse_packet, 0);
+		int32_t ret = pcap_dispatch(p0f_context.pt, -1, (pcap_handler)parse_packet, 0);
 
 		if (ret < 0) return;
 
@@ -896,19 +822,17 @@ static void live_event_loop() {
 	}
 
 #endif /* ^!__CYGWIN__ */
-
 	WARN("User-initiated shutdown.");
 }
 
 /* Simple event loop for processing offline captures. */
-
-static void offline_event_loop() {
+void offline_event_loop() {
 
 	if (!daemon_mode)
 		SAYF("[+] Processing capture data.\n\n");
 
 	while (!p0f_context.stop_soon) {
-		if (pcap_dispatch(pt, -1, (pcap_handler)parse_packet, nullptr) <= 0) {
+		if (pcap_dispatch(p0f_context.pt, -1, (pcap_handler)parse_packet, nullptr) <= 0) {
 			return;
 		}
 	}
@@ -916,8 +840,64 @@ static void offline_event_loop() {
 	WARN("User-initiated shutdown.");
 }
 
-/* Main entry point */
+}
 
+/* Open log entry. */
+void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const struct packet_flow *f) {
+
+	if (p0f_context.obs_fields) FATAL("Premature end of observation.");
+
+	if (!daemon_mode) {
+
+		SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
+			 f->cli_port);
+		SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
+			 f->srv_port, keyword);
+
+		SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server",
+			 addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
+			 to_srv ? f->cli_port : f->srv_port);
+	}
+
+	if (p0f_context.log_file) {
+
+		uint8_t tmp[64];
+
+		time_t ut     = get_unix_time();
+		struct tm *lt = localtime(&ut);
+
+		strftime((char *)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
+
+		LOGF("[%s] mod=%s|cli=%s/%u|", tmp, keyword, addr_to_str(f->client->addr, f->client->ip_ver), f->cli_port);
+
+		LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
+			 f->srv_port, to_srv ? "cli" : "srv");
+	}
+
+	p0f_context.obs_fields = field_cnt;
+}
+
+/* Add log item. */
+void add_observation_field(const char *key, const uint8_t *value) {
+
+	if (!p0f_context.obs_fields) FATAL("Unexpected observation field ('%s').", key);
+
+	if (!daemon_mode)
+		SAYF("| %-8s = %s\n", key, value ? value : (const uint8_t *)"???");
+
+	if (p0f_context.log_file) LOGF("|%s=%s", key, value ? value : (const uint8_t *)"???");
+
+	p0f_context.obs_fields--;
+
+	if (!p0f_context.obs_fields) {
+
+		if (!daemon_mode) SAYF("|\n`----\n\n");
+
+		if (p0f_context.log_file) LOGF("\n");
+	}
+}
+
+/* Main entry point */
 int main(int argc, char **argv) {
 
 	int32_t r;
@@ -995,10 +975,10 @@ int main(int argc, char **argv) {
 			break;
 
 		case 'p':
-			if (set_promisc)
+			if (p0f_context.set_promisc)
 				FATAL("Even more promiscuous? People will start talking!");
 
-			set_promisc = 1;
+			p0f_context.set_promisc = 1;
 			break;
 
 		case 'r':

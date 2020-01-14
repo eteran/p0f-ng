@@ -59,7 +59,7 @@ add_executable(p0f
 )
 
 target_compile_definitions(p0f
-	PUBLIC -DVERSION=\"3.09b\" -DALIGN_ACCESS -D_GNU_SOURCE -DDEBUG_BUILD
+	PUBLIC -DVERSION=\"3.09b\" -D_GNU_SOURCE -DDEBUG_BUILD
 )
 
 target_compile_options(p0f

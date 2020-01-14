@@ -11,13 +11,10 @@
 #ifndef HAVE_TYPES_H_
 #define HAVE_TYPES_H_
 
-#include <stdint.h>
+#include <cstdint>
+#include <cstring>
 
-/* Macros for non-aligned memory access. */
-
-#ifdef ALIGN_ACCESS
-#include <string.h>
-
+/* for non-aligned memory access. */
 inline uint16_t RD16p(const void *ptr) {
 	uint16_t _ret;
 	memcpy(&_ret, ptr, 2);
@@ -32,12 +29,5 @@ inline uint32_t RD32p(const void *ptr) {
 
 #define RD16(_val) RD16p(&_val)
 #define RD32(_val) RD32p(&_val)
-
-#else
-#define RD16(_val) ((uint16_t)_val)
-#define RD32(_val) ((uint32_t)_val)
-#define RD16p(_ptr) (*((uint16_t *)(_ptr)))
-#define RD32p(_ptr) (*((uint32_t *)(_ptr)))
-#endif /* ^ALIGN_ACCESS */
 
 #endif /* ! _HAVE_TYPES_H */
