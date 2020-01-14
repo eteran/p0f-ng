@@ -8,8 +8,8 @@
 
  */
 
-#ifndef _HAVE_DEBUG_H
-#define _HAVE_DEBUG_H
+#ifndef HAVE_DEBUG_H_
+#define HAVE_DEBUG_H_
 
 #include "config.h"
 #include "types.h"

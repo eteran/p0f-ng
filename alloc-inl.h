@@ -19,25 +19,11 @@
 #include "debug.h"
 #include "types.h"
 
-#define ALLOC_MAGIC 0xFF00
-#define ALLOC_MAGIC_F 0xFE00
-
-#define ALLOC_C(_ptr) (((uint16_t *)(_ptr))[-3])
-#define ALLOC_S(_ptr) (((uint32_t *)(_ptr))[-1])
-
 #define CP(_p) (_p)
 
 static inline void *DFL_ck_alloc(uint32_t size) {
 	if (!size) return NULL;
 	return calloc(size, 1);
-}
-
-static inline void *DFL_ck_realloc(void *orig, uint32_t size) {
-	return realloc(orig, size);
-}
-
-static inline void *DFL_ck_realloc_kb(void *orig, uint32_t size) {
-	return DFL_ck_realloc(orig, size);
 }
 
 static inline uint8_t *DFL_ck_strdup(uint8_t *str) {
@@ -76,12 +62,12 @@ static inline uint8_t *DFL_ck_memdup_str(uint8_t *mem, uint32_t size) {
 /* Non-debugging mode - straightforward aliasing. */
 
 #define ck_alloc DFL_ck_alloc
-#define ck_realloc DFL_ck_realloc
-#define ck_realloc_kb DFL_ck_realloc_kb
+#define ck_realloc realloc
+#define ck_realloc_kb realloc
 #define ck_strdup DFL_ck_strdup
 #define ck_memdup DFL_ck_memdup
 #define ck_memdup_str DFL_ck_memdup_str
-#define ck_free DFL_ck_free
+#define ck_free free
 
 #else
 
@@ -92,7 +78,8 @@ static inline uint8_t *DFL_ck_memdup_str(uint8_t *mem, uint32_t size) {
 
 struct TRK_obj {
 	void *ptr;
-	char *file, *func;
+	const char *file;
+	const char *func;
 	uint32_t line;
 };
 
@@ -114,12 +101,10 @@ static inline void TRK_alloc_buf(void *ptr, const char *file, const char *func,
 	bucket = TRKH(ptr);
 
 	for (i = 0; i < TRK_cnt[bucket]; i++)
-
 		if (!TRK[bucket][i].ptr) {
-
 			TRK[bucket][i].ptr  = ptr;
-			TRK[bucket][i].file = (char *)file;
-			TRK[bucket][i].func = (char *)func;
+			TRK[bucket][i].file = file;
+			TRK[bucket][i].func = func;
 			TRK[bucket][i].line = line;
 			return;
 		}
@@ -127,14 +112,12 @@ static inline void TRK_alloc_buf(void *ptr, const char *file, const char *func,
 	/* No space available. */
 
 	if (!(i % ALLOC_TRK_CHUNK)) {
-
-		TRK[bucket] = DFL_ck_realloc(TRK[bucket],
-									 (TRK_cnt[bucket] + ALLOC_TRK_CHUNK) * sizeof(struct TRK_obj));
+		TRK[bucket] = realloc(TRK[bucket], (TRK_cnt[bucket] + ALLOC_TRK_CHUNK) * sizeof(struct TRK_obj));
 	}
 
 	TRK[bucket][i].ptr  = ptr;
-	TRK[bucket][i].file = (char *)file;
-	TRK[bucket][i].func = (char *)func;
+	TRK[bucket][i].file = file;
+	TRK[bucket][i].func = func;
 	TRK[bucket][i].line = line;
 
 	TRK_cnt[bucket]++;
@@ -191,7 +174,7 @@ static inline void *TRK_ck_alloc(uint32_t size, const char *file, const char *fu
 static inline void *TRK_ck_realloc(void *orig, uint32_t size, const char *file,
 								   const char *func, uint32_t line) {
 
-	void *ret = DFL_ck_realloc(orig, size);
+	void *ret = realloc(orig, size);
 	TRK_free_buf(orig, file, func, line);
 	TRK_alloc_buf(ret, file, func, line);
 	return ret;
@@ -200,7 +183,7 @@ static inline void *TRK_ck_realloc(void *orig, uint32_t size, const char *file,
 static inline void *TRK_ck_realloc_kb(void *orig, uint32_t size, const char *file,
 									  const char *func, uint32_t line) {
 
-	void *ret = DFL_ck_realloc_kb(orig, size);
+	void *ret = realloc(orig, size);
 	TRK_free_buf(orig, file, func, line);
 	TRK_alloc_buf(ret, file, func, line);
 	return ret;
@@ -261,14 +244,5 @@ static inline void TRK_ck_free(void *ptr, const char *file,
 	TRK_ck_free(_p1, __FILE__, __func__, __LINE__)
 
 #endif /* ^!DEBUG_BUILD */
-
-#define alloc_printf(...) ({                         \
-	uint8_t *_tmp;                                   \
-	int32_t _len = snprintf(NULL, 0, __VA_ARGS__);   \
-	if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
-	_tmp = ck_alloc(_len + 1);                       \
-	snprintf((char *)_tmp, _len + 1, __VA_ARGS__);   \
-	_tmp;                                            \
-})
 
 #endif /* ! HAVE_ALLOC_INL_H_ */
