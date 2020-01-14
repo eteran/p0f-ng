@@ -359,17 +359,22 @@ void prepare_pcap() {
 		SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
 
 	} else {
-
 		if (!p0f_context.use_iface) {
-
 			/* See the earlier note on libpcap SEGV - same problem here.
-		 Also, this returns something stupid on Windows, but hey... */
+			 * Also, this returns something stupid on Windows, but hey... */
 
-			if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT)
-				p0f_context.use_iface = pcap_lookupdev(pcap_err);
+			if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT) {
+				pcap_if_t *alldevs = nullptr;
+				char error[PCAP_ERRBUF_SIZE];
+				if(pcap_findalldevs(&alldevs, error) == 0) {
+					p0f_context.use_iface = alldevs->name;
+					pcap_freealldevs(alldevs);
+				}
+			}
 
-			if (!p0f_context.use_iface)
+			if (!p0f_context.use_iface) {
 				FATAL("libpcap is out of ideas; use -i to specify interface.");
+			}
 
 		}
 
@@ -647,9 +652,6 @@ void live_event_loop() {
 
 	while (!p0f_context.stop_soon) {
 
-		int32_t pret, i;
-		uint32_t cur;
-
 		/* We had a 250 ms timeout to keep Ctrl-C responsive without resortng
 	   to silly sigaction hackery or unsafe signal handler code. Unfortunately,
 	   if poll() timeout is much longer than pcap timeout, we end up with
@@ -658,7 +660,7 @@ void live_event_loop() {
 
 	poll_again:
 
-		pret = poll(pfds, pfd_count, 10);
+		int32_t pret = poll(pfds, pfd_count, 10);
 
 		if (pret < 0) {
 			if (errno == EINTR) break;
@@ -673,7 +675,7 @@ void live_event_loop() {
 
 		/* Examine pfds... */
 
-		for (cur = 0; cur < pfd_count; cur++) {
+		for (uint32_t cur = 0; cur < pfd_count; cur++) {
 			if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
 				case 0:
 					FATAL("Packet capture interface is down.");
@@ -690,23 +692,19 @@ void live_event_loop() {
 					goto poll_again;
 				}
 
-			if (pfds[cur].revents & POLLOUT) switch (cur) {
-
+			if (pfds[cur].revents & POLLOUT)
+				switch (cur) {
 				case 0:
 				case 1:
-
 					FATAL("Unexpected POLLOUT on fd %d.\n", cur);
-
-				default:
+				default: {
 
 					/* Write API response, restart state when complete. */
 
 					if (ctable[cur]->in_off < sizeof(struct p0f_api_query))
 						FATAL("Inconsistent p0f_api_response state.\n");
 
-					i = write(pfds[cur].fd,
-							  (&ctable[cur]->out_data) + ctable[cur]->out_off,
-							  sizeof(struct p0f_api_response) - ctable[cur]->out_off);
+					ssize_t i = write(pfds[cur].fd, (&ctable[cur]->out_data) + ctable[cur]->out_off, sizeof(struct p0f_api_response) - ctable[cur]->out_off);
 
 					if (i <= 0) PFATAL("write() on API socket fails despite POLLOUT.");
 
@@ -720,28 +718,24 @@ void live_event_loop() {
 						pfds[cur].events                           = (POLLIN | POLLERR | POLLHUP);
 					}
 				}
+				}
 
-			if (pfds[cur].revents & POLLIN) switch (cur) {
-
+			if (pfds[cur].revents & POLLIN)
+				switch (cur) {
 				case 0:
-
 					/* Process traffic on the capture interface. */
-
 					if (pcap_dispatch(p0f_context.pt, -1, (pcap_handler)parse_packet, 0) < 0)
 						FATAL("Packet capture interface is down.");
-
 					break;
-
 				case 1:
-
 					/* Accept new API connection, limits permitting. */
-
-					if (!p0f_context.api_sock) FATAL("Unexpected API connection.");
+					if (!p0f_context.api_sock)
+						FATAL("Unexpected API connection.");
 
 					if (pfd_count - 2 < p0f_context.api_max_conn) {
-
-						for (i = 0; i < p0f_context.api_max_conn && p0f_context.api_cl[i].fd >= 0; i++)
-							;
+						uint32_t i;
+						for (i = 0; i < p0f_context.api_max_conn && p0f_context.api_cl[i].fd >= 0; i++) {
+						}
 
 						if (i == p0f_context.api_max_conn) FATAL("Inconsistent API connection data.");
 
@@ -769,18 +763,17 @@ void live_event_loop() {
 
 					break;
 
-				default:
-
+				default: {
 					/* Receive API query, dispatch when complete. */
-
 					if (ctable[cur]->in_off >= sizeof(struct p0f_api_query))
 						FATAL("Inconsistent p0f_api_query state.\n");
 
-					i = read(pfds[cur].fd,
+					ssize_t i = read(pfds[cur].fd,
 							 (&ctable[cur]->in_data) + ctable[cur]->in_off,
 							 sizeof(struct p0f_api_query) - ctable[cur]->in_off);
 
-					if (i < 0) PFATAL("read() on API socket fails despite POLLIN.");
+					if (i < 0)
+						PFATAL("read() on API socket fails despite POLLIN.");
 
 					ctable[cur]->in_off += i;
 
@@ -791,6 +784,7 @@ void live_event_loop() {
 						handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
 						pfds[cur].events = (POLLOUT | POLLERR | POLLHUP);
 					}
+				}
 				}
 
 			/* Processed all reported updates already? If so, bail out early. */
