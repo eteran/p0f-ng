@@ -16,7 +16,7 @@
 
 extern uint8_t daemon_mode;
 extern int32_t link_type;
-extern uint32_t max_conn, max_hosts, conn_max_age, host_idle_limit, hash_seed;
+extern uint32_t max_conn, max_hosts, conn_max_age, host_idle_limit;
 extern uint8_t *read_file;
 
 void start_observation(char *keyword, uint8_t field_cnt, uint8_t to_srv,

@@ -17,7 +17,7 @@
 
 #define LANG_HASH(_b0, _b1) (((_b0) * (_b1) ^ (_b1)) & 0xff)
 
-static char *languages[256][MAX_LANG * 2 + 1] = {
+static const char *languages[256][MAX_LANG * 2 + 1] = {
 
 	/* 0x00 */ {0},
 	/* 0x01 */ {"ro", "Romanian", 0},

@@ -8,8 +8,8 @@
 
  */
 
-#ifndef _HAVE_READFP_H
-#define _HAVE_READFP_H
+#ifndef HAVE_READFP_H_
+#define HAVE_READFP_H_
 
 #include "types.h"
 

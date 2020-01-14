@@ -8,8 +8,8 @@
 
  */
 
-#ifndef _HAVE_CONFIG_H
-#define _HAVE_CONFIG_H
+#ifndef HAVE_CONFIG_H_
+#define HAVE_CONFIG_H_
 
 #include "types.h"
 
@@ -60,10 +60,6 @@
 #ifndef MAX_DIST
 #define MAX_DIST 35
 #endif /* !MAX_DIST */
-
-/* Detect use-after-free, at the expense of some performance cost: */
-
-#define CHECK_UAF 1
 
 /************************
  * Really obscure stuff *

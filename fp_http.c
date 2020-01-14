@@ -59,7 +59,7 @@ static uint32_t ua_map_cnt;
    IDs to a set. We expect around 10 members in a set. */
 
 static inline uint64_t bloom4_64(uint32_t val) {
-	uint32_t hash = hash32(&val, 4, hash_seed);
+	uint32_t hash = hash32(&val, 4);
 	uint64_t ret;
 	ret = (1ULL << (hash & 63));
 	ret ^= (1ULL << ((hash >> 8) & 63));
@@ -72,7 +72,7 @@ static inline uint64_t bloom4_64(uint32_t val) {
 
 static int32_t lookup_hdr(uint8_t *name, uint32_t len, uint8_t create) {
 
-	uint32_t bucket = hash32(name, len, hash_seed) % SIG_BUCKETS;
+	uint32_t bucket = hash32(name, len) % SIG_BUCKETS;
 
 	uint32_t *p = hdr_by_hash[bucket];
 	uint32_t i  = hbh_cnt[bucket];

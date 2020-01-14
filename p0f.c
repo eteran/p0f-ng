@@ -99,8 +99,6 @@ static pcap_t *pt; /* PCAP capture thingy                */
 
 int32_t link_type; /* PCAP link type                     */
 
-uint32_t hash_seed; /* Hash seed                          */
-
 static uint8_t obs_fields; /* No of pending observation fields   */
 
 /* Memory allocator data: */
@@ -159,28 +157,7 @@ static void usage(void) {
 	exit(1);
 }
 
-/* Obtain hash seed: */
-
-static void get_hash_seed(void) {
-
-	int32_t f = open("/dev/urandom", O_RDONLY);
-
-	if (f < 0) PFATAL("Cannot open /dev/urandom for reading.");
-
-#ifndef DEBUG_BUILD
-
-	/* In debug versions, use a constant seed. */
-
-	if (read(f, &hash_seed, sizeof(hash_seed)) != sizeof(hash_seed))
-		FATAL("Cannot read data from /dev/urandom.");
-
-#endif /* !DEBUG_BUILD */
-
-	close(f);
-}
-
 /* Get rid of unnecessary file descriptors */
-
 static void close_spare_fds(void) {
 
 	int32_t i, closed = 0;
@@ -197,7 +174,7 @@ static void close_spare_fds(void) {
 	}
 
 	while ((de = readdir(d))) {
-		i = atol(de->d_name);
+		i = atoi(de->d_name);
 		if (i > 2 && !close(i)) closed++;
 	}
 
@@ -1147,8 +1124,6 @@ int main(int argc, char **argv) {
 	setlocale(LC_TIME, "C");
 
 	close_spare_fds();
-
-	get_hash_seed();
 
 	http_init();
 

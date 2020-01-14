@@ -740,12 +740,12 @@ static uint32_t get_flow_bucket(struct packet_data *pk) {
 	uint32_t bucket;
 
 	if (pk->ip_ver == IP_VER4) {
-		bucket = hash32(pk->src, 4, hash_seed) ^ hash32(pk->dst, 4, hash_seed);
+		bucket = hash32(pk->src, 4) ^ hash32(pk->dst, 4);
 	} else {
-		bucket = hash32(pk->src, 16, hash_seed) ^ hash32(pk->dst, 16, hash_seed);
+		bucket = hash32(pk->src, 16) ^ hash32(pk->dst, 16);
 	}
 
-	bucket ^= hash32(&pk->sport, 2, hash_seed) ^ hash32(&pk->dport, 2, hash_seed);
+	bucket ^= hash32(&pk->sport, 2) ^ hash32(&pk->dport, 2);
 
 	return bucket % FLOW_BUCKETS;
 }
@@ -756,7 +756,7 @@ static uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket;
 
-	bucket = hash32(addr, (ip_ver == IP_VER4) ? 4 : 16, hash_seed);
+	bucket = hash32(addr, (ip_ver == IP_VER4) ? 4 : 16);
 
 	return bucket % HOST_BUCKETS;
 }

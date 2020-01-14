@@ -9,14 +9,16 @@
 
  */
 
-#ifndef _HAVE_HASH_H
-#define _HAVE_HASH_H
+#ifndef HAVE_HASH_H_
+#define HAVE_HASH_H_
 
 #include "types.h"
 
 #define ROL32(_x, _r) (((_x) << (_r)) | ((_x) >> (32 - (_r))))
 
-static inline uint32_t hash32(const void *key, uint32_t len, uint32_t seed) {
+static inline uint32_t hash32(const void *key, uint32_t len) {
+
+	uint32_t seed = 0;
 
 	uint32_t a, b, c;
 	const uint8_t *k = key;
@@ -136,4 +138,4 @@ static inline uint32_t hash32(const void *key, uint32_t len, uint32_t seed) {
 	return c;
 }
 
-#endif /* !_HAVE_HASH_H */
+#endif /* !HAVE_HASH_H_ */

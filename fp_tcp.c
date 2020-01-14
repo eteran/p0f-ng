@@ -543,7 +543,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 
 	val++;
 
-	opt_hash = hash32(opt_layout, opt_cnt, hash_seed);
+	opt_hash = hash32(opt_layout, opt_cnt);
 
 	/* Quirks */
 
@@ -732,7 +732,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 
 static void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
 
-	ts->opt_hash = hash32(pk->opt_layout, pk->opt_cnt, hash_seed);
+	ts->opt_hash = hash32(pk->opt_layout, pk->opt_cnt);
 
 	ts->quirks      = pk->quirks;
 	ts->opt_eol_pad = pk->opt_eol_pad;
