@@ -58,15 +58,15 @@ struct p0f_api_response {
 	uint8_t bad_sw;     /* Host is lying about U-A / Server   */
 	uint8_t os_match_q; /* Match quality                      */
 
-	uint8_t os_name[P0F_STR_MAX + 1];   /* Name of detected OS                */
-	uint8_t os_flavor[P0F_STR_MAX + 1]; /* Flavor of detected OS              */
+	char os_name[P0F_STR_MAX + 1];   /* Name of detected OS                */
+	char os_flavor[P0F_STR_MAX + 1]; /* Flavor of detected OS              */
 
-	uint8_t http_name[P0F_STR_MAX + 1];   /* Name of detected HTTP app          */
-	uint8_t http_flavor[P0F_STR_MAX + 1]; /* Flavor of detected HTTP app        */
+	char http_name[P0F_STR_MAX + 1];   /* Name of detected HTTP app          */
+	char http_flavor[P0F_STR_MAX + 1]; /* Flavor of detected HTTP app        */
 
-	uint8_t link_type[P0F_STR_MAX + 1]; /* Link type                          */
+	char link_type[P0F_STR_MAX + 1]; /* Link type                          */
 
-	uint8_t language[P0F_STR_MAX + 1]; /* Language                           */
+	char language[P0F_STR_MAX + 1]; /* Language                           */
 
 } __attribute__((packed));
 

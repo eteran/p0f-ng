@@ -428,9 +428,9 @@ retry_no_vlan:
 	if (!p0f_context.orig_rule) {
 
 		if (vlan_support) {
-			final_rule = "tcp or (vlan and tcp)";
+			final_rule = (char *)"tcp or (vlan and tcp)";
 		} else {
-			final_rule = "tcp";
+			final_rule = (char *)"tcp";
 		}
 
 	} else {
