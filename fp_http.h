@@ -16,7 +16,7 @@
 /* A structure used for looking up various headers internally in fp_http.c: */
 
 struct http_id {
-	char *name;
+	const char *name;
 	uint32_t id;
 };
 
