@@ -105,8 +105,8 @@ static int16_t detect_win_multi(struct tcp_sig *ts, uint8_t *use_mtu, uint16_t s
 static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 						   uint16_t syn_mss) {
 
-	struct tcp_sig_record *fmatch = NULL;
-	struct tcp_sig_record *gmatch = NULL;
+	struct tcp_sig_record *fmatch = nullptr;
+	struct tcp_sig_record *gmatch = nullptr;
 
 	uint32_t bucket = ts->opt_hash % SIG_BUCKETS;
 	uint32_t i;
@@ -745,7 +745,7 @@ static void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
 	ts->tot_hdr     = pk->tot_hdr;
 	ts->ts1         = pk->ts1;
 	ts->recv_ms     = get_unix_time_ms();
-	ts->matched     = NULL;
+	ts->matched     = nullptr;
 	ts->fuzzy       = 0;
 	ts->dist        = 0;
 }
@@ -764,7 +764,7 @@ static uint8_t *dump_sig(struct packet_data *pk, struct tcp_sig *ts, uint16_t sy
 
 #define RETF(...)                                            \
 	do {                                                     \
-		int32_t _len = snprintf(NULL, 0, __VA_ARGS__);       \
+		int32_t _len = snprintf(nullptr, 0, __VA_ARGS__);       \
 		if (_len < 0) FATAL("Whoa, snprintf() fails?!");     \
 		ret = (uint8_t*)realloc(ret, rlen + _len + 1);                 \
 		snprintf((char *)ret + rlen, _len + 1, __VA_ARGS__); \
@@ -1180,7 +1180,7 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk,
 
 	} else {
 
-		add_observation_field("os", NULL);
+		add_observation_field("os", nullptr);
 	}
 
 	if (m && m->bad_ttl) {
@@ -1208,12 +1208,12 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk,
 	if (m && m->class_id == -1) {
 		verify_tool_class(to_srv, f, m->sys, m->sys_cnt);
 		ck_free(sig);
-		return NULL;
+		return nullptr;
 	}
 
 	if (f->sendsyn) {
 		ck_free(sig);
-		return NULL;
+		return nullptr;
 	}
 
 	score_nat(to_srv, sig, f);

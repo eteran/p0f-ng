@@ -82,7 +82,7 @@ static void config_parse_classes(uint8_t *val) {
 
 /* Look up or create OS or application id. */
 
-uint32_t lookup_name_id(uint8_t *name, uint8_t len) {
+uint32_t lookup_name_id(const uint8_t *name, uint8_t len) {
 
 	uint32_t i;
 
@@ -162,7 +162,7 @@ static void config_parse_label(uint8_t *val) {
 	if (nxt[1])
 		sig_flavor = DFL_ck_strdup(nxt + 1);
 	else
-		sig_flavor = NULL;
+		sig_flavor = nullptr;
 
 	label_id++;
 }
@@ -172,7 +172,7 @@ static void config_parse_label(uint8_t *val) {
 static void config_parse_sys(uint8_t *val) {
 
 	if (cur_sys) {
-		cur_sys     = NULL;
+		cur_sys     = nullptr;
 		cur_sys_cnt = 0;
 	}
 
@@ -234,14 +234,14 @@ static void config_parse_sys(uint8_t *val) {
 
 static void config_parse_line(uint8_t *line) {
 
-	uint8_t *val = NULL;
-	uint8_t *eon = NULL;
+	uint8_t *val = nullptr;
+	uint8_t *eon = nullptr;
 
 	/* Special handling for [module:direction]... */
 
 	if (*line == '[') {
 
-		uint8_t *dir = NULL;
+		uint8_t *dir = nullptr;
 
 		line++;
 
@@ -379,7 +379,7 @@ static void config_parse_line(uint8_t *line) {
 
 /* Top-level file parsing. */
 
-void read_config(uint8_t *fname) {
+void read_config(const uint8_t *fname) {
 
 	int32_t f;
 	struct stat st;

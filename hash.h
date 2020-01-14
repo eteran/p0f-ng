@@ -16,7 +16,7 @@
 
 #define ROL32(_x, _r) (((_x) << (_r)) | ((_x) >> (32 - (_r))))
 
-static inline uint32_t hash32(const void *key, uint32_t len) {
+inline uint32_t hash32(const void *key, uint32_t len) {
 
 	uint32_t seed = 0;
 

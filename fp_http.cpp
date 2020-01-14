@@ -33,6 +33,14 @@
 #include "fp_http.h"
 #include "languages.h"
 
+
+static struct http_id req_optional[sizeof(req_optional_init) / sizeof(http_id)];
+static struct http_id resp_optional[sizeof(resp_optional_init) / sizeof(http_id)];
+static struct http_id req_common[sizeof(req_common_init) / sizeof(http_id)];
+static struct http_id resp_common[sizeof(resp_common_init) / sizeof(http_id)];
+static struct http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
+static struct http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
+
 struct header_name {
 	size_t size;
 	uint8_t *name;
@@ -58,7 +66,7 @@ static uint32_t ua_map_cnt;
 /* Ghetto Bloom filter 4-out-of-64 bitmask generator for adding 32-bit header
    IDs to a set. We expect around 10 members in a set. */
 
-static inline uint64_t bloom4_64(uint32_t val) {
+inline uint64_t bloom4_64(uint32_t val) {
 	uint32_t hash = hash32(&val, 4);
 	uint64_t ret;
 	ret = (1ULL << (hash & 63));
@@ -69,8 +77,7 @@ static inline uint64_t bloom4_64(uint32_t val) {
 }
 
 /* Look up or register new header */
-
-static int32_t lookup_hdr(uint8_t *name, uint32_t len, uint8_t create) {
+static int32_t lookup_hdr(const uint8_t *name, uint32_t len, uint8_t create) {
 
 	uint32_t bucket = hash32(name, len) % SIG_BUCKETS;
 
@@ -78,7 +85,8 @@ static int32_t lookup_hdr(uint8_t *name, uint32_t len, uint8_t create) {
 	uint32_t i  = hbh_cnt[bucket];
 
 	while (i--) {
-		if (hdr_names[*p].size == len && !memcmp(hdr_names[*p].name, name, len) && !hdr_names[*p].name[len]) return *p;
+		if (hdr_names[*p].size == len && !memcmp(hdr_names[*p].name, name, len) && !hdr_names[*p].name[len])
+			return *p;
 		p++;
 	}
 
@@ -90,8 +98,7 @@ static int32_t lookup_hdr(uint8_t *name, uint32_t len, uint8_t create) {
 	hdr_names[hdr_cnt].name = DFL_ck_memdup_str(name, len);
 	hdr_names[hdr_cnt].size = len;
 
-	hdr_by_hash[bucket] = (uint32_t *)realloc(hdr_by_hash[bucket],
-								  (hbh_cnt[bucket] + 1) * 4);
+	hdr_by_hash[bucket] = (uint32_t *)realloc(hdr_by_hash[bucket], (hbh_cnt[bucket] + 1) * 4);
 
 	hdr_by_hash[bucket][hbh_cnt[bucket]++] = hdr_cnt++;
 
@@ -101,10 +108,17 @@ static int32_t lookup_hdr(uint8_t *name, uint32_t len, uint8_t create) {
 /* Pre-register essential headers. */
 
 void http_init(void) {
+
+	memcpy(&req_optional, &req_optional_init, sizeof(req_optional));
+	memcpy(&resp_optional, &resp_optional_init, sizeof(resp_optional));
+	memcpy(&req_common, &req_common_init, sizeof(req_common));
+	memcpy(&resp_common, &resp_common_init, sizeof(resp_common));
+	memcpy(&req_skipval, &req_skipval_init, sizeof(req_skipval));
+	memcpy(&resp_skipval, &resp_skipval_init, sizeof(resp_skipval));
+
 	uint32_t i;
 
 	/* Do not change - other code depends on the ordering of first 6 entries. */
-
 	lookup_hdr(SLOF("User-Agent"), 1);      /* 0 */
 	lookup_hdr(SLOF("Server"), 1);          /* 1 */
 	lookup_hdr(SLOF("Accept-Language"), 1); /* 2 */
@@ -160,7 +174,7 @@ void http_init(void) {
 
 static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_det) {
 
-	struct http_sig_record *gmatch = NULL;
+	struct http_sig_record *gmatch = nullptr;
 	struct http_sig_record *ref    = sigs[to_srv];
 	uint32_t cnt                   = sig_cnt[to_srv];
 
@@ -172,12 +186,12 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver) goto next_sig;
 
 		/* Check that all the headers listed for the p0f.fp signature (probably)
-       appear in the examined traffic. */
+		 * appear in the examined traffic. */
 
 		if ((ts->hdr_bloom4 & rs->hdr_bloom4) != rs->hdr_bloom4) goto next_sig;
 
-		/* Confirm the ordering and values of headers (this is relatively
-       slow, hence the Bloom filter first). */
+		/* Confirm the ordering and values of headers (this is relatively slow,
+		 * hence the Bloom filter first). */
 
 		while (rs_hdr < rs->hdr_cnt) {
 
@@ -192,7 +206,7 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 				if (!rs->hdr[rs_hdr].optional) goto next_sig;
 
 				/* If this is an optional header, check that it doesn't appear
-           anywhere else. */
+				 * anywhere else. */
 
 				for (ts_hdr = 0; ts_hdr < ts->hdr_cnt; ts_hdr++)
 					if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id) goto next_sig;
@@ -212,9 +226,8 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 		}
 
 		/* Check that the headers forbidden in p0f.fp don't appear in the traffic.
-       We first check if they seem to appear in ts->hdr_bloom4, and only if so,
-       we do a full check. */
-
+		 * We first check if they seem to appear in ts->hdr_bloom4, and only if so,
+		 * we do a full check. */
 		for (rs_hdr = 0; rs_hdr < rs->miss_cnt; rs_hdr++) {
 
 			uint64_t miss_bloom4 = bloom4_64(rs->miss[rs_hdr]);
@@ -222,13 +235,13 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 			if ((ts->hdr_bloom4 & miss_bloom4) != miss_bloom4) continue;
 
 			/* Okay, possible instance of a banned header - scan list... */
-
 			for (ts_hdr = 0; ts_hdr < ts->hdr_cnt; ts_hdr++)
 				if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id) goto next_sig;
 		}
 
-		/* When doing dupe detection, we want to allow a signature with additional
-       banned headers to precede one with fewer, or with a different set. */
+		/* When doing dupe detection, we want to allow a signature with
+		 * additional banned headers to precede one with fewer,
+		 * or with a different set. */
 
 		if (dupe_det) {
 
@@ -246,13 +259,12 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 		}
 
 		/* Whoa, a match. */
-
 		if (!ref->generic) {
-
 			ts->matched = ref;
 
-			if (rs->sw && ts->sw && !strstr((char *)ts->sw, (char *)rs->sw))
+			if (rs->sw && ts->sw && !strstr((char *)ts->sw, (char *)rs->sw)) {
 				ts->dishonest = 1;
+			}
 
 			return;
 
@@ -444,7 +456,7 @@ void http_parse_ua(uint8_t *val, uint32_t line_no) {
 	while (*val) {
 
 		uint32_t id;
-		uint8_t *name = NULL;
+		uint8_t *name = nullptr;
 
 		nxt = val;
 		while (*nxt && (isalnum(*nxt) || strchr(NAME_CHARS, *nxt)))
@@ -510,7 +522,7 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 
 #define RETF(...)                                            \
 	do {                                                     \
-		int32_t _len = snprintf(NULL, 0, __VA_ARGS__);       \
+		int32_t _len = snprintf(nullptr, 0, __VA_ARGS__);       \
 		ret = (uint8_t *)realloc(ret, rlen + _len + 1);                 \
 		snprintf((char *)ret + rlen, _len + 1, __VA_ARGS__); \
 		rlen += _len;                                        \
@@ -535,8 +547,7 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 
 			if (list->name) optional = 1;
 
-			RETF("%s%s%s", had_prev ? "," : "", optional ? "?" : "",
-				 hdr_names[hsig->hdr[i].id].name);
+			RETF("%s%s%s", had_prev ? "," : "", optional ? "?" : "", hdr_names[hsig->hdr[i].id].name);
 			had_prev = 1;
 
 			if (!(val = hsig->hdr[i].value)) continue;
@@ -678,7 +689,7 @@ static void score_nat(uint8_t to_srv, struct packet_flow *f) {
 
 		/* If the signature is for a different port, don't read too much into it. */
 
-		if (hd->http_resp_port != f->srv_port) ref = NULL;
+		if (hd->http_resp_port != f->srv_port) ref = nullptr;
 	}
 
 	if (!m) {
@@ -829,7 +840,7 @@ header_check:
 static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 
 	struct http_sig_record *m;
-	uint8_t *lang = NULL;
+	uint8_t *lang = nullptr;
 
 	http_find_match(to_srv, &f->http_tmp, 0);
 
@@ -842,7 +853,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 				m->flavor ? m->flavor : (uint8_t *)"");
 
 	} else
-		add_observation_field("app", NULL);
+		add_observation_field("app", nullptr);
 
 	if (f->http_tmp.lang && isalpha(f->http_tmp.lang[0]) &&
 		isalpha(f->http_tmp.lang[1]) && !isalpha(f->http_tmp.lang[2])) {
@@ -857,7 +868,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 		}
 
 		if (!languages[lh][pos])
-			add_observation_field("lang", NULL);
+			add_observation_field("lang", nullptr);
 		else
 			add_observation_field("lang",
 								  (lang = (uint8_t *)languages[lh][pos + 1]));
@@ -881,9 +892,9 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 		f->server->http_resp = (struct http_sig *)ck_memdup(&f->http_tmp, sizeof(struct http_sig));
 
 		f->server->http_resp->hdr_cnt = 0;
-		f->server->http_resp->sw      = NULL;
-		f->server->http_resp->lang    = NULL;
-		f->server->http_resp->via     = NULL;
+		f->server->http_resp->sw      = nullptr;
+		f->server->http_resp->lang    = nullptr;
+		f->server->http_resp->via     = nullptr;
 
 		f->server->http_resp_port = f->srv_port;
 
@@ -926,9 +937,9 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 												   sizeof(struct http_sig));
 
 				f->client->http_req_os->hdr_cnt = 0;
-				f->client->http_req_os->sw      = NULL;
-				f->client->http_req_os->lang    = NULL;
-				f->client->http_req_os->via     = NULL;
+				f->client->http_req_os->sw      = nullptr;
+				f->client->http_req_os->lang    = nullptr;
+				f->client->http_req_os->via     = nullptr;
 
 				f->client->last_class_id = m->class_id;
 				f->client->last_name_id  = m->name_id;

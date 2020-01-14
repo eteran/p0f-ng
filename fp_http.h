@@ -31,7 +31,7 @@ struct ua_map_record {
 
 struct http_hdr {
 	int32_t id;       /* Lookup ID (-1 = none)              */
-	uint8_t *name;    /* Text name (NULL = use lookup ID)   */
+	uint8_t *name;    /* Text name (nullptr = use lookup ID)   */
 	uint8_t *value;   /* Value, if any                      */
 	uint8_t optional; /* Optional header?                   */
 };
@@ -59,7 +59,7 @@ struct http_sig {
 
 	/* Information used for matching with p0f.fp: */
 
-	struct http_sig_record *matched; /* NULL = no match                    */
+	struct http_sig_record *matched; /* nullptr = no match                    */
 	uint8_t dishonest;               /* "sw" looks forged?                 */
 };
 

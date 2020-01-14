@@ -40,7 +40,7 @@ struct tcp_sig {
 
 	/* Information used for matching with p0f.fp: */
 
-	struct tcp_sig_record *matched; /* NULL = no match                    */
+	struct tcp_sig_record *matched; /* nullptr = no match                    */
 	uint8_t fuzzy;                  /* Approximate match?                 */
 	uint8_t dist;                   /* Distance                           */
 };

@@ -77,7 +77,7 @@ void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow 
 		if (sigs[bucket][i].mtu == mtu) break;
 
 	if (i == sig_cnt[bucket])
-		add_observation_field("link", NULL);
+		add_observation_field("link", nullptr);
 	else {
 
 		add_observation_field("link", sigs[bucket][i].name);

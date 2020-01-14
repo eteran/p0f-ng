@@ -8,6 +8,7 @@
 
  */
 
+#include <algorithm>
 #include <ctype.h>
 #include <pcap/pcap.h>
 #include <stdio.h>
@@ -141,8 +142,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 
 			if (hdr->proto == PROTO_TCP) {
 
-				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i,
-					  link_type);
+				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, link_type);
 				link_off = i;
 				break;
 			}
@@ -157,8 +157,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 
 			if (hdr->proto == PROTO_TCP) {
 
-				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i,
-					  link_type);
+				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, link_type);
 				link_off = i;
 				break;
 			}
@@ -228,7 +227,7 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 
 	/* Be paranoid about how much data we actually have off the wire. */
 
-	packet_len = MIN(hdr->len, hdr->caplen);
+	packet_len = std::min(hdr->len, hdr->caplen);
 	if (packet_len > SNAPLEN) packet_len = SNAPLEN;
 
 	// DEBUG("[#] Received packet: len = %d, caplen = %d, limit = %d\n",
@@ -520,7 +519,7 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 
 	if (tcp_doff == packet_len) {
 
-		pk.payload = NULL;
+		pk.payload = nullptr;
 		pk.pay_len = 0;
 
 	} else {
@@ -779,7 +778,7 @@ struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 		h = h->next;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 /* Destroy host data. */
@@ -925,7 +924,7 @@ static void touch_host(struct host_data *h) {
 
 		newest_host->newer = h;
 		h->older           = newest_host;
-		h->newer           = NULL;
+		h->newer           = nullptr;
 
 		newest_host = h;
 
@@ -1104,7 +1103,7 @@ static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) 
 		f = f->next;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 /* Go through host and flow cache, expire outdated items. */
@@ -1295,7 +1294,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 			if (f->req_len < MAX_FLOW_DATA && pk->pay_len) {
 
-				uint32_t read_amt = MIN(pk->pay_len, MAX_FLOW_DATA - f->req_len);
+				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->req_len);
 
 				f->request = (uint8_t *)ck_realloc_kb(f->request, f->req_len + read_amt + 1);
 				memcpy(f->request + f->req_len, pk->payload, read_amt);
@@ -1323,7 +1322,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 			if (f->resp_len < MAX_FLOW_DATA && pk->pay_len) {
 
-				uint32_t read_amt = MIN(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
+				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
 
 				f->response = (uint8_t *)ck_realloc_kb(f->response, f->resp_len + read_amt + 1);
 				memcpy(f->response + f->resp_len, pk->payload, read_amt);
@@ -1364,8 +1363,8 @@ void add_nat_score(uint8_t to_srv, struct packet_flow *f, uint16_t reason, uint8
 
 	static uint8_t rea[1024];
 
-	struct host_data *hd = NULL;
-	uint8_t *scores      = NULL;
+	struct host_data *hd = nullptr;
+	uint8_t *scores      = nullptr;
 	uint8_t *rptr        = rea;
 	uint32_t i           = 0;
 	uint8_t over_5       = 0;
@@ -1454,7 +1453,7 @@ void add_nat_score(uint8_t to_srv, struct packet_flow *f, uint16_t reason, uint8
 
 #undef REAF
 
-	add_observation_field("reason", rea[0] ? (rea + 1) : NULL);
+	add_observation_field("reason", rea[0] ? (rea + 1) : nullptr);
 
 	OBSERVF("raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
 }
@@ -1463,7 +1462,7 @@ void add_nat_score(uint8_t to_srv, struct packet_flow *f, uint16_t reason, uint8
 
 void verify_tool_class(uint8_t to_srv, struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt) {
 
-	struct host_data *hd = NULL;
+	struct host_data *hd = nullptr;
 	uint32_t i           = 0;
 
 	if (to_srv)

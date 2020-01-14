@@ -489,7 +489,7 @@ static void prepare_bpf(void) {
 	struct bpf_program flt;
 	memset(&flt, 0, sizeof(flt));
 
-	uint8_t *final_rule  = NULL;
+	uint8_t *final_rule  = nullptr;
 	uint8_t vlan_support = 0;
 
 	/* VLAN matching is somewhat brain-dead: you need to request it explicitly,
@@ -725,11 +725,9 @@ static void live_event_loop(void) {
 
 	/* We need room for pcap, and possibly api_fd + api_clients. */
 
-	pfds = (struct pollfd *)ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) *
-					sizeof(struct pollfd));
+	pfds = (struct pollfd *)ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) * sizeof(struct pollfd));
 
-	ctable = (struct api_client **)ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) *
-					  sizeof(struct api_client *));
+	ctable = (struct api_client **)ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) * sizeof(struct api_client *));
 
 	pfd_count = regen_pfds(pfds, ctable);
 
@@ -843,7 +841,7 @@ static void live_event_loop(void) {
 
 						if (i == api_max_conn) FATAL("Inconsistent API connection data.");
 
-						api_cl[i].fd = accept(api_fd, NULL, NULL);
+						api_cl[i].fd = accept(api_fd, nullptr, nullptr);
 
 						if (api_cl[i].fd < 0) {
 
@@ -917,7 +915,7 @@ static void live_event_loop(void) {
 
 		if (log_file && !ret) fflush(lf);
 
-		write(2, NULL, 0);
+		write(2, nullptr, 0);
 	}
 
 #endif /* ^!__CYGWIN__ */
@@ -933,8 +931,9 @@ static void offline_event_loop(void) {
 		SAYF("[+] Processing capture data.\n\n");
 
 	while (!stop_soon) {
-
-		if (pcap_dispatch(pt, -1, (pcap_handler)parse_packet, 0) <= 0) return;
+		if (pcap_dispatch(pt, -1, (pcap_handler)parse_packet, nullptr) <= 0) {
+			return;
+		}
 	}
 
 	WARN("User-initiated shutdown.");

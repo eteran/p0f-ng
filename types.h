@@ -13,23 +13,18 @@
 
 #include <stdint.h>
 
-#ifndef MIN
-#define MIN(_a, _b) ((_a) > (_b) ? (_b) : (_a))
-#define MAX(_a, _b) ((_a) > (_b) ? (_a) : (_b))
-#endif /* !MIN */
-
 /* Macros for non-aligned memory access. */
 
 #ifdef ALIGN_ACCESS
 #include <string.h>
 
-static inline uint16_t RD16p(const void *ptr) {
+inline uint16_t RD16p(const void *ptr) {
 	uint16_t _ret;
 	memcpy(&_ret, ptr, 2);
 	return _ret;
 }
 
-static inline uint32_t RD32p(const void *ptr) {
+inline uint32_t RD32p(const void *ptr) {
 	uint32_t _ret;
 	memcpy(&_ret, ptr, 4);
 	return _ret;

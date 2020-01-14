@@ -63,7 +63,7 @@ target_compile_definitions(p0f
 )
 
 target_compile_options(p0f
-	PUBLIC -W -Wall
+	PUBLIC -Wall -W -pedantic -Wshadow -Wpointer-arith -Wundef -Wchar-subscripts -Wcomment -Wdeprecated-declarations -Wdisabled-optimization -Wdiv-by-zero -Wfloat-equal -Wformat-extra-args -Wformat-security -Wformat-y2k -Wmain -Wmissing-braces -Wmissing-format-attribute -Wmultichar -Wparentheses -Wreturn-type -Wsequence-point -Wshadow -Wsign-compare -Wswitch -Wtrigraphs -Wunknown-pragmas -Wunused -Wunused-function -Wunused-label -Wunused-parameter -Wunused-value  -Wunused-variable -Wwrite-strings -Wcast-align  -Wextra -Wattributes -Wendif-labels -Winit-self -Wint-to-pointer-cast -Winvalid-pch -Wmissing-field-initializers -Wnonnull -Woverflow -Wvla -Wstrict-aliasing -Wvariadic-macros -Wvolatile-register-var -Wmissing-include-dirs -Wmissing-declarations -Wformat=2  -Wno-error -Wno-missing-field-initializers -Wno-redundant-decls -Wno-undef
 )
 
 target_include_directories(p0f
@@ -75,7 +75,7 @@ target_link_libraries(p0f PUBLIC
 )
 
 
-set_property(TARGET p0f PROPERTY CXX_EXTENSIONS ON)
+set_property(TARGET p0f PROPERTY CXX_EXTENSIONS OFF)
 set_property(TARGET p0f PROPERTY CXX_STANDARD 14)
 
 
