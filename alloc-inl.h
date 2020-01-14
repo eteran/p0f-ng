@@ -17,39 +17,33 @@
 #include "config.h"
 #include "types.h"
 
-inline uint8_t *DFL_ck_strdup(const uint8_t *str) {
-	uint32_t size;
+inline uint8_t *ck_strdup(const uint8_t *str) {
+	if (!str)
+		return nullptr;
 
-	if (!str) return nullptr;
-
-	size = strlen((char *)str) + 1;
-
-	void *ret = calloc(size, 1);
+	size_t size = strlen((char *)str) + 1;
+	void *ret = malloc(size);
 	return (uint8_t *)memcpy(ret, str, size);
 }
 
-inline void *DFL_ck_memdup(const void *mem, uint32_t size) {
+inline void *ck_memdup(const void *mem, uint32_t size) {
 
-	if (!mem || !size) return nullptr;
-	void *ret = calloc(size, 1);
+	if (!mem || !size)
+		return nullptr;
+
+	void *ret = malloc(size);
 	return memcpy(ret, mem, size);
 }
 
-inline uint8_t *DFL_ck_memdup_str(const uint8_t *mem, uint32_t size) {
-	uint8_t *ret;
+inline uint8_t *ck_memdup_str(const uint8_t *mem, uint32_t size) {
 
-	if (!mem || !size) return nullptr;
+	if (!mem || !size)
+		return nullptr;
 
-	ret = (uint8_t *)calloc(size + 1, 1);
-
+	uint8_t *ret = (uint8_t *)malloc(size + 1);
 	memcpy(ret, mem, size);
 	ret[size] = 0;
-
 	return ret;
 }
-
-#define ck_strdup DFL_ck_strdup
-#define ck_memdup DFL_ck_memdup
-#define ck_memdup_str DFL_ck_memdup_str
 
 #endif /* ! HAVE_ALLOC_INL_H_ */

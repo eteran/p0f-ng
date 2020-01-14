@@ -74,7 +74,7 @@ static void config_parse_classes(uint8_t *val) {
 
 		fp_os_classes = (uint8_t **)realloc(fp_os_classes, (class_cnt + 1) * sizeof(uint8_t *));
 
-		fp_os_classes[class_cnt++] = DFL_ck_memdup_str(val, nxt - val);
+		fp_os_classes[class_cnt++] = ck_memdup_str(val, nxt - val);
 
 		val = nxt;
 	}
@@ -94,7 +94,7 @@ uint32_t lookup_name_id(const uint8_t *name, uint8_t len) {
 		sig_name = name_cnt;
 
 		fp_os_names             = (uint8_t **)realloc(fp_os_names, (name_cnt + 1) * sizeof(uint8_t *));
-		fp_os_names[name_cnt++] = DFL_ck_memdup_str(name, len);
+		fp_os_names[name_cnt++] = ck_memdup_str(name, len);
 	}
 
 	return i;
@@ -113,7 +113,7 @@ static void config_parse_label(uint8_t *val) {
 
 		if (!*val) FATAL("Empty MTU label in line %u.\n", line_no);
 
-		sig_flavor = DFL_ck_strdup(val);
+		sig_flavor = ck_strdup(val);
 		return;
 	}
 
@@ -160,7 +160,7 @@ static void config_parse_label(uint8_t *val) {
 	sig_name = lookup_name_id(val, nxt - val);
 
 	if (nxt[1])
-		sig_flavor = DFL_ck_strdup(nxt + 1);
+		sig_flavor = ck_strdup(nxt + 1);
 	else
 		sig_flavor = nullptr;
 
@@ -218,7 +218,7 @@ static void config_parse_sys(uint8_t *val) {
 
 			if (i == name_cnt) {
 				fp_os_names             = (uint8_t **)realloc(fp_os_names, (name_cnt + 1) * sizeof(uint8_t *));
-				fp_os_names[name_cnt++] = DFL_ck_memdup_str(val, nxt - val);
+				fp_os_names[name_cnt++] = ck_memdup_str(val, nxt - val);
 			}
 		}
 

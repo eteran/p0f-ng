@@ -101,7 +101,7 @@ int32_t lookup_hdr(const uint8_t *name, uint32_t len, uint8_t create) {
 
 	http_context.hdr_names = (struct header_name *)realloc(http_context.hdr_names, (http_context.hdr_cnt + 1) * sizeof(struct header_name));
 
-	http_context.hdr_names[http_context.hdr_cnt].name = DFL_ck_memdup_str(name, len);
+	http_context.hdr_names[http_context.hdr_cnt].name = ck_memdup_str(name, len);
 	http_context.hdr_names[http_context.hdr_cnt].size = len;
 
 	http_context.hdr_by_hash[bucket] = (uint32_t *)realloc(http_context.hdr_by_hash[bucket], (http_context.hbh_cnt[bucket] + 1) * 4);
@@ -376,7 +376,7 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 			if (val == nxt || !*nxt)
 				FATAL("Malformed signature in line %u.", line_no);
 
-			hsig->hdr[hsig->hdr_cnt].value = DFL_ck_memdup_str(val, nxt - val);
+			hsig->hdr[hsig->hdr_cnt].value = ck_memdup_str(val, nxt - val);
 
 			val = nxt + 1;
 		}
@@ -430,7 +430,7 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 		if (strchr((char *)val, ':'))
 			FATAL("Malformed signature in line %u.", line_no);
 
-		hsig->sw = DFL_ck_strdup(val);
+		hsig->sw = ck_strdup(val);
 	}
 
 	http_find_match(to_srv, hsig, 1);
@@ -489,7 +489,7 @@ void http_parse_ua(uint8_t *val, uint32_t line_no) {
 			if (val == nxt || !*nxt)
 				FATAL("Malformed signature in line %u.", line_no);
 
-			name = DFL_ck_memdup_str(val, nxt - val);
+			name = ck_memdup_str(val, nxt - val);
 
 			val = nxt + 1;
 		}

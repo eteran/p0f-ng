@@ -388,7 +388,7 @@ static uint8_t *find_interface(int num) {
 	do {
 
 		if (!num--) {
-			uint8_t *ret = DFL_ck_strdup((char *)dev->name);
+			uint8_t *ret = ck_strdup((char *)dev->name);
 			pcap_freealldevs(dev);
 			return ret;
 		}
