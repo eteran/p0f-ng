@@ -11,8 +11,8 @@
 
  */
 
-#ifndef _HAVE_TCP_H
-#define _HAVE_TCP_H
+#ifndef HAVE_TCP_H_
+#define HAVE_TCP_H_
 
 #include "types.h"
 
@@ -21,12 +21,12 @@
  *************/
 
 /* Protocol versions: */
-
-#define IP_VER4 0x04
-#define IP_VER6 0x06
+enum IP_VER {
+	IP_VER4 = 0x04,
+	IP_VER6 = 0x06,
+};
 
 /* IP-level ECN: */
-
 #define IP_TOS_CE 0x01  /* Congestion encountered          */
 #define IP_TOS_ECT 0x02 /* ECN supported                   */
 
@@ -56,7 +56,6 @@ struct ipv4_hdr {
 } __attribute__((packed));
 
 /* IP flags: */
-
 #define IP4_MBZ 0x8000 /* "Must be zero"                  */
 #define IP4_DF 0x4000  /* Don't fragment (usually PMTUD)  */
 #define IP4_MF 0x2000  /* More fragments coming           */
@@ -116,7 +115,6 @@ struct tcp_hdr {
 #define TCP_NS_RES 0x01 /* ECE notification via TCP        */
 
 /* Notable options: */
-
 #define TCPOPT_EOL 0    /* End of options (1)              */
 #define TCPOPT_NOP 1    /* No-op (1)                       */
 #define TCPOPT_MAXSEG 2 /* Maximum segment size (4)        */
@@ -129,7 +127,7 @@ struct tcp_hdr {
  * Other stuff *
  ***************/
 
-#define MIN_TCP4 (sizeof(struct ipv4_hdr) + sizeof(struct tcp_hdr))
-#define MIN_TCP6 (sizeof(struct ipv6_hdr) + sizeof(struct tcp_hdr))
+constexpr size_t MIN_TCP4 = (sizeof(struct ipv4_hdr) + sizeof(struct tcp_hdr));
+constexpr size_t MIN_TCP6 = (sizeof(struct ipv6_hdr) + sizeof(struct tcp_hdr));
 
-#endif /* !_HAVE_TCP_H */
+#endif /* !HAVE_TCP_H_ */

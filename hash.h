@@ -16,14 +16,15 @@
 
 #define ROL32(_x, _r) (((_x) << (_r)) | ((_x) >> (32 - (_r))))
 
-inline uint32_t hash32(const void *key, uint32_t len) {
+constexpr uint32_t hash32(const void *key, uint32_t len) {
 
 	uint32_t seed = 0;
 
-	uint32_t a, b, c;
-	const uint8_t *k = (const uint8_t *)key;
+	uint32_t a = 0xdeadbeef + len + seed;
+	uint32_t b = 0xdeadbeef + len + seed;
+	uint32_t c = 0xdeadbeef + len + seed;
 
-	a = b = c = 0xdeadbeef + len + seed;
+	const uint8_t *k = (const uint8_t *)key;
 
 	while (len > 12) {
 
@@ -55,7 +56,6 @@ inline uint32_t hash32(const void *key, uint32_t len) {
 	}
 
 	switch (len) {
-
 	case 12:
 		c += RD32p(k + 8);
 		b += RD32p(k + 4);

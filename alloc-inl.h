@@ -144,7 +144,7 @@ inline void TRK_free_buf(void *ptr, const char *file, const char *func, uint32_t
 
 /* Does a final report on all non-deallocated objects. */
 
-inline void TRK_report(void) {
+inline void TRK_report() {
 
 	uint32_t i, bucket;
 

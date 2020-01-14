@@ -60,23 +60,19 @@ static uint32_t host_cnt, flow_cnt; /* Counters for bookkeeping purposes  */
 
 static void flow_dispatch(struct packet_data *pk);
 static void nuke_flows(uint8_t silent);
-static void expire_cache(void);
+static void expire_cache();
 
 /* Get unix time in milliseconds. */
-
-uint64_t get_unix_time_ms(void) {
-
+uint64_t get_unix_time_ms() {
 	return ((uint64_t)cur_time->tv_sec) * 1000 + (cur_time->tv_usec / 1000);
 }
 
 /* Get unix time in seconds. */
-
-uint32_t get_unix_time(void) {
+time_t get_unix_time() {
 	return cur_time->tv_sec;
 }
 
 /* Find link-specific offset (pcap knows, but won't tell). */
-
 static void find_offset(const uint8_t *data, int32_t total_len) {
 
 	uint8_t i;
@@ -235,16 +231,17 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 
 	/* Account for link-level headers. */
 
-	if (link_off < 0) find_offset(data, packet_len);
+	if (link_off < 0) {
+		find_offset(data, packet_len);
+	}
 
 	if (link_off > 0) {
-
 		data += link_off;
 		packet_len -= link_off;
 	}
 
-	/* If there is no way we could have received a complete TCP packet, bail
-     out early. */
+	/* If there is no way we could have received a complete TCP packet,
+	 * bail out early. */
 
 	if (packet_len < MIN_TCP4) {
 		DEBUG("[#] Packet too short for any IPv4 + TCP headers, giving up!\n");
@@ -830,7 +827,7 @@ static void destroy_host(struct host_data *h) {
 
 /* Indiscriminately kill some of the older hosts. */
 
-static void nuke_hosts(void) {
+static void nuke_hosts() {
 
 	uint32_t kcnt            = 1 + (host_cnt * KILL_PERCENT / 100);
 	struct host_data *target = host_by_age;
@@ -1108,7 +1105,7 @@ static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) 
 
 /* Go through host and flow cache, expire outdated items. */
 
-static void expire_cache(void) {
+static void expire_cache() {
 	struct host_data *target;
 	static uint32_t pt;
 
@@ -1359,13 +1356,12 @@ static void flow_dispatch(struct packet_data *pk) {
 
 /* Add NAT score, check if alarm due. */
 
-void add_nat_score(uint8_t to_srv, struct packet_flow *f, uint16_t reason, uint8_t score) {
+void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score) {
 
 	static uint8_t rea[1024];
 
 	struct host_data *hd = nullptr;
-	uint8_t *scores      = nullptr;
-	uint8_t *rptr        = rea;
+	uint8_t *scores      = nullptr;	
 	uint32_t i           = 0;
 	uint8_t over_5       = 0;
 	uint8_t over_2       = 0;
@@ -1429,6 +1425,7 @@ void add_nat_score(uint8_t to_srv, struct packet_flow *f, uint16_t reason, uint8
 		hd->last_chg = get_unix_time();
 	}
 
+	uint8_t *rptr        = rea;
 	*rptr = 0;
 
 #define REAF(...)                                   \
@@ -1455,12 +1452,12 @@ void add_nat_score(uint8_t to_srv, struct packet_flow *f, uint16_t reason, uint8
 
 	add_observation_field("reason", rea[0] ? (rea + 1) : nullptr);
 
-	OBSERVF("raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
+	observf("raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
 }
 
 /* Verify if tool class (called from modules). */
 
-void verify_tool_class(uint8_t to_srv, struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt) {
+void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt) {
 
 	struct host_data *hd = nullptr;
 	uint32_t i           = 0;
@@ -1503,7 +1500,7 @@ void verify_tool_class(uint8_t to_srv, struct packet_flow *f, uint32_t *sys, uin
 
 /* Clean up everything. */
 
-void destroy_all_hosts(void) {
+void destroy_all_hosts() {
 
 	while (flow_by_age)
 		destroy_flow(flow_by_age);

@@ -200,14 +200,14 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 
 uint8_t *addr_to_str(uint8_t *data, uint8_t ip_ver);
 
-uint64_t get_unix_time_ms(void);
-uint32_t get_unix_time(void);
+uint64_t get_unix_time_ms();
+time_t get_unix_time();
 
-void add_nat_score(uint8_t to_srv, struct packet_flow *f, uint16_t reason, uint8_t score);
-void verify_tool_class(uint8_t to_srv, struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt);
+void add_nat_score(uint8_t to_srv, const packet_flow *f, uint16_t reason, uint8_t score);
+void verify_tool_class(uint8_t to_srv, const packet_flow *f, uint32_t *sys, uint32_t sys_cnt);
 
 struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver);
 
-void destroy_all_hosts(void);
+void destroy_all_hosts();
 
 #endif /* !_HAVE_PROCESS_H */

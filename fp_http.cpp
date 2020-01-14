@@ -11,6 +11,8 @@
 #define _FROM_FP_HTTP
 //#define _GNU_SOURCE
 
+#include <ostream>
+#include <sstream>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,43 +35,46 @@
 #include "fp_http.h"
 #include "languages.h"
 
+#define SLOF(_str) (uint8_t *)_str, strlen((const char *)_str)
 
-static struct http_id req_optional[sizeof(req_optional_init) / sizeof(http_id)];
-static struct http_id resp_optional[sizeof(resp_optional_init) / sizeof(http_id)];
-static struct http_id req_common[sizeof(req_common_init) / sizeof(http_id)];
-static struct http_id resp_common[sizeof(resp_common_init) / sizeof(http_id)];
-static struct http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
-static struct http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
+namespace {
 
 struct header_name {
 	size_t size;
 	uint8_t *name;
 };
 
-static struct header_name *hdr_names; /* List of header names by ID         */
-static uint32_t hdr_cnt;              /* Number of headers registered       */
+struct http_context_t {
+	struct http_id req_optional[sizeof(req_optional_init) / sizeof(http_id)];
+	struct http_id resp_optional[sizeof(resp_optional_init) / sizeof(http_id)];
+	struct http_id req_common[sizeof(req_common_init) / sizeof(http_id)];
+	struct http_id resp_common[sizeof(resp_common_init) / sizeof(http_id)];
+	struct http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
+	struct http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
 
-static uint32_t *hdr_by_hash[SIG_BUCKETS]; /* Hashed header names                */
-static uint32_t hbh_cnt[SIG_BUCKETS];      /* Number of headers in bucket        */
+	struct header_name *hdr_names; /* List of header names by ID         */
+	uint32_t hdr_cnt;              /* Number of headers registered       */
 
-/* Signatures aren't bucketed due to the complex matching used; but we use
-   Bloom filters to go through them quickly. */
+	uint32_t *hdr_by_hash[SIG_BUCKETS]; /* Hashed header names                */
+	uint32_t hbh_cnt[SIG_BUCKETS];      /* Number of headers in bucket        */
 
-static struct http_sig_record *sigs[2];
-static uint32_t sig_cnt[2];
+	/* Signatures aren't bucketed due to the complex matching used; but we use
+	   Bloom filters to go through them quickly. */
+	struct http_sig_record *sigs[2];
+	uint32_t sig_cnt[2];
 
-static struct ua_map_record *ua_map; /* Mappings between U-A and OS        */
-static uint32_t ua_map_cnt;
+	struct ua_map_record *ua_map; /* Mappings between U-A and OS        */
+	uint32_t ua_map_cnt;
+};
 
-#define SLOF(_str) (uint8_t *)_str, strlen((const char *)_str)
+http_context_t http_context;
+
 
 /* Ghetto Bloom filter 4-out-of-64 bitmask generator for adding 32-bit header
    IDs to a set. We expect around 10 members in a set. */
-
-inline uint64_t bloom4_64(uint32_t val) {
-	uint32_t hash = hash32(&val, 4);
-	uint64_t ret;
-	ret = (1ULL << (hash & 63));
+constexpr uint64_t bloom4_64(uint32_t val) {
+	const uint32_t hash = hash32(&val, 4);
+	uint64_t ret = (1ULL << (hash & 63));
 	ret ^= (1ULL << ((hash >> 8) & 63));
 	ret ^= (1ULL << ((hash >> 16) & 63));
 	ret ^= (1ULL << ((hash >> 24) & 63));
@@ -77,15 +82,15 @@ inline uint64_t bloom4_64(uint32_t val) {
 }
 
 /* Look up or register new header */
-static int32_t lookup_hdr(const uint8_t *name, uint32_t len, uint8_t create) {
+int32_t lookup_hdr(const uint8_t *name, uint32_t len, uint8_t create) {
 
 	uint32_t bucket = hash32(name, len) % SIG_BUCKETS;
 
-	uint32_t *p = hdr_by_hash[bucket];
-	uint32_t i  = hbh_cnt[bucket];
+	uint32_t *p = http_context.hdr_by_hash[bucket];
+	uint32_t i  = http_context.hbh_cnt[bucket];
 
 	while (i--) {
-		if (hdr_names[*p].size == len && !memcmp(hdr_names[*p].name, name, len) && !hdr_names[*p].name[len])
+		if (http_context.hdr_names[*p].size == len && !memcmp(http_context.hdr_names[*p].name, name, len) && !http_context.hdr_names[*p].name[len])
 			return *p;
 		p++;
 	}
@@ -94,27 +99,29 @@ static int32_t lookup_hdr(const uint8_t *name, uint32_t len, uint8_t create) {
 
 	if (!create) return -1;
 
-	hdr_names               = (struct header_name *)realloc(hdr_names, (hdr_cnt + 1) * sizeof(struct header_name));
-	hdr_names[hdr_cnt].name = DFL_ck_memdup_str(name, len);
-	hdr_names[hdr_cnt].size = len;
+	http_context.hdr_names = (struct header_name *)realloc(http_context.hdr_names, (http_context.hdr_cnt + 1) * sizeof(struct header_name));
 
-	hdr_by_hash[bucket] = (uint32_t *)realloc(hdr_by_hash[bucket], (hbh_cnt[bucket] + 1) * 4);
+	http_context.hdr_names[http_context.hdr_cnt].name = DFL_ck_memdup_str(name, len);
+	http_context.hdr_names[http_context.hdr_cnt].size = len;
 
-	hdr_by_hash[bucket][hbh_cnt[bucket]++] = hdr_cnt++;
+	http_context.hdr_by_hash[bucket] = (uint32_t *)realloc(http_context.hdr_by_hash[bucket], (http_context.hbh_cnt[bucket] + 1) * 4);
+	http_context.hdr_by_hash[bucket][http_context.hbh_cnt[bucket]++] = http_context.hdr_cnt++;
 
-	return hdr_cnt - 1;
+	return http_context.hdr_cnt - 1;
+}
+
 }
 
 /* Pre-register essential headers. */
 
-void http_init(void) {
+void http_init() {
 
-	memcpy(&req_optional, &req_optional_init, sizeof(req_optional));
-	memcpy(&resp_optional, &resp_optional_init, sizeof(resp_optional));
-	memcpy(&req_common, &req_common_init, sizeof(req_common));
-	memcpy(&resp_common, &resp_common_init, sizeof(resp_common));
-	memcpy(&req_skipval, &req_skipval_init, sizeof(req_skipval));
-	memcpy(&resp_skipval, &resp_skipval_init, sizeof(resp_skipval));
+	memcpy(&http_context.req_optional, &req_optional_init, sizeof(http_context.req_optional));
+	memcpy(&http_context.resp_optional, &resp_optional_init, sizeof(http_context.resp_optional));
+	memcpy(&http_context.req_common, &req_common_init, sizeof(http_context.req_common));
+	memcpy(&http_context.resp_common, &resp_common_init, sizeof(http_context.resp_common));
+	memcpy(&http_context.req_skipval, &req_skipval_init, sizeof(http_context.req_skipval));
+	memcpy(&http_context.resp_skipval, &resp_skipval_init, sizeof(http_context.resp_skipval));
 
 	uint32_t i;
 
@@ -134,38 +141,38 @@ void http_init(void) {
 #define HDR_DAT 5
 
 	i = 0;
-	while (req_optional[i].name) {
-		req_optional[i].id = lookup_hdr(SLOF(req_optional[i].name), 1);
+	while (http_context.req_optional[i].name) {
+		http_context.req_optional[i].id = lookup_hdr(SLOF(http_context.req_optional[i].name), 1);
 		i++;
 	}
 
 	i = 0;
-	while (resp_optional[i].name) {
-		resp_optional[i].id = lookup_hdr(SLOF(resp_optional[i].name), 1);
+	while (http_context.resp_optional[i].name) {
+		http_context.resp_optional[i].id = lookup_hdr(SLOF(http_context.resp_optional[i].name), 1);
 		i++;
 	}
 
 	i = 0;
-	while (req_skipval[i].name) {
-		req_skipval[i].id = lookup_hdr(SLOF(req_skipval[i].name), 1);
+	while (http_context.req_skipval[i].name) {
+		http_context.req_skipval[i].id = lookup_hdr(SLOF(http_context.req_skipval[i].name), 1);
 		i++;
 	}
 
 	i = 0;
-	while (resp_skipval[i].name) {
-		resp_skipval[i].id = lookup_hdr(SLOF(resp_skipval[i].name), 1);
+	while (http_context.resp_skipval[i].name) {
+		http_context.resp_skipval[i].id = lookup_hdr(SLOF(http_context.resp_skipval[i].name), 1);
 		i++;
 	}
 
 	i = 0;
-	while (req_common[i].name) {
-		req_common[i].id = lookup_hdr(SLOF(req_common[i].name), 1);
+	while (http_context.req_common[i].name) {
+		http_context.req_common[i].id = lookup_hdr(SLOF(http_context.req_common[i].name), 1);
 		i++;
 	}
 
 	i = 0;
-	while (resp_common[i].name) {
-		resp_common[i].id = lookup_hdr(SLOF(resp_common[i].name), 1);
+	while (http_context.resp_common[i].name) {
+		http_context.resp_common[i].id = lookup_hdr(SLOF(http_context.resp_common[i].name), 1);
 		i++;
 	}
 }
@@ -175,8 +182,8 @@ void http_init(void) {
 static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_det) {
 
 	struct http_sig_record *gmatch = nullptr;
-	struct http_sig_record *ref    = sigs[to_srv];
-	uint32_t cnt                   = sig_cnt[to_srv];
+	struct http_sig_record *ref    = http_context.sigs[to_srv];
+	uint32_t cnt                   = http_context.sig_cnt[to_srv];
 
 	while (cnt--) {
 
@@ -299,10 +306,9 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 
 	hsig = (struct http_sig *)calloc(sizeof(struct http_sig), 1);
 
-	sigs[to_srv] = (struct http_sig_record *)realloc(sigs[to_srv], sizeof(struct http_sig_record) *
-											 (sig_cnt[to_srv] + 1));
+	http_context.sigs[to_srv] = (struct http_sig_record *)realloc(http_context.sigs[to_srv], sizeof(struct http_sig_record) * (http_context.sig_cnt[to_srv] + 1));
 
-	hrec = &sigs[to_srv][sig_cnt[to_srv]];
+	hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
 
 	if (val[1] != ':') FATAL("Malformed signature in line %u.", line_no);
 
@@ -444,7 +450,7 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 
 	hrec->sig = hsig;
 
-	sig_cnt[to_srv]++;
+	http_context.sig_cnt[to_srv]++;
 }
 
 /* Register new HTTP signature. */
@@ -488,25 +494,24 @@ void http_parse_ua(uint8_t *val, uint32_t line_no) {
 			val = nxt + 1;
 		}
 
-		ua_map = (struct ua_map_record *)realloc(ua_map, (ua_map_cnt + 1) *
+		http_context.ua_map = (struct ua_map_record *)realloc(http_context.ua_map, (http_context.ua_map_cnt + 1) *
 									 sizeof(struct ua_map_record));
 
-		ua_map[ua_map_cnt].id = id;
+		http_context.ua_map[http_context.ua_map_cnt].id = id;
 
 		if (!name)
-			ua_map[ua_map_cnt].name = fp_os_names[id];
+			http_context.ua_map[http_context.ua_map_cnt].name = fp_os_names[id];
 		else
-			ua_map[ua_map_cnt].name = name;
+			http_context.ua_map[http_context.ua_map_cnt].name = name;
 
-		ua_map_cnt++;
+		http_context.ua_map_cnt++;
 
 		if (*val == ',') val++;
 	}
 }
 
 /* Dump a HTTP signature. */
-
-static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
+static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 	uint32_t i;
 	uint8_t had_prev = 0;
@@ -515,20 +520,11 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 	uint8_t tmp[HTTP_MAX_SHOW + 1];
 	uint32_t tpos;
 
-	static uint8_t *ret;
-	uint32_t rlen = 0;
-
+	std::stringstream ss;
 	uint8_t *val;
 
-#define RETF(...)                                            \
-	do {                                                     \
-		int32_t _len = snprintf(nullptr, 0, __VA_ARGS__);       \
-		ret = (uint8_t *)realloc(ret, rlen + _len + 1);                 \
-		snprintf((char *)ret + rlen, _len + 1, __VA_ARGS__); \
-		rlen += _len;                                        \
-	} while (0)
 
-	RETF("%u:", hsig->http_ver);
+	append_format(ss, "%u:", hsig->http_ver);
 
 	for (i = 0; i < hsig->hdr_cnt; i++) {
 
@@ -538,7 +534,7 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 
 			/* Check the "optional" list. */
 
-			list = to_srv ? req_optional : resp_optional;
+			list = to_srv ? http_context.req_optional : http_context.resp_optional;
 
 			while (list->name) {
 				if (list->id == hsig->hdr[i].id) break;
@@ -547,7 +543,7 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 
 			if (list->name) optional = 1;
 
-			RETF("%s%s%s", had_prev ? "," : "", optional ? "?" : "", hdr_names[hsig->hdr[i].id].name);
+			append_format(ss, "%s%s%s", had_prev ? "," : "", optional ? "?" : "", http_context.hdr_names[hsig->hdr[i].id].name);
 			had_prev = 1;
 
 			if (!(val = hsig->hdr[i].value)) continue;
@@ -556,7 +552,7 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 
 			if (optional) continue;
 
-			list = to_srv ? req_skipval : resp_skipval;
+			list = to_srv ? http_context.req_skipval : http_context.resp_skipval;
 
 			while (list->name) {
 				if (list->id == hsig->hdr[i].id) break;
@@ -581,11 +577,11 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 
 			if (!tpos) continue;
 
-			RETF("=[%s]", tmp);
+			append_format(ss, "=[%s]", tmp);
 
 		} else {
 
-			RETF("%s%s", had_prev ? "," : "", hsig->hdr[i].name);
+			append_format(ss, "%s%s", had_prev ? "," : "", hsig->hdr[i].name);
 			had_prev = 1;
 
 			if (!(val = hsig->hdr[i].value)) continue;
@@ -602,13 +598,13 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 
 			if (!tpos) continue;
 
-			RETF("=[%s]", tmp);
+			append_format(ss, "=[%s]", tmp);
 		}
 	}
 
-	RETF(":");
+	append_format(ss, ":");
 
-	list     = to_srv ? req_common : resp_common;
+	list     = to_srv ? http_context.req_common : http_context.resp_common;
 	had_prev = 0;
 
 	while (list->name) {
@@ -617,14 +613,14 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 			if (hsig->hdr[i].id == list->id) break;
 
 		if (i == hsig->hdr_cnt) {
-			RETF("%s%s", had_prev ? "," : "", list->name);
+			append_format(ss, "%s%s", had_prev ? "," : "", list->name);
 			had_prev = 1;
 		}
 
 		list++;
 	}
 
-	RETF(":");
+	append_format(ss, ":");
 
 	if ((val = hsig->sw)) {
 
@@ -638,37 +634,40 @@ static uint8_t *dump_sig(uint8_t to_srv, struct http_sig *hsig) {
 
 		tmp[tpos] = 0;
 
-		if (tpos) RETF("%s", tmp);
+		if (tpos) append_format(ss, "%s", tmp);
 	}
 
-	return ret;
+	static std::string ret;
+	ret = ss.str();
+
+	return (uint8_t *)ret.c_str();
 }
 
 /* Dump signature flags. */
 
-static uint8_t *dump_flags(struct http_sig *hsig, struct http_sig_record *m) {
+static const uint8_t *dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
 
-	static uint8_t *ret;
-	uint32_t rlen = 0;
 
-	RETF("");
+	std::stringstream ss;
 
-	if (hsig->dishonest) RETF(" dishonest");
-	if (!hsig->sw) RETF(" anonymous");
-	if (m && m->generic) RETF(" generic");
+	if (hsig->dishonest) append_format(ss, " dishonest");
+	if (!hsig->sw) append_format(ss, " anonymous");
+	if (m && m->generic) append_format(ss, " generic");
 
-#undef RETF
+	static std::string ret;
+	ret = ss.str();
 
-	if (*ret)
-		return ret + 1;
-	else
+	if(!ret.empty()) {
+		return (uint8_t *)ret.c_str() + 1;
+	} else {
 		return (uint8_t *)"none";
+	}
 }
 
 /* Score signature differences. For unknown signatures, the presumption is that
    they identify apps, so the logic is quite different from TCP. */
 
-static void score_nat(uint8_t to_srv, struct packet_flow *f) {
+static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 
 	struct http_sig_record *m = f->http_tmp.matched;
 	struct host_data *hd;
@@ -779,12 +778,12 @@ static void score_nat(uint8_t to_srv, struct packet_flow *f) {
 
 		uint32_t i;
 
-		for (i = 0; i < ua_map_cnt; i++)
-			if (strstr((char *)f->http_tmp.sw, (char *)ua_map[i].name)) break;
+		for (i = 0; i < http_context.ua_map_cnt; i++)
+			if (strstr((char *)f->http_tmp.sw, (char *)http_context.ua_map[i].name)) break;
 
-		if (i != ua_map_cnt) {
+		if (i != http_context.ua_map_cnt) {
 
-			if (ua_map[i].id != hd->last_name_id) {
+			if (http_context.ua_map[i].id != hd->last_name_id) {
 
 				DEBUG("[#] Otherwise plausible User-Agent points to another OS.\n");
 				score += 4;
@@ -848,7 +847,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 
 	if ((m = f->http_tmp.matched)) {
 
-		OBSERVF((m->class_id < 0) ? "app" : "os", "%s%s%s",
+		observf((m->class_id < 0) ? "app" : "os", "%s%s%s",
 				fp_os_names[m->name_id], m->flavor ? " " : "",
 				m->flavor ? m->flavor : (uint8_t *)"");
 
@@ -933,8 +932,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 				/* Client request - only OS sig is of any note. */
 
 				ck_free(f->client->http_req_os);
-				f->client->http_req_os = (struct http_sig *)ck_memdup(&f->http_tmp,
-												   sizeof(struct http_sig));
+				f->client->http_req_os = (struct http_sig *)ck_memdup(&f->http_tmp, sizeof(struct http_sig));
 
 				f->client->http_req_os->hdr_cnt = 0;
 				f->client->http_req_os->sw      = nullptr;

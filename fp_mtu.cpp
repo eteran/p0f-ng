@@ -27,11 +27,14 @@
 
 #include "fp_mtu.h"
 
-static struct mtu_sig_record *sigs[SIG_BUCKETS];
-static uint32_t sig_cnt[SIG_BUCKETS];
+struct mtu_context_t {
+	struct mtu_sig_record *sigs[SIG_BUCKETS];
+	uint32_t sig_cnt[SIG_BUCKETS];
+};
+
+static mtu_context_t mtu_context;
 
 /* Register a new MTU signature. */
-
 void mtu_register_sig(uint8_t *name, uint8_t *val, uint32_t line_no) {
 
 	uint8_t *nxt = val;
@@ -43,19 +46,18 @@ void mtu_register_sig(uint8_t *name, uint8_t *val, uint32_t line_no) {
 
 	if (nxt == val || *nxt) FATAL("Malformed MTU value in line %u.", line_no);
 
-	mtu = atol((char *)val);
+	mtu = atoi((char *)val);
 
 	if (mtu <= 0 || mtu > 65535) FATAL("Malformed MTU value in line %u.", line_no);
 
 	bucket = mtu % SIG_BUCKETS;
 
-	sigs[bucket] = (struct mtu_sig_record *)realloc(sigs[bucket], (sig_cnt[bucket] + 1) *
-											 sizeof(struct mtu_sig_record));
+	mtu_context.sigs[bucket] = (struct mtu_sig_record *)realloc(mtu_context.sigs[bucket], (mtu_context.sig_cnt[bucket] + 1) * sizeof(struct mtu_sig_record));
 
-	sigs[bucket][sig_cnt[bucket]].mtu  = mtu;
-	sigs[bucket][sig_cnt[bucket]].name = name;
+	mtu_context.sigs[bucket][mtu_context.sig_cnt[bucket]].mtu  = mtu;
+	mtu_context.sigs[bucket][mtu_context.sig_cnt[bucket]].name = name;
 
-	sig_cnt[bucket]++;
+	mtu_context.sig_cnt[bucket]++;
 }
 
 void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f) {
@@ -73,20 +75,20 @@ void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow 
 
 	bucket = (mtu) % SIG_BUCKETS;
 
-	for (i = 0; i < sig_cnt[bucket]; i++)
-		if (sigs[bucket][i].mtu == mtu) break;
+	for (i = 0; i < mtu_context.sig_cnt[bucket]; i++)
+		if (mtu_context.sigs[bucket][i].mtu == mtu) break;
 
-	if (i == sig_cnt[bucket])
+	if (i == mtu_context.sig_cnt[bucket])
 		add_observation_field("link", nullptr);
 	else {
 
-		add_observation_field("link", sigs[bucket][i].name);
+		add_observation_field("link", mtu_context.sigs[bucket][i].name);
 
 		if (to_srv)
-			f->client->link_type = sigs[bucket][i].name;
+			f->client->link_type = mtu_context.sigs[bucket][i].name;
 		else
-			f->server->link_type = sigs[bucket][i].name;
+			f->server->link_type = mtu_context.sigs[bucket][i].name;
 	}
 
-	OBSERVF("raw_mtu", "%u", mtu);
+	observf("raw_mtu", "%u", mtu);
 }

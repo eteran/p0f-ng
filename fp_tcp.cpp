@@ -8,6 +8,8 @@
 
  */
 
+#include <ostream>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -28,13 +30,16 @@
 
 #include "fp_tcp.h"
 
-/* TCP signature buckets: */
+struct tcp_context_t {
+	/* TCP signature buckets: */
+	struct tcp_sig_record *sigs[2][SIG_BUCKETS];
+	uint32_t sig_cnt[2][SIG_BUCKETS];
+};
 
-static struct tcp_sig_record *sigs[2][SIG_BUCKETS];
-static uint32_t sig_cnt[2][SIG_BUCKETS];
+static tcp_context_t tcp_context;
+
 
 /* Figure out what the TTL distance might have been for an unknown sig. */
-
 static uint8_t guess_dist(uint8_t ttl) {
 	if (ttl <= 32) return 32 - ttl;
 	if (ttl <= 64) return 64 - ttl;
@@ -45,7 +50,7 @@ static uint8_t guess_dist(uint8_t ttl) {
 /* Figure out if window size is a multiplier of MSS or MTU. We don't take window
    scaling into account, because neither do TCP stack developers. */
 
-static int16_t detect_win_multi(struct tcp_sig *ts, uint8_t *use_mtu, uint16_t syn_mss) {
+static int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t syn_mss) {
 
 	uint16_t win = ts->win;
 	int32_t mss = ts->mss, mss12 = mss - 12;
@@ -114,9 +119,9 @@ static void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 	uint8_t use_mtu   = 0;
 	int16_t win_multi = detect_win_multi(ts, &use_mtu, syn_mss);
 
-	for (i = 0; i < sig_cnt[to_srv][bucket]; i++) {
+	for (i = 0; i < tcp_context.sig_cnt[to_srv][bucket]; i++) {
 
-		struct tcp_sig_record *ref = sigs[to_srv][bucket] + i;
+		struct tcp_sig_record *ref = tcp_context.sigs[to_srv][bucket] + i;
 		struct tcp_sig *refs       = ref->sig;
 
 		uint8_t fuzzy       = 0;
@@ -704,12 +709,11 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 
 	bucket = opt_hash % SIG_BUCKETS;
 
-	sigs[to_srv][bucket] = (struct tcp_sig_record *)realloc(sigs[to_srv][bucket],
-								   (sig_cnt[to_srv][bucket] + 1) * sizeof(struct tcp_sig_record));
+	tcp_context.sigs[to_srv][bucket] = (struct tcp_sig_record *)realloc(tcp_context.sigs[to_srv][bucket], (tcp_context.sig_cnt[to_srv][bucket] + 1) * sizeof(struct tcp_sig_record));
 
-	trec = sigs[to_srv][bucket] + sig_cnt[to_srv][bucket];
+	trec = tcp_context.sigs[to_srv][bucket] + tcp_context.sig_cnt[to_srv][bucket];
 
-	sig_cnt[to_srv][bucket]++;
+	tcp_context.sig_cnt[to_srv][bucket]++;
 
 	trec->generic  = generic;
 	trec->class_id = sig_class;
@@ -751,90 +755,75 @@ static void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
 }
 
 /* Dump unknown signature. */
+static uint8_t *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uint16_t syn_mss) {
 
-static uint8_t *dump_sig(struct packet_data *pk, struct tcp_sig *ts, uint16_t syn_mss) {
-
-	static uint8_t *ret;
-	uint32_t rlen = 0;
+	std::ostringstream ss;
 
 	uint8_t win_mtu;
 	int16_t win_m;
 	uint32_t i;
 	uint8_t dist = guess_dist(pk->ttl);
 
-#define RETF(...)                                            \
-	do {                                                     \
-		int32_t _len = snprintf(nullptr, 0, __VA_ARGS__);       \
-		if (_len < 0) FATAL("Whoa, snprintf() fails?!");     \
-		ret = (uint8_t*)realloc(ret, rlen + _len + 1);                 \
-		snprintf((char *)ret + rlen, _len + 1, __VA_ARGS__); \
-		rlen += _len;                                        \
-	} while (0)
-
 	if (dist > MAX_DIST) {
-
-		RETF("%u:%u+?:%u:", pk->ip_ver, pk->ttl, pk->ip_opt_len);
-
+		append_format(ss, "%u:%u+?:%u:", pk->ip_ver, pk->ttl, pk->ip_opt_len);
 	} else {
-
-		RETF("%u:%u+%u:%u:", pk->ip_ver, pk->ttl, dist, pk->ip_opt_len);
+		append_format(ss, "%u:%u+%u:%u:", pk->ip_ver, pk->ttl, dist, pk->ip_opt_len);
 	}
 
 	/* Detect a system echoing back MSS from p0f-sendsyn queries, suggest using
      a wildcard in such a case. */
-
 	if (pk->mss == SPECIAL_MSS && pk->tcp_type == (TCP_SYN | TCP_ACK))
-		RETF("*:");
+		append_format(ss, "*:");
 	else
-		RETF("%u:", pk->mss);
+		append_format(ss, "%u:", pk->mss);
 
 	win_m = detect_win_multi(ts, &win_mtu, syn_mss);
 
 	if (win_m > 0)
-		RETF("%s*%u", win_mtu ? "mtu" : "mss", win_m);
+		append_format(ss, "%s*%u", win_mtu ? "mtu" : "mss", win_m);
 	else
-		RETF("%u", pk->win);
+		append_format(ss, "%u", pk->win);
 
-	RETF(",%u:", pk->wscale);
+	append_format(ss, ",%u:", pk->wscale);
 
 	for (i = 0; i < pk->opt_cnt; i++) {
 
 		switch (pk->opt_layout[i]) {
 
 		case TCPOPT_EOL:
-			RETF("%seol+%u", i ? "," : "", pk->opt_eol_pad);
+			append_format(ss, "%seol+%u", i ? "," : "", pk->opt_eol_pad);
 			break;
 
 		case TCPOPT_NOP:
-			RETF("%snop", i ? "," : "");
+			append_format(ss, "%snop", i ? "," : "");
 			break;
 
 		case TCPOPT_MAXSEG:
-			RETF("%smss", i ? "," : "");
+			append_format(ss, "%smss", i ? "," : "");
 			break;
 
 		case TCPOPT_WSCALE:
-			RETF("%sws", i ? "," : "");
+			append_format(ss, "%sws", i ? "," : "");
 			break;
 
 		case TCPOPT_SACKOK:
-			RETF("%ssok", i ? "," : "");
+			append_format(ss, "%ssok", i ? "," : "");
 			break;
 
 		case TCPOPT_SACK:
-			RETF("%ssack", i ? "," : "");
+			append_format(ss, "%ssack", i ? "," : "");
 			break;
 
 		case TCPOPT_TSTAMP:
-			RETF("%sts", i ? "," : "");
+			append_format(ss, "%sts", i ? "," : "");
 			break;
 
 		default:
-			RETF("%s?%u", i ? "," : "", pk->opt_layout[i]);
+			append_format(ss, "%s?%u", i ? "," : "", pk->opt_layout[i]);
 		}
 	}
 
-	RETF(":");
+	append_format(ss, ":");
 
 	if (pk->quirks) {
 
@@ -843,9 +832,9 @@ static uint8_t *dump_sig(struct packet_data *pk, struct tcp_sig *ts, uint16_t sy
 #define MAYBE_CM(_str)      \
 	do {                    \
 		if (sp)             \
-			RETF("," _str); \
+			append_format(ss, "," _str); \
 		else                \
-			RETF(_str);     \
+			append_format(ss, _str);     \
 		sp = 1;             \
 	} while (0)
 
@@ -873,38 +862,41 @@ static uint8_t *dump_sig(struct packet_data *pk, struct tcp_sig *ts, uint16_t sy
 	}
 
 	if (pk->pay_len)
-		RETF(":+");
+		append_format(ss, ":+");
 	else
-		RETF(":0");
+		append_format(ss, ":0");
 
-	return ret;
+
+	static std::string ret;
+	ret = ss.str();
+	return (uint8_t *)ret.c_str();
 }
 
 /* Dump signature-related flags. */
 
 static uint8_t *dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
 
-	static uint8_t *ret;
-	uint32_t rlen = 0;
+	std::ostringstream ss;
 
-	RETF("");
+	append_format(ss, "");
 
 	if (ts->matched) {
 
-		if (ts->matched->generic) RETF(" generic");
-		if (ts->fuzzy) RETF(" fuzzy");
-		if (ts->matched->bad_ttl) RETF(" random_ttl");
+		if (ts->matched->generic) append_format(ss, " generic");
+		if (ts->fuzzy) append_format(ss, " fuzzy");
+		if (ts->matched->bad_ttl) append_format(ss, " random_ttl");
 	}
 
-	if (ts->dist > MAX_DIST) RETF(" excess_dist");
-	if (pk->tos) RETF(" tos:0x%02x", pk->tos);
+	if (ts->dist > MAX_DIST) append_format(ss, " excess_dist");
+	if (pk->tos) append_format(ss, " tos:0x%02x", pk->tos);
 
-	if (*ret)
-		return ret + 1;
+	static std::string ret;
+	ret = ss.str();
+
+	if (!ret.empty())
+		return (uint8_t *)ret.c_str() + 1;
 	else
 		return (uint8_t *)"none";
-
-#undef RETF
 }
 
 /* Compare current signature with historical data, draw conclusions. This
@@ -1174,7 +1166,7 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk,
 
 	if ((m = sig->matched)) {
 
-		OBSERVF((m->class_id == -1 || f->sendsyn) ? "app" : "os", "%s%s%s",
+		observf((m->class_id == -1 || f->sendsyn) ? "app" : "os", "%s%s%s",
 				fp_os_names[m->name_id], m->flavor ? " " : "",
 				m->flavor ? m->flavor : (uint8_t *)"");
 
@@ -1185,7 +1177,7 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk,
 
 	if (m && m->bad_ttl) {
 
-		OBSERVF("dist", "<= %u", sig->dist);
+		observf("dist", "<= %u", sig->dist);
 
 	} else {
 
@@ -1194,7 +1186,7 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk,
 		else
 			f->server->distance = sig->dist;
 
-		OBSERVF("dist", "%u", sig->dist);
+		observf("dist", "%u", sig->dist);
 	}
 
 	add_observation_field("params", dump_flags(pk, sig));
@@ -1327,9 +1319,9 @@ void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f)
 		f->server->up_mod_days = up_mod_days;
 	}
 
-	OBSERVF("uptime", "%u days %u hrs %u min (modulo %u days)",
+	observf("uptime", "%u days %u hrs %u min (modulo %u days)",
 			(up_min / 60 / 24), (up_min / 60) % 24, up_min % 60,
 			up_mod_days);
 
-	OBSERVF("raw_freq", "%.02f Hz", ffreq);
+	observf("raw_freq", "%.02f Hz", ffreq);
 }

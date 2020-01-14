@@ -112,7 +112,7 @@ uint32_t TRK_cnt[ALLOC_BUCKETS];
 
 /* Display usage information */
 
-static void usage(void) {
+static void usage() {
 
 	ERRORF(
 
@@ -158,7 +158,7 @@ static void usage(void) {
 }
 
 /* Get rid of unnecessary file descriptors */
-static void close_spare_fds(void) {
+static void close_spare_fds() {
 
 	int32_t i, closed = 0;
 	DIR *d;
@@ -186,7 +186,7 @@ static void close_spare_fds(void) {
 
 /* Create or open log file */
 
-static void open_log(void) {
+static void open_log() {
 
 	struct stat st;
 	int32_t log_fd;
@@ -221,7 +221,7 @@ static void open_log(void) {
 
 /* Create and start listening on API socket */
 
-static void open_api(void) {
+static void open_api() {
 
 	int32_t old_umask;
 	uint32_t i;
@@ -274,8 +274,7 @@ static void open_api(void) {
 
 /* Open log entry. */
 
-void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv,
-					   struct packet_flow *f) {
+void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const struct packet_flow *f) {
 
 	if (obs_fields) FATAL("Premature end of observation.");
 
@@ -332,7 +331,7 @@ void add_observation_field(const char *key, const uint8_t *value) {
 
 /* Show PCAP interface list */
 
-static void list_interfaces(void) {
+static void list_interfaces() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
 	pcap_if_t *dev;
@@ -409,7 +408,7 @@ static uint8_t *find_interface(int num) {
 
 /* Initialize PCAP capture */
 
-static void prepare_pcap(void) {
+static void prepare_pcap() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
 	uint8_t *orig_iface = use_iface;
@@ -484,7 +483,7 @@ static void prepare_pcap(void) {
 
 /* Initialize BPF filtering */
 
-static void prepare_bpf(void) {
+static void prepare_bpf() {
 
 	struct bpf_program flt;
 	memset(&flt, 0, sizeof(flt));
@@ -565,7 +564,7 @@ retry_no_vlan:
 
 /* Drop privileges and chroot(), with some sanity checks */
 
-static void drop_privs(void) {
+static void drop_privs() {
 
 	struct passwd *pw;
 
@@ -609,7 +608,7 @@ static void drop_privs(void) {
 
 /* Enter daemon mode. */
 
-static void fork_off(void) {
+static void fork_off() {
 
 	int32_t npid;
 
@@ -706,7 +705,7 @@ static uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 
 /* Event loop! Accepts and dispatches pcap data, API queries, etc. */
 
-static void live_event_loop(void) {
+static void live_event_loop() {
 
 #ifndef __CYGWIN__
 
@@ -925,7 +924,7 @@ static void live_event_loop(void) {
 
 /* Simple event loop for processing offline captures. */
 
-static void offline_event_loop(void) {
+static void offline_event_loop() {
 
 	if (!daemon_mode)
 		SAYF("[+] Processing capture data.\n\n");

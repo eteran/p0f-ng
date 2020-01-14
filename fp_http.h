@@ -97,6 +97,6 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f);
 
 void free_sig_hdrs(struct http_sig *h);
 
-void http_init(void);
+void http_init();
 
 #endif /* _HAVE_FP_HTTP_H */

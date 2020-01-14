@@ -13,25 +13,41 @@
 
 #include "process.h"
 #include "types.h"
+#include <ostream>
 
 extern uint8_t daemon_mode;
 extern int32_t link_type;
 extern uint32_t max_conn, max_hosts, conn_max_age, host_idle_limit;
 extern uint8_t *read_file;
 
-void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv,
-					   struct packet_flow *pf);
-
+void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const packet_flow *pf);
 void add_observation_field(const char *key, const uint8_t *value);
 
-#define OBSERVF(_key, ...)                                \
-	do {                                                  \
-		char *_val;                                       \
-		if (asprintf(&_val, __VA_ARGS__) != -1) {         \
-			add_observation_field(_key, (uint8_t *)_val); \
-			free(_val);                                   \
-		}                                                 \
-	} while (0)
+template <class... T>
+void append_format(std::ostream &os, const char *fmt, T &&... args) {
+	char *ptr = nullptr;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#pragma GCC diagnostic ignored "-Wformat-security"
+	if (asprintf(&ptr, fmt, std::forward<T>(args)...) != -1) {
+#pragma GCC diagnostic pop
+		os << ptr;
+		free(ptr);
+	}
+}
+
+template <class... T>
+void observf(const char *key, const char *fmt, T &&... args) {
+	char *ptr = nullptr;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#pragma GCC diagnostic ignored "-Wformat-security"
+	if (asprintf(&ptr, fmt, std::forward<T>(args)...) != -1) {
+#pragma GCC diagnostic pop
+		add_observation_field(key, (uint8_t *)ptr);
+		free(ptr);
+	}
+}
 
 #include "api.h"
 
@@ -46,4 +62,4 @@ struct api_client {
 	uint32_t out_off;                 /* Response buffer offset             */
 };
 
-#endif /* !_HAVE_P0F_H */
+#endif /* !HAVE_P0F_H_ */
