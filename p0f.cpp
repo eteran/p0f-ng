@@ -64,32 +64,32 @@
 #define O_LARGEFILE 0
 #endif /* !O_LARGEFILE */
 
-static uint8_t *use_iface, /* Interface to listen on             */
-	*orig_rule,            /* Original filter rule               */
-	*switch_user,          /* Target username                    */
-	*log_file,             /* Binary log file name               */
-	*api_sock,             /* API socket file name               */
-	*fp_file;              /* Location of p0f.fp                 */
+struct p0f_context_t {
+	uint8_t *use_iface        = nullptr;      /* Interface to listen on             */
+	uint8_t *orig_rule        = nullptr;      /* Original filter rule               */
+	uint8_t *switch_user      = nullptr;      /* Target username                    */
+	uint8_t *log_file         = nullptr;      /* Binary log file name               */
+	uint8_t *api_sock         = nullptr;      /* API socket file name               */
+	uint8_t *fp_file          = nullptr;      /* Location of p0f.fp                 */
+	uint32_t api_max_conn     = API_MAX_CONN; /* Maximum number of API connections  */
+	struct api_client *api_cl = nullptr;      /* Array with API client state        */
+
+	int32_t null_fd = -1; /* File descriptor of /dev/null       */
+	int32_t api_fd  = -1; /* API socket descriptor              */
+
+	FILE *lf = nullptr; /* Log file stream                    */
+
+	uint8_t stop_soon = 0; /* Ctrl-C or so pressed?              */
+};
+
+static p0f_context_t p0f_context;
 
 uint8_t *read_file; /* File to read pcap data from        */
 
-static uint32_t
-	api_max_conn = API_MAX_CONN; /* Maximum number of API connections  */
-
-uint32_t
-	max_conn        = MAX_CONN,        /* Connection entry count limit       */
-	max_hosts       = MAX_HOSTS,       /* Host cache entry count limit       */
-	conn_max_age    = CONN_MAX_AGE,    /* Maximum age of a connection entry  */
-	host_idle_limit = HOST_IDLE_LIMIT; /* Host cache idle timeout            */
-
-static struct api_client *api_cl; /* Array with API client state        */
-
-static int32_t null_fd = -1, /* File descriptor of /dev/null       */
-	api_fd             = -1; /* API socket descriptor              */
-
-static FILE *lf; /* Log file stream                    */
-
-static uint8_t stop_soon; /* Ctrl-C or so pressed?              */
+uint32_t max_conn        = MAX_CONN;        /* Connection entry count limit       */
+uint32_t max_hosts       = MAX_HOSTS;       /* Host cache entry count limit       */
+uint32_t conn_max_age    = CONN_MAX_AGE;    /* Maximum age of a connection entry  */
+uint32_t host_idle_limit = HOST_IDLE_LIMIT; /* Host cache idle timeout            */
 
 uint8_t daemon_mode; /* Running in daemon mode?            */
 
@@ -101,8 +101,7 @@ int32_t link_type; /* PCAP link type                     */
 
 static uint8_t obs_fields; /* No of pending observation fields   */
 
-
-#define LOGF(...) fprintf(lf, __VA_ARGS__)
+#define LOGF(...) fprintf(p0f_context.lf, __VA_ARGS__)
 
 /* Display usage information */
 
@@ -185,32 +184,32 @@ static void open_log() {
 	struct stat st;
 	int32_t log_fd;
 
-	log_fd = open((char *)log_file, O_WRONLY | O_APPEND | O_NOFOLLOW | O_LARGEFILE);
+	log_fd = open((char *)p0f_context.log_file, O_WRONLY | O_APPEND | O_NOFOLLOW | O_LARGEFILE);
 
 	if (log_fd >= 0) {
 
-		if (fstat(log_fd, &st)) PFATAL("fstat() on '%s' failed.", log_file);
+		if (fstat(log_fd, &st)) PFATAL("fstat() on '%s' failed.", p0f_context.log_file);
 
-		if (!S_ISREG(st.st_mode)) FATAL("'%s' is not a regular file.", log_file);
+		if (!S_ISREG(st.st_mode)) FATAL("'%s' is not a regular file.", p0f_context.log_file);
 
 	} else {
 
-		if (errno != ENOENT) PFATAL("Cannot open '%s'.", log_file);
+		if (errno != ENOENT) PFATAL("Cannot open '%s'.", p0f_context.log_file);
 
-		log_fd = open((char *)log_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
+		log_fd = open((char *)p0f_context.log_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
 					  LOG_MODE);
 
-		if (log_fd < 0) PFATAL("Cannot open '%s'.", log_file);
+		if (log_fd < 0) PFATAL("Cannot open '%s'.", p0f_context.log_file);
 	}
 
 	if (flock(log_fd, LOCK_EX | LOCK_NB))
-		FATAL("'%s' is being used by another process.", log_file);
+		FATAL("'%s' is being used by another process.", p0f_context.log_file);
 
-	lf = fdopen(log_fd, "a");
+	p0f_context.lf = fdopen(log_fd, "a");
 
-	if (!lf) FATAL("fdopen() on '%s' failed.", log_file);
+	if (!p0f_context.lf) FATAL("fdopen() on '%s' failed.", p0f_context.log_file);
 
-	SAYF("[+] Log file '%s' opened for writing.\n", log_file);
+	SAYF("[+] Log file '%s' opened for writing.\n", p0f_context.log_file);
 }
 
 /* Create and start listening on API socket */
@@ -223,47 +222,47 @@ static void open_api() {
 	struct sockaddr_un u;
 	struct stat st;
 
-	api_fd = socket(PF_UNIX, SOCK_STREAM, 0);
+	p0f_context.api_fd = socket(PF_UNIX, SOCK_STREAM, 0);
 
-	if (api_fd < 0) PFATAL("socket(PF_UNIX) failed.");
+	if (p0f_context.api_fd < 0) PFATAL("socket(PF_UNIX) failed.");
 
 	memset(&u, 0, sizeof(u));
 	u.sun_family = AF_UNIX;
 
-	if (strlen((char *)api_sock) >= sizeof(u.sun_path))
+	if (strlen((char *)p0f_context.api_sock) >= sizeof(u.sun_path))
 		FATAL("API socket filename is too long for sockaddr_un (blame Unix).");
 
-	strcpy(u.sun_path, (char *)api_sock);
+	strcpy(u.sun_path, (char *)p0f_context.api_sock);
 
 	/* This is bad, but you can't do any better with standard unix socket
      semantics today :-( */
 
-	if (!stat((char *)api_sock, &st) && !S_ISSOCK(st.st_mode))
-		FATAL("'%s' exists but is not a socket.", api_sock);
+	if (!stat((char *)p0f_context.api_sock, &st) && !S_ISSOCK(st.st_mode))
+		FATAL("'%s' exists but is not a socket.", p0f_context.api_sock);
 
-	if (unlink((char *)api_sock) && errno != ENOENT)
-		PFATAL("unlink('%s') failed.", api_sock);
+	if (unlink((char *)p0f_context.api_sock) && errno != ENOENT)
+		PFATAL("unlink('%s') failed.", p0f_context.api_sock);
 
 	old_umask = umask(0777 ^ API_MODE);
 
-	if (bind(api_fd, (struct sockaddr *)&u, sizeof(u)))
-		PFATAL("bind() on '%s' failed.", api_sock);
+	if (bind(p0f_context.api_fd, (struct sockaddr *)&u, sizeof(u)))
+		PFATAL("bind() on '%s' failed.", p0f_context.api_sock);
 
 	umask(old_umask);
 
-	if (listen(api_fd, api_max_conn))
-		PFATAL("listen() on '%s' failed.", api_sock);
+	if (listen(p0f_context.api_fd, p0f_context.api_max_conn))
+		PFATAL("listen() on '%s' failed.", p0f_context.api_sock);
 
-	if (fcntl(api_fd, F_SETFL, O_NONBLOCK))
+	if (fcntl(p0f_context.api_fd, F_SETFL, O_NONBLOCK))
 		PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
 
-	api_cl = (struct api_client *)calloc(api_max_conn, sizeof(struct api_client));
+	p0f_context.api_cl = (struct api_client *)calloc(p0f_context.api_max_conn, sizeof(struct api_client));
 
-	for (i = 0; i < api_max_conn; i++)
-		api_cl[i].fd = -1;
+	for (i = 0; i < p0f_context.api_max_conn; i++)
+		p0f_context.api_cl[i].fd = -1;
 
 	SAYF("[+] Listening on API socket '%s' (max %u clients).\n",
-		 api_sock, api_max_conn);
+		 p0f_context.api_sock, p0f_context.api_max_conn);
 }
 
 /* Open log entry. */
@@ -284,7 +283,7 @@ void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, c
 			 to_srv ? f->cli_port : f->srv_port);
 	}
 
-	if (log_file) {
+	if (p0f_context.log_file) {
 
 		uint8_t tmp[64];
 
@@ -311,7 +310,7 @@ void add_observation_field(const char *key, const uint8_t *value) {
 	if (!daemon_mode)
 		SAYF("| %-8s = %s\n", key, value ? value : (const uint8_t *)"???");
 
-	if (log_file) LOGF("|%s=%s", key, value ? value : (const uint8_t *)"???");
+	if (p0f_context.log_file) LOGF("|%s=%s", key, value ? value : (const uint8_t *)"???");
 
 	obs_fields--;
 
@@ -319,7 +318,7 @@ void add_observation_field(const char *key, const uint8_t *value) {
 
 		if (!daemon_mode) SAYF("|\n`----\n\n");
 
-		if (log_file) LOGF("\n");
+		if (p0f_context.log_file) LOGF("\n");
 	}
 }
 
@@ -405,14 +404,14 @@ static uint8_t *find_interface(int num) {
 static void prepare_pcap() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
-	uint8_t *orig_iface = use_iface;
+	uint8_t *orig_iface = p0f_context.use_iface;
 
 	if (read_file) {
 
 		if (set_promisc)
 			FATAL("Dude, how am I supposed to make a file promiscuous?");
 
-		if (use_iface)
+		if (p0f_context.use_iface)
 			FATAL("Options -i and -r are mutually exclusive.");
 
 		if (access((char *)read_file, R_OK))
@@ -426,15 +425,15 @@ static void prepare_pcap() {
 
 	} else {
 
-		if (!use_iface) {
+		if (!p0f_context.use_iface) {
 
 			/* See the earlier note on libpcap SEGV - same problem here.
          Also, this returns something stupid on Windows, but hey... */
 
 			if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT)
-				use_iface = (uint8_t *)pcap_lookupdev(pcap_err);
+				p0f_context.use_iface = (uint8_t *)pcap_lookupdev(pcap_err);
 
-			if (!use_iface)
+			if (!p0f_context.use_iface)
 				FATAL("libpcap is out of ideas; use -i to specify interface.");
 
 		}
@@ -460,14 +459,14 @@ static void prepare_pcap() {
 		/* PCAP timeouts tend to be broken, so we'll use a very small value
        and rely on select() instead. */
 
-		pt = pcap_open_live((char *)use_iface, SNAPLEN, set_promisc, 5, pcap_err);
+		pt = pcap_open_live((char *)p0f_context.use_iface, SNAPLEN, set_promisc, 5, pcap_err);
 
 #endif /* ^__CYGWIN__ */
 
 		if (!orig_iface)
-			SAYF("[+] Intercepting traffic on default interface '%s'.\n", use_iface);
+			SAYF("[+] Intercepting traffic on default interface '%s'.\n", p0f_context.use_iface);
 		else
-			SAYF("[+] Intercepting traffic on interface '%s'.\n", use_iface);
+			SAYF("[+] Intercepting traffic on interface '%s'.\n", p0f_context.use_iface);
 
 		if (!pt) FATAL("pcap_open_live: %s", pcap_err);
 	}
@@ -492,7 +491,7 @@ static void prepare_bpf() {
 
 retry_no_vlan:
 
-	if (!orig_rule) {
+	if (!p0f_context.orig_rule) {
 
 		if (vlan_support) {
 			final_rule = (uint8_t *)"tcp or (vlan and tcp)";
@@ -504,16 +503,16 @@ retry_no_vlan:
 
 		if (vlan_support) {
 
-			final_rule = (uint8_t *)calloc(strlen((char *)orig_rule) * 2 + 64, 1);
+			final_rule = (uint8_t *)calloc(strlen((char *)p0f_context.orig_rule) * 2 + 64, 1);
 
 			sprintf((char *)final_rule, "(tcp and (%s)) or (vlan and tcp and (%s))",
-					orig_rule, orig_rule);
+					p0f_context.orig_rule, p0f_context.orig_rule);
 
 		} else {
 
-			final_rule = (uint8_t *)calloc(strlen((char *)orig_rule) + 16, 1);
+			final_rule = (uint8_t *)calloc(strlen((char *)p0f_context.orig_rule) + 16, 1);
 
-			sprintf((char *)final_rule, "tcp and (%s)", orig_rule);
+			sprintf((char *)final_rule, "tcp and (%s)", p0f_context.orig_rule);
 		}
 	}
 
@@ -523,14 +522,14 @@ retry_no_vlan:
 
 		if (vlan_support) {
 
-			if (orig_rule) free(final_rule);
+			if (p0f_context.orig_rule) free(final_rule);
 			vlan_support = 0;
 			goto retry_no_vlan;
 		}
 
 		pcap_perror(pt, "[-] pcap_compile");
 
-		if (!orig_rule)
+		if (!p0f_context.orig_rule)
 			FATAL("pcap_compile() didn't work, strange");
 		else
 			FATAL("Syntax error! See 'man tcpdump' for help on filters.");
@@ -541,7 +540,7 @@ retry_no_vlan:
 
 	pcap_freecode(&flt);
 
-	if (!orig_rule) {
+	if (!p0f_context.orig_rule) {
 
 		SAYF("[+] Default packet filtering configured%s.\n",
 			 vlan_support ? " [+VLAN]" : "");
@@ -549,7 +548,7 @@ retry_no_vlan:
 	} else {
 
 		SAYF("[+] Custom filtering rule enabled: %s%s\n",
-			 orig_rule ? orig_rule : (uint8_t *)"tcp",
+			 p0f_context.orig_rule ? p0f_context.orig_rule : (uint8_t *)"tcp",
 			 vlan_support ? " [+VLAN]" : "");
 
 		free(final_rule);
@@ -560,18 +559,18 @@ retry_no_vlan:
 
 static void drop_privs() {
 
-	struct passwd *pw = getpwnam((char *)switch_user);
+	struct passwd *pw = getpwnam((char *)p0f_context.switch_user);
 
-	if (!pw) FATAL("User '%s' not found.", switch_user);
+	if (!pw) FATAL("User '%s' not found.", p0f_context.switch_user);
 
 	if (!strcmp(pw->pw_dir, "/"))
-		FATAL("User '%s' must have a dedicated home directory.", switch_user);
+		FATAL("User '%s' must have a dedicated home directory.", p0f_context.switch_user);
 
 	if (!pw->pw_uid || !pw->pw_gid)
-		FATAL("User '%s' must be non-root.", switch_user);
+		FATAL("User '%s' must be non-root.", p0f_context.switch_user);
 
 	if (initgroups(pw->pw_name, pw->pw_gid))
-		PFATAL("initgroups() for '%s' failed.", switch_user);
+		PFATAL("initgroups() for '%s' failed.", p0f_context.switch_user);
 
 	if (chdir(pw->pw_dir))
 		PFATAL("chdir('%s') failed.", pw->pw_dir);
@@ -583,7 +582,7 @@ static void drop_privs() {
 		PFATAL("chdir('/') after chroot('%s') failed.", pw->pw_dir);
 
 	if (!access("/proc/", F_OK) || !access("/sys/", F_OK))
-		FATAL("User '%s' must have a dedicated home directory.", switch_user);
+		FATAL("User '%s' must have a dedicated home directory.", p0f_context.switch_user);
 
 	if (setgid(pw->pw_gid))
 		PFATAL("setgid(%u) failed.", pw->pw_gid);
@@ -615,14 +614,14 @@ static void fork_off() {
 		/* Let's assume all this is fairly unlikely to fail, so we can live
        with the parent possibly proclaiming success prematurely. */
 
-		if (dup2(null_fd, 0) < 0) PFATAL("dup2() failed.");
+		if (dup2(p0f_context.null_fd, 0) < 0) PFATAL("dup2() failed.");
 
 		/* If stderr is redirected to a file, keep that fd and use it for
        normal output. */
 
 		if (isatty(2)) {
 
-			if (dup2(null_fd, 1) < 0 || dup2(null_fd, 2) < 0)
+			if (dup2(p0f_context.null_fd, 1) < 0 || dup2(p0f_context.null_fd, 2) < 0)
 				PFATAL("dup2() failed.");
 
 		} else {
@@ -630,8 +629,8 @@ static void fork_off() {
 			if (dup2(2, 1) < 0) PFATAL("dup2() failed.");
 		}
 
-		close(null_fd);
-		null_fd = -1;
+		close(p0f_context.null_fd);
+		p0f_context.null_fd = -1;
 
 		if (chdir("/")) PFATAL("chdir('/') failed.");
 
@@ -652,8 +651,8 @@ static void fork_off() {
 
 static void abort_handler(int sig) {
 	(void)sig;
-	if (stop_soon) exit(1);
-	stop_soon = 1;
+	if (p0f_context.stop_soon) exit(1);
+	p0f_context.stop_soon = 1;
 }
 
 #ifndef __CYGWIN__
@@ -668,26 +667,26 @@ static uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 
 	DEBUG("[#] Recomputing pollfd data, pcap_fd = %d.\n", pfds[0].fd);
 
-	if (!api_sock) return 1;
+	if (!p0f_context.api_sock) return 1;
 
-	pfds[1].fd     = api_fd;
+	pfds[1].fd     = p0f_context.api_fd;
 	pfds[1].events = (POLLIN | POLLERR | POLLHUP);
 
-	for (i = 0; i < api_max_conn; i++) {
+	for (i = 0; i < p0f_context.api_max_conn; i++) {
 
-		if (api_cl[i].fd == -1) continue;
+		if (p0f_context.api_cl[i].fd == -1) continue;
 
-		ctable[count] = api_cl + i;
+		ctable[count] = p0f_context.api_cl + i;
 
 		/* If we haven't received a complete query yet, wait for POLLIN.
        Otherwise, we want to write stuff. */
 
-		if (api_cl[i].in_off < sizeof(struct p0f_api_query))
+		if (p0f_context.api_cl[i].in_off < sizeof(struct p0f_api_query))
 			pfds[count].events = (POLLIN | POLLERR | POLLHUP);
 		else
 			pfds[count].events = (POLLOUT | POLLERR | POLLHUP);
 
-		pfds[count++].fd = api_cl[i].fd;
+		pfds[count++].fd = p0f_context.api_cl[i].fd;
 	}
 
 	return count;
@@ -710,16 +709,16 @@ static void live_event_loop() {
      nasty busy loop, or a ton of Windows-specific code. If you need APi
      queries on Windows, you are welcome to fix this :-) */
 
-	/* We need room for pcap, and possibly api_fd + api_clients. */
-	auto pfds  = (struct pollfd *)calloc((1 + (api_sock ? (1 + api_max_conn) : 0)), sizeof(struct pollfd));
-	auto ctable = (struct api_client **)calloc((1 + (api_sock ? (1 + api_max_conn) : 0)), sizeof(struct api_client *));
+	/* We need room for pcap, and possibly p0f_context.api_fd + api_clients. */
+	auto pfds   = (struct pollfd *)calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct pollfd));
+	auto ctable = (struct api_client **)calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct api_client *));
 
 	uint32_t pfd_count = regen_pfds(pfds, ctable);
 
 	if (!daemon_mode)
 		SAYF("[+] Entered main event loop.\n\n");
 
-	while (!stop_soon) {
+	while (!p0f_context.stop_soon) {
 
 		int32_t pret, i;
 		uint32_t cur;
@@ -740,28 +739,21 @@ static void live_event_loop() {
 		}
 
 		if (!pret) {
-			if (log_file) fflush(lf);
+			if (p0f_context.log_file)
+				fflush(p0f_context.lf);
 			continue;
 		}
 
 		/* Examine pfds... */
 
 		for (cur = 0; cur < pfd_count; cur++) {
-
 			if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
-
 				case 0:
-
 					FATAL("Packet capture interface is down.");
-
 				case 1:
-
 					FATAL("API socket is down.");
-
 				default:
-
 					/* Shut down API connection and free its state. */
-
 					DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
 
 					close(pfds[cur].fd);
@@ -817,30 +809,30 @@ static void live_event_loop() {
 
 					/* Accept new API connection, limits permitting. */
 
-					if (!api_sock) FATAL("Unexpected API connection.");
+					if (!p0f_context.api_sock) FATAL("Unexpected API connection.");
 
-					if (pfd_count - 2 < api_max_conn) {
+					if (pfd_count - 2 < p0f_context.api_max_conn) {
 
-						for (i = 0; i < api_max_conn && api_cl[i].fd >= 0; i++)
+						for (i = 0; i < p0f_context.api_max_conn && p0f_context.api_cl[i].fd >= 0; i++)
 							;
 
-						if (i == api_max_conn) FATAL("Inconsistent API connection data.");
+						if (i == p0f_context.api_max_conn) FATAL("Inconsistent API connection data.");
 
-						api_cl[i].fd = accept(api_fd, nullptr, nullptr);
+						p0f_context.api_cl[i].fd = accept(p0f_context.api_fd, nullptr, nullptr);
 
-						if (api_cl[i].fd < 0) {
+						if (p0f_context.api_cl[i].fd < 0) {
 
 							WARN("Unable to handle API connection: accept() fails.");
 
 						} else {
 
-							if (fcntl(api_cl[i].fd, F_SETFL, O_NONBLOCK))
+							if (fcntl(p0f_context.api_cl[i].fd, F_SETFL, O_NONBLOCK))
 								PFATAL("fcntl() to set O_NONBLOCK on API connection fails.");
 
-							api_cl[i].in_off = api_cl[i].out_off = 0;
-							pfd_count                            = regen_pfds(pfds, ctable);
+							p0f_context.api_cl[i].in_off = p0f_context.api_cl[i].out_off = 0;
+							pfd_count                                                    = regen_pfds(pfds, ctable);
 
-							DEBUG("[#] Accepted new API connection, fd %d.\n", api_cl[i].fd);
+							DEBUG("[#] Accepted new API connection, fd %d.\n", p0f_context.api_cl[i].fd);
 
 							goto poll_again;
 						}
@@ -915,7 +907,7 @@ static void offline_event_loop() {
 	if (!daemon_mode)
 		SAYF("[+] Processing capture data.\n\n");
 
-	while (!stop_soon) {
+	while (!p0f_context.stop_soon) {
 		if (pcap_dispatch(pt, -1, (pcap_handler)parse_packet, nullptr) <= 0) {
 			return;
 		}
@@ -946,12 +938,12 @@ int main(int argc, char **argv) {
 #ifdef __CYGWIN__
 			FATAL("API mode not supported on Windows (see README).");
 #else
-			if (api_max_conn != API_MAX_CONN)
+			if (p0f_context.api_max_conn != API_MAX_CONN)
 				FATAL("Multiple -S options not supported.");
 
-			api_max_conn = atol(optarg);
+			p0f_context.api_max_conn = atol(optarg);
 
-			if (!api_max_conn || api_max_conn > 100)
+			if (!p0f_context.api_max_conn || p0f_context.api_max_conn > 100)
 				FATAL("Outlandish value specified for -S.");
 
 			break;
@@ -967,18 +959,18 @@ int main(int argc, char **argv) {
 
 		case 'f':
 
-			if (fp_file)
+			if (p0f_context.fp_file)
 				FATAL("Multiple -f options not supported.");
 
-			fp_file = (uint8_t *)optarg;
+			p0f_context.fp_file = (uint8_t *)optarg;
 			break;
 
 		case 'i':
 
-			if (use_iface)
+			if (p0f_context.use_iface)
 				FATAL("Multiple -i options not supported (try '-i any').");
 
-			use_iface = (uint8_t *)optarg;
+			p0f_context.use_iface = (uint8_t *)optarg;
 
 			break;
 
@@ -995,16 +987,14 @@ int main(int argc, char **argv) {
 			break;
 
 		case 'o':
-
-			if (log_file)
+			if (p0f_context.log_file)
 				FATAL("Multiple -o options not supported.");
 
-			log_file = (uint8_t *)optarg;
+			p0f_context.log_file = (uint8_t *)optarg;
 
 			break;
 
 		case 'p':
-
 			if (set_promisc)
 				FATAL("Even more promiscuous? People will start talking!");
 
@@ -1028,10 +1018,10 @@ int main(int argc, char **argv) {
 
 #else
 
-			if (api_sock)
+			if (p0f_context.api_sock)
 				FATAL("Multiple -s options not supported.");
 
-			api_sock = (uint8_t *)optarg;
+			p0f_context.api_sock = (uint8_t *)optarg;
 
 			break;
 
@@ -1051,10 +1041,10 @@ int main(int argc, char **argv) {
 
 		case 'u':
 
-			if (switch_user)
+			if (p0f_context.switch_user)
 				FATAL("Split personality mode not supported.");
 
-			switch_user = (uint8_t *)optarg;
+			p0f_context.switch_user = (uint8_t *)optarg;
 
 			break;
 
@@ -1065,15 +1055,15 @@ int main(int argc, char **argv) {
 	if (optind < argc) {
 
 		if (optind + 1 == argc)
-			orig_rule = (uint8_t *)argv[optind];
+			p0f_context.orig_rule = (uint8_t *)argv[optind];
 		else
 			FATAL("Filter rule must be a single parameter (use quotes).");
 	}
 
-	if (read_file && api_sock)
+	if (read_file && p0f_context.api_sock)
 		FATAL("API mode looks down on ofline captures.");
 
-	if (!api_sock && api_max_conn != API_MAX_CONN)
+	if (!p0f_context.api_sock && p0f_context.api_max_conn != API_MAX_CONN)
 		FATAL("Option -S makes sense only with -s.");
 
 	if (daemon_mode) {
@@ -1081,7 +1071,7 @@ int main(int argc, char **argv) {
 		if (read_file)
 			FATAL("Daemon mode and offline captures don't mix.");
 
-		if (!log_file && !api_sock)
+		if (!p0f_context.log_file && !p0f_context.api_sock)
 			FATAL("Daemon mode requires -o or -s.");
 
 #ifdef __CYGWIN__
@@ -1091,7 +1081,7 @@ int main(int argc, char **argv) {
 
 #else
 
-		if (!switch_user)
+		if (!p0f_context.switch_user)
 			SAYF("[!] Consider specifying -u in daemon mode (see README).\n");
 
 #endif /* ^__CYGWIN__ */
@@ -1104,20 +1094,20 @@ int main(int argc, char **argv) {
 
 	http_init();
 
-	read_config(fp_file ? fp_file : (uint8_t *)FP_FILE);
+	read_config(p0f_context.fp_file ? p0f_context.fp_file : (uint8_t *)FP_FILE);
 
 	prepare_pcap();
 	prepare_bpf();
 
-	if (log_file) open_log();
-	if (api_sock) open_api();
+	if (p0f_context.log_file) open_log();
+	if (p0f_context.api_sock) open_api();
 
 	if (daemon_mode) {
-		null_fd = open("/dev/null", O_RDONLY);
-		if (null_fd < 0) PFATAL("Cannot open '/dev/null'.");
+		p0f_context.null_fd = open("/dev/null", O_RDONLY);
+		if (p0f_context.null_fd < 0) PFATAL("Cannot open '/dev/null'.");
 	}
 
-	if (switch_user) drop_privs();
+	if (p0f_context.switch_user) drop_privs();
 
 	if (daemon_mode) fork_off();
 

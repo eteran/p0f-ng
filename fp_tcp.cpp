@@ -38,7 +38,6 @@ struct tcp_context_t {
 
 static tcp_context_t tcp_context;
 
-
 /* Figure out what the TTL distance might have been for an unknown sig. */
 static uint8_t guess_dist(uint8_t ttl) {
 	if (ttl <= 32) return 32 - ttl;
@@ -829,13 +828,13 @@ static uint8_t *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts,
 
 		uint8_t sp = 0;
 
-#define MAYBE_CM(_str)      \
-	do {                    \
-		if (sp)             \
+#define MAYBE_CM(_str)                   \
+	do {                                 \
+		if (sp)                          \
 			append_format(ss, "," _str); \
-		else                \
+		else                             \
 			append_format(ss, _str);     \
-		sp = 1;             \
+		sp = 1;                          \
 	} while (0)
 
 		if (pk->quirks & QUIRK_DF) MAYBE_CM("df");
@@ -865,7 +864,6 @@ static uint8_t *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts,
 		append_format(ss, ":+");
 	else
 		append_format(ss, ":0");
-
 
 	static std::string ret;
 	ret = ss.str();

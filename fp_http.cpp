@@ -11,9 +11,9 @@
 #define _FROM_FP_HTTP
 //#define _GNU_SOURCE
 
+#include <ctype.h>
 #include <ostream>
 #include <sstream>
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -69,12 +69,11 @@ struct http_context_t {
 
 http_context_t http_context;
 
-
 /* Ghetto Bloom filter 4-out-of-64 bitmask generator for adding 32-bit header
    IDs to a set. We expect around 10 members in a set. */
 constexpr uint64_t bloom4_64(uint32_t val) {
 	const uint32_t hash = hash32(&val, 4);
-	uint64_t ret = (1ULL << (hash & 63));
+	uint64_t ret        = (1ULL << (hash & 63));
 	ret ^= (1ULL << ((hash >> 8) & 63));
 	ret ^= (1ULL << ((hash >> 16) & 63));
 	ret ^= (1ULL << ((hash >> 24) & 63));
@@ -104,7 +103,7 @@ int32_t lookup_hdr(const uint8_t *name, uint32_t len, uint8_t create) {
 	http_context.hdr_names[http_context.hdr_cnt].name = ck_memdup_str(name, len);
 	http_context.hdr_names[http_context.hdr_cnt].size = len;
 
-	http_context.hdr_by_hash[bucket] = (uint32_t *)realloc(http_context.hdr_by_hash[bucket], (http_context.hbh_cnt[bucket] + 1) * 4);
+	http_context.hdr_by_hash[bucket]                                 = (uint32_t *)realloc(http_context.hdr_by_hash[bucket], (http_context.hbh_cnt[bucket] + 1) * 4);
 	http_context.hdr_by_hash[bucket][http_context.hbh_cnt[bucket]++] = http_context.hdr_cnt++;
 
 	return http_context.hdr_cnt - 1;
@@ -495,7 +494,7 @@ void http_parse_ua(uint8_t *val, uint32_t line_no) {
 		}
 
 		http_context.ua_map = (struct ua_map_record *)realloc(http_context.ua_map, (http_context.ua_map_cnt + 1) *
-									 sizeof(struct ua_map_record));
+																					   sizeof(struct ua_map_record));
 
 		http_context.ua_map[http_context.ua_map_cnt].id = id;
 
@@ -522,7 +521,6 @@ static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 	std::stringstream ss;
 	uint8_t *val;
-
 
 	append_format(ss, "%u:", hsig->http_ver);
 
@@ -647,7 +645,6 @@ static uint8_t *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 static const uint8_t *dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
 
-
 	std::stringstream ss;
 
 	if (hsig->dishonest) append_format(ss, " dishonest");
@@ -657,7 +654,7 @@ static const uint8_t *dump_flags(const struct http_sig *hsig, const struct http_
 	static std::string ret;
 	ret = ss.str();
 
-	if(!ret.empty()) {
+	if (!ret.empty()) {
 		return (uint8_t *)ret.c_str() + 1;
 	} else {
 		return (uint8_t *)"none";

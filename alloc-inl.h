@@ -22,7 +22,7 @@ inline uint8_t *ck_strdup(const uint8_t *str) {
 		return nullptr;
 
 	size_t size = strlen((char *)str) + 1;
-	void *ret = malloc(size);
+	void *ret   = malloc(size);
 	return (uint8_t *)memcpy(ret, str, size);
 }
 

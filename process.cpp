@@ -1361,7 +1361,7 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 	static uint8_t rea[1024];
 
 	struct host_data *hd = nullptr;
-	uint8_t *scores      = nullptr;	
+	uint8_t *scores      = nullptr;
 	uint32_t i           = 0;
 	uint8_t over_5       = 0;
 	uint8_t over_2       = 0;
@@ -1425,8 +1425,8 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 		hd->last_chg = get_unix_time();
 	}
 
-	uint8_t *rptr        = rea;
-	*rptr = 0;
+	uint8_t *rptr = rea;
+	*rptr         = 0;
 
 #define REAF(...)                                   \
 	do {                                            \
