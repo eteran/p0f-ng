@@ -62,8 +62,7 @@ struct http_context_t {
 	struct header_name *hdr_names; // List of header names by ID
 	uint32_t hdr_cnt;              // Number of headers registered
 
-	uint32_t *hdr_by_hash[SIG_BUCKETS]; // Hashed header names
-	uint32_t hbh_cnt[SIG_BUCKETS];      // Number of headers in bucket
+	std::vector<uint32_t> hdr_by_hash[SIG_BUCKETS]; // Hashed header names
 
 	/* Signatures aren't bucketed due to the complex matching used; but we use
 	 * Bloom filters to go through them quickly. */
@@ -90,8 +89,8 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 
 	uint32_t bucket = hash32(name, len) % SIG_BUCKETS;
 
-	uint32_t *p = http_context.hdr_by_hash[bucket];
-	uint32_t i  = http_context.hbh_cnt[bucket];
+	uint32_t *p = &http_context.hdr_by_hash[bucket][0];
+	uint32_t i  = http_context.hdr_by_hash[bucket].size();
 
 	while (i--) {
 		if (http_context.hdr_names[*p].size == len && !memcmp(http_context.hdr_names[*p].name, name, len) && !http_context.hdr_names[*p].name[len])
@@ -108,9 +107,8 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 	http_context.hdr_names[http_context.hdr_cnt].name = ck_memdup_str(name, len);
 	http_context.hdr_names[http_context.hdr_cnt].size = len;
 
-	http_context.hdr_by_hash[bucket] = static_cast<uint32_t *>(realloc(http_context.hdr_by_hash[bucket], (http_context.hbh_cnt[bucket] + 1) * 4));
 
-	http_context.hdr_by_hash[bucket][http_context.hbh_cnt[bucket]++] = http_context.hdr_cnt++;
+	http_context.hdr_by_hash[bucket].push_back(http_context.hdr_cnt++);
 
 	return http_context.hdr_cnt - 1;
 }
