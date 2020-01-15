@@ -36,7 +36,6 @@ find_package(PCAP REQUIRED)
 
 add_executable(p0f
 	alloc-inl.h
-	api.cpp
 	api.h
 	config.h
 	debug.h

@@ -15,7 +15,6 @@
 
 // Record for a TCP signature read from p0f.fp:
 struct mtu_sig_record {
-
 	char *name;
 	uint16_t mtu;
 };

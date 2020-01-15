@@ -39,6 +39,13 @@
 
 namespace {
 
+constexpr int HDR_UA  = 0;
+constexpr int HDR_SRV = 1;
+constexpr int HDR_AL  = 2;
+constexpr int HDR_VIA = 3;
+constexpr int HDR_XFF = 4;
+constexpr int HDR_DAT = 5;
+
 struct header_name {
 	size_t size;
 	char *name;
@@ -109,13 +116,6 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 
 	return http_context.hdr_cnt - 1;
 }
-
-constexpr int HDR_UA  = 0;
-constexpr int HDR_SRV = 1;
-constexpr int HDR_AL  = 2;
-constexpr int HDR_VIA = 3;
-constexpr int HDR_XFF = 4;
-constexpr int HDR_DAT = 5;
 
 // Find match for a signature.
 void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_det) {
@@ -389,7 +389,8 @@ void score_nat(uint8_t to_srv, const struct packet_flow *f, libp0f_context_t *li
 	struct host_data *hd;
 	struct http_sig *ref;
 
-	uint8_t score = 0, diff_already = 0;
+	uint8_t score = 0;
+	uint8_t diff_already = 0;
 	uint16_t reason = 0;
 
 	if (to_srv) {
@@ -400,7 +401,8 @@ void score_nat(uint8_t to_srv, const struct packet_flow *f, libp0f_context_t *li
 		ref = hd->http_resp;
 
 		// If the signature is for a different port, don't read too much into it.
-		if (hd->http_resp_port != f->srv_port) ref = nullptr;
+		if (hd->http_resp_port != f->srv_port)
+			ref = nullptr;
 	}
 
 	if (!m) {
@@ -517,18 +519,19 @@ header_check:
 		auto recv_diff = static_cast<int64_t>(f->http_tmp.recv_date) - ref->recv_date;
 		auto hdr_diff  = static_cast<int64_t>(f->http_tmp.date) - ref->date;
 
-		if (hdr_diff < -HTTP_MAX_DATE_DIFF ||
-			hdr_diff > recv_diff + HTTP_MAX_DATE_DIFF) {
+		if (hdr_diff < -HTTP_MAX_DATE_DIFF || hdr_diff > recv_diff + HTTP_MAX_DATE_DIFF) {
 
 			DEBUG("[#] HTTP 'Date' distance too high (%ld in %ld sec).\n",
-				  hdr_diff, recv_diff);
+				  hdr_diff,
+				  recv_diff);
+
 			score += 4;
 			reason |= NAT_APP_DATE;
 
 		} else {
-
 			DEBUG("[#] HTTP 'Date' distance seems fine (%ld in %ld sec).\n",
-				  hdr_diff, recv_diff);
+				  hdr_diff,
+				  recv_diff);
 		}
 	}
 

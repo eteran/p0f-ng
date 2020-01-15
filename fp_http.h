@@ -13,6 +13,7 @@
 
 #include "config.h"
 #include <cstdint>
+#include <ctime>
 
 // A structure used for looking up various headers internally in fp_http.c:
 struct http_id {
@@ -51,8 +52,8 @@ struct http_sig {
 	char *lang; // Accept-Language
 	char *via;  // Via or X-Forwarded-For
 
-	uint32_t date;      // Parsed 'Date'
-	uint32_t recv_date; // Actual receipt date
+	time_t date;      // Parsed 'Date'
+	time_t recv_date; // Actual receipt date
 
 	// Information used for matching with p0f.fp:
 

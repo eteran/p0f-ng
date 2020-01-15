@@ -46,7 +46,7 @@ struct process_context_t {
 	struct packet_flow *flow_by_age = nullptr; // All flows, by creation time
 	struct packet_flow *newest_flow = nullptr; // Tail of the list
 
-	const struct timeval *cur_time = nullptr; // Current time, courtesy of pcap
+	struct timeval cur_time = {}; // Current time, courtesy of pcap
 
 	// Bucketed hosts and flows:
 	struct host_data *host_b[HOST_BUCKETS]   = {};
@@ -716,12 +716,12 @@ void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0
 
 // Get unix time in milliseconds.
 uint64_t get_unix_time_ms() {
-	return (process_context.cur_time->tv_sec) * 1000 + (process_context.cur_time->tv_usec / 1000);
+	return (process_context.cur_time.tv_sec) * 1000 + (process_context.cur_time.tv_usec / 1000);
 }
 
 // Get unix time in seconds.
 time_t get_unix_time() {
-	return process_context.cur_time->tv_sec;
+	return process_context.cur_time.tv_sec;
 }
 
 // Convert IPv4 or IPv6 address to a human-readable form.
@@ -761,7 +761,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	libp0f_context->packet_cnt++;
 
-	process_context.cur_time = &hdr->ts;
+	process_context.cur_time = hdr->ts;
 
 	if (!(libp0f_context->packet_cnt % EXPIRE_INTERVAL))
 		expire_cache(libp0f_context);
@@ -1053,7 +1053,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	pk.ts1         = 0;
 
 	/* Option parsing problems are non-fatal, but we want to keep track of
-     them to spot buggy TCP stacks. */
+	 them to spot buggy TCP stacks. */
 
 	while (data < opt_end && pk.opt_cnt < MAX_TCP_OPT) {
 
@@ -1064,8 +1064,8 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		case TCPOPT_EOL:
 
 			/* EOL is a single-byte option that aborts further option parsing.
-           Take note of how many bytes of option data are left, and if any of
-           them are non-zero. */
+		   Take note of how many bytes of option data are left, and if any of
+		   them are non-zero. */
 
 			pk.opt_eol_pad = opt_end - data;
 
@@ -1147,7 +1147,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		case TCPOPT_SACK:
 
 			/* SACK is a variable-length option of 10 to 34 bytes. Because we don't
-           know the size any better, we need to bail out if it looks wonky. */
+		   know the size any better, we need to bail out if it looks wonky. */
 
 			if (data == opt_end) {
 				DEBUG("[#] SACK option without room for length field.");
@@ -1191,7 +1191,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 			if (pk.tcp_type == TCP_SYN && RD32p(data + 5)) {
 
 				DEBUG("[#] Non-zero second timestamp: 0x%08x.\n",
-					  ntohl(*reinterpret_cast<const uint32_t *>(data + 5)));
+					  ntohl(RD32p(data + 5)));
 
 				pk.quirks |= QUIRK_OPT_NZ_TS2;
 			}

@@ -8,8 +8,8 @@
 
  */
 
-#ifndef _HAVE_API_H
-#define _HAVE_API_H
+#ifndef HAVE_API_H_
+#define HAVE_API_H_
 
 #include <cstdint>
 
@@ -64,10 +64,5 @@ struct p0f_api_response {
 
 	char language[P0F_STR_MAX + 1]; // Language
 } __attribute__((packed));
-
-#ifdef _FROM_P0F
-struct libp0f_context_t;
-void handle_query(struct p0f_api_query *q, struct p0f_api_response *r, libp0f_context_t *libp0f_context);
-#endif
 
 #endif
