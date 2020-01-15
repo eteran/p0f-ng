@@ -18,17 +18,15 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "alloc-inl.h"
+#include "api.h"
 #include "config.h"
 #include "debug.h"
+#include "fp_tcp.h"
 #include "hash.h"
 #include "p0f.h"
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
-#include "types.h"
-
-#include "fp_tcp.h"
 
 namespace {
 
@@ -1056,7 +1054,7 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk, struct p
 	const struct tcp_sig_record *const m = sig->matched;
 	if (m) {
 		observf(libp0f_context, (m->class_id == -1 || f->sendsyn) ? "app" : "os", "%s%s%s",
-				fp_os_names[m->name_id], m->flavor ? " " : "",
+				libp0f_context->fp_os_names[m->name_id], m->flavor ? " " : "",
 				m->flavor ? m->flavor : "");
 
 	} else {

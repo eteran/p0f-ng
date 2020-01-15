@@ -18,13 +18,13 @@
 
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <unistd.h>
-#include <string.h>
+#include <cstring>
 #include <netdb.h>
-#include <errno.h>
-#include <ctype.h>
+#include <cerrno>
+#include <cctype>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -32,9 +32,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 
-#include "types.h"
 #include "config.h"
-#include "alloc-inl.h"
 #include "debug.h"
 #include "tcp.h"
 

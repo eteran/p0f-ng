@@ -23,6 +23,7 @@
 #include <sys/types.h>
 
 #include "alloc-inl.h"
+#include "api.h"
 #include "config.h"
 #include "debug.h"
 #include "hash.h"
@@ -30,7 +31,6 @@
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
-#include "types.h"
 
 #include "fp_http.h"
 #include "languages.h"
@@ -440,7 +440,7 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 }
 
 // Register new HTTP signature.
-void http_parse_ua(char *val, uint32_t line_no) {
+void http_parse_ua(char *val, uint32_t line_no, libp0f_context_t *libp0f_context) {
 
 	char *nxt;
 
@@ -456,7 +456,7 @@ void http_parse_ua(char *val, uint32_t line_no) {
 		if (val == nxt)
 			FATAL("Malformed system name in line %u.", line_no);
 
-		id = lookup_name_id(val, nxt - val);
+		id = lookup_name_id(val, nxt - val, libp0f_context);
 
 		val = nxt;
 
@@ -484,7 +484,7 @@ void http_parse_ua(char *val, uint32_t line_no) {
 		http_context.ua_map[http_context.ua_map_cnt].id = id;
 
 		if (!name)
-			http_context.ua_map[http_context.ua_map_cnt].name = fp_os_names[id];
+			http_context.ua_map[http_context.ua_map_cnt].name = libp0f_context->fp_os_names[id];
 		else
 			http_context.ua_map[http_context.ua_map_cnt].name = name;
 
@@ -656,10 +656,8 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f, libp0f_contex
 	uint16_t reason = 0;
 
 	if (to_srv) {
-
 		hd  = f->client;
 		ref = hd->http_req_os;
-
 	} else {
 		hd  = f->server;
 		ref = hd->http_resp;
@@ -813,7 +811,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_conte
 	if ((m = f->http_tmp.matched)) {
 
 		observf(libp0f_context, (m->class_id < 0) ? "app" : "os", "%s%s%s",
-				fp_os_names[m->name_id], m->flavor ? " " : "",
+				libp0f_context->fp_os_names[m->name_id], m->flavor ? " " : "",
 				m->flavor ? m->flavor : "");
 
 	} else

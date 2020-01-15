@@ -14,8 +14,6 @@
 #ifndef HAVE_TCP_H_
 #define HAVE_TCP_H_
 
-#include "types.h"
-
 /* -----------
  * IP common *
  * ----------*/

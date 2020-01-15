@@ -12,7 +12,6 @@
 #define HAVE_DEBUG_H_
 
 #include "config.h"
-#include "types.h"
 
 #ifdef DEBUG_BUILD
 #define DEBUG(...) fprintf(stderr, __VA_ARGS__)

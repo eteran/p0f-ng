@@ -11,7 +11,7 @@
 #ifndef _HAVE_API_H
 #define _HAVE_API_H
 
-#include "types.h"
+#include <cstdint>
 
 #define P0F_QUERY_MAGIC 0x50304601
 #define P0F_RESP_MAGIC 0x50304602
@@ -66,9 +66,8 @@ struct p0f_api_response {
 } __attribute__((packed));
 
 #ifdef _FROM_P0F
+struct libp0f_context_t;
+void handle_query(struct p0f_api_query *q, struct p0f_api_response *r, libp0f_context_t *libp0f_context);
+#endif
 
-void handle_query(struct p0f_api_query *q, struct p0f_api_response *r);
-
-#endif // _FROM_API
-
-#endif // !_HAVE_API_H
+#endif

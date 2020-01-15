@@ -56,6 +56,7 @@ add_executable(p0f
 	readfp.h
 	tcp.h
 	types.h
+	api_client.h
 )
 
 target_compile_definitions(p0f

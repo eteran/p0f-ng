@@ -16,16 +16,13 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "alloc-inl.h"
 #include "config.h"
 #include "debug.h"
+#include "fp_mtu.h"
 #include "p0f.h"
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
-#include "types.h"
-
-#include "fp_mtu.h"
 
 struct mtu_context_t {
 	struct mtu_sig_record *sigs[SIG_BUCKETS];

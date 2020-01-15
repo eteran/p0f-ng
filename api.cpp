@@ -8,25 +8,22 @@
 
  */
 
-#define _FROM_API
-
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <unistd.h>
 
-#include "alloc-inl.h"
 #include "api.h"
 #include "config.h"
 #include "debug.h"
 #include "p0f.h"
 #include "process.h"
 #include "readfp.h"
-#include "types.h"
 
-void handle_query(struct p0f_api_query *q, struct p0f_api_response *r);
+void handle_query(struct p0f_api_query *q, struct p0f_api_response *r, libp0f_context_t *libp0f_context);
 
 // Process API queries.
-void handle_query(struct p0f_api_query *q, struct p0f_api_response *r) {
+void handle_query(struct p0f_api_query *q, struct p0f_api_response *r, libp0f_context_t *libp0f_context) {
 
 	struct host_data *h;
 
@@ -62,7 +59,7 @@ void handle_query(struct p0f_api_query *q, struct p0f_api_response *r) {
 	r->total_conn = h->total_conn;
 
 	if (h->last_name_id != -1) {
-		strncpy(r->os_name, fp_os_names[h->last_name_id], P0F_STR_MAX + 1);
+		strncpy(r->os_name, libp0f_context->fp_os_names[h->last_name_id], P0F_STR_MAX + 1);
 		r->os_name[P0F_STR_MAX] = '\0';
 
 		if (h->last_flavor) {
@@ -72,7 +69,7 @@ void handle_query(struct p0f_api_query *q, struct p0f_api_response *r) {
 	}
 
 	if (h->http_name_id != -1) {
-		strncpy(r->http_name, fp_os_names[h->http_name_id], P0F_STR_MAX + 1);
+		strncpy(r->http_name, libp0f_context->fp_os_names[h->http_name_id], P0F_STR_MAX + 1);
 		r->http_name[P0F_STR_MAX] = '\0';
 
 		if (h->http_flavor) {

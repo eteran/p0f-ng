@@ -10,14 +10,14 @@
 
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <unistd.h>
-#include <string.h>
+#include <cstring>
 #include <netdb.h>
-#include <errno.h>
-#include <ctype.h>
-#include <time.h>
+#include <cerrno>
+#include <cctype>
+#include <ctime>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -26,9 +26,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "types.h"
 #include "config.h"
-#include "alloc-inl.h"
 #include "debug.h"
 #include "api.h"
 

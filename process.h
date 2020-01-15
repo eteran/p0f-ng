@@ -15,7 +15,6 @@
 
 #include "fp_http.h"
 #include "fp_tcp.h"
-#include "types.h"
 
 // Parsed information handed over by the pcap callback:
 struct packet_data {
@@ -187,8 +186,6 @@ struct packet_flow {
 
 	struct http_sig http_tmp = {}; // Temporary signature
 };
-
-extern uint64_t packet_cnt;
 
 struct libp0f_context_t;
 

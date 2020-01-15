@@ -11,8 +11,6 @@
 #ifndef _HAVE_LANGUAGES_H
 #define _HAVE_LANGUAGES_H
 
-#include "types.h"
-
 #define MAX_LANG 3
 
 #define LANG_HASH(_b0, _b1) (((_b0) * (_b1) ^ (_b1)) & 0xff)

@@ -11,11 +11,11 @@
 #ifndef HAVE_ALLOC_INL_H_
 #define HAVE_ALLOC_INL_H_
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
 #include "config.h"
-#include "types.h"
 
 inline char *ck_strdup(const char *str) {
 	if (!str)
@@ -46,4 +46,4 @@ inline char *ck_memdup_str(const char *mem, uint32_t size) {
 	return ret;
 }
 
-#endif // ! HAVE_ALLOC_INL_H_
+#endif

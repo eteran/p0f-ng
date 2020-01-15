@@ -44,13 +44,13 @@
 
 #include "alloc-inl.h"
 #include "api.h"
+#include "api_client.h"
 #include "debug.h"
 #include "fp_http.h"
 #include "p0f.h"
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
-#include "types.h"
 
 #ifndef PF_INET6
 #define PF_INET6 10
@@ -63,14 +63,6 @@
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
 #endif
-
-char *read_file;                            // File to read pcap data from
-uint32_t max_conn        = MAX_CONN;        // Connection entry count limit
-uint32_t max_hosts       = MAX_HOSTS;       // Host cache entry count limit
-uint32_t conn_max_age    = CONN_MAX_AGE;    // Maximum age of a connection entry
-uint32_t host_idle_limit = HOST_IDLE_LIMIT; // Host cache idle timeout
-uint8_t daemon_mode;                        // Running in daemon mode?
-int32_t link_type;                          // PCAP link type
 
 #define LOGF(...) fprintf(p0f_context.lf, __VA_ARGS__)
 
@@ -102,6 +94,7 @@ struct p0f_context_t {
 	uint8_t stop_soon     = 0;            // Ctrl-C or so pressed?
 	uint8_t set_promisc   = 0;            // Use promiscuous mode?
 	uint8_t obs_fields    = 0;            // No of pending observation fields
+	uint8_t daemon_mode   = 0;            // Running in daemon mode?
 };
 
 p0f_context_t p0f_context;
@@ -323,7 +316,7 @@ void prepare_pcap() {
 	char pcap_err[PCAP_ERRBUF_SIZE];
 	char *orig_iface = p0f_context.use_iface;
 
-	if (read_file) {
+	if (libp0f_context.read_file) {
 
 		if (p0f_context.set_promisc)
 			FATAL("Dude, how am I supposed to make a file promiscuous?");
@@ -331,14 +324,14 @@ void prepare_pcap() {
 		if (p0f_context.use_iface)
 			FATAL("Options -i and -r are mutually exclusive.");
 
-		if (access(read_file, R_OK))
-			PFATAL("Can't access file '%s'.", read_file);
+		if (access(libp0f_context.read_file, R_OK))
+			PFATAL("Can't access file '%s'.", libp0f_context.read_file);
 
-		p0f_context.pt = pcap_open_offline(read_file, pcap_err);
+		p0f_context.pt = pcap_open_offline(libp0f_context.read_file, pcap_err);
 
 		if (!p0f_context.pt) FATAL("pcap_open_offline: %s", pcap_err);
 
-		SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
+		SAYF("[+] Will read pcap data from file '%s'.\n", libp0f_context.read_file);
 
 	} else {
 		if (!p0f_context.use_iface) {
@@ -373,7 +366,7 @@ void prepare_pcap() {
 		if (!p0f_context.pt) FATAL("pcap_open_live: %s", pcap_err);
 	}
 
-	link_type = pcap_datalink(p0f_context.pt);
+	libp0f_context.link_type = pcap_datalink(p0f_context.pt);
 }
 
 // Initialize BPF filtering
@@ -605,7 +598,7 @@ void live_event_loop() {
 
 	uint32_t pfd_count = regen_pfds(pfds, ctable);
 
-	if (!daemon_mode)
+	if (!p0f_context.daemon_mode)
 		SAYF("[+] Entered main event loop.\n\n");
 
 	while (!p0f_context.stop_soon) {
@@ -739,7 +732,7 @@ void live_event_loop() {
 					// Query in place? Compute response and prepare to send it back.
 					if (ctable[cur]->in_off == sizeof(struct p0f_api_query)) {
 
-						handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
+						handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data, &libp0f_context);
 						pfds[cur].events = (POLLOUT | POLLERR | POLLHUP);
 					}
 				}
@@ -762,7 +755,7 @@ void live_event_loop() {
 // Simple event loop for processing offline captures.
 void offline_event_loop() {
 
-	if (!daemon_mode)
+	if (!p0f_context.daemon_mode)
 		SAYF("[+] Processing capture data.\n\n");
 
 	while (!p0f_context.stop_soon) {
@@ -780,7 +773,7 @@ void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, c
 	if (p0f_context.obs_fields)
 		FATAL("Premature end of observation.");
 
-	if (!daemon_mode) {
+	if (!p0f_context.daemon_mode) {
 		SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
 			 f->cli_port);
 		SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
@@ -814,7 +807,7 @@ void add_observation_field(const char *key, const char *value) {
 	if (!p0f_context.obs_fields)
 		FATAL("Unexpected observation field ('%s').", key);
 
-	if (!daemon_mode)
+	if (!p0f_context.daemon_mode)
 		SAYF("| %-8s = %s\n", key, value ? value : "???");
 
 	if (p0f_context.log_file)
@@ -823,7 +816,7 @@ void add_observation_field(const char *key, const char *value) {
 	p0f_context.obs_fields--;
 
 	if (!p0f_context.obs_fields) {
-		if (!daemon_mode)
+		if (!p0f_context.daemon_mode)
 			SAYF("|\n`----\n\n");
 
 		if (p0f_context.log_file)
@@ -861,10 +854,10 @@ int main(int argc, char **argv) {
 
 			break;
 		case 'd':
-			if (daemon_mode)
+			if (p0f_context.daemon_mode)
 				FATAL("Double werewolf mode not supported yet.");
 
-			daemon_mode = 1;
+			p0f_context.daemon_mode = 1;
 			break;
 		case 'f':
 			if (p0f_context.fp_file)
@@ -879,12 +872,12 @@ int main(int argc, char **argv) {
 			p0f_context.use_iface = optarg;
 			break;
 		case 'm':
-			if (max_conn != MAX_CONN || max_hosts != MAX_HOSTS)
+			if (libp0f_context.max_conn != MAX_CONN || libp0f_context.max_hosts != MAX_HOSTS)
 				FATAL("Multiple -m options not supported.");
 
-			if (sscanf(optarg, "%u,%u", &max_conn, &max_hosts) != 2 ||
-				!max_conn || max_conn > 100000 ||
-				!max_hosts || max_hosts > 500000)
+			if (sscanf(optarg, "%u,%u", &libp0f_context.max_conn, &libp0f_context.max_hosts) != 2 ||
+				!libp0f_context.max_conn || libp0f_context.max_conn > 100000 ||
+				!libp0f_context.max_hosts || libp0f_context.max_hosts > 500000)
 				FATAL("Outlandish value specified for -m.");
 
 			break;
@@ -901,9 +894,9 @@ int main(int argc, char **argv) {
 			p0f_context.set_promisc = 1;
 			break;
 		case 'r':
-			if (read_file)
+			if (libp0f_context.read_file)
 				FATAL("Multiple -r options not supported.");
-			read_file = optarg;
+			libp0f_context.read_file = optarg;
 			break;
 		case 's':
 			if (p0f_context.api_sock)
@@ -913,12 +906,12 @@ int main(int argc, char **argv) {
 			break;
 		case 't':
 
-			if (conn_max_age != CONN_MAX_AGE || host_idle_limit != HOST_IDLE_LIMIT)
+			if (libp0f_context.conn_max_age != CONN_MAX_AGE || libp0f_context.host_idle_limit != HOST_IDLE_LIMIT)
 				FATAL("Multiple -t options not supported.");
 
-			if (sscanf(optarg, "%u,%u", &conn_max_age, &host_idle_limit) != 2 ||
-				!conn_max_age || conn_max_age > 1000000 ||
-				!host_idle_limit || host_idle_limit > 1000000)
+			if (sscanf(optarg, "%u,%u", &libp0f_context.conn_max_age, &libp0f_context.host_idle_limit) != 2 ||
+				!libp0f_context.conn_max_age || libp0f_context.conn_max_age > 1000000 ||
+				!libp0f_context.host_idle_limit || libp0f_context.host_idle_limit > 1000000)
 				FATAL("Outlandish value specified for -t.");
 
 			break;
@@ -940,15 +933,15 @@ int main(int argc, char **argv) {
 			FATAL("Filter rule must be a single parameter (use quotes).");
 	}
 
-	if (read_file && p0f_context.api_sock)
+	if (libp0f_context.read_file && p0f_context.api_sock)
 		FATAL("API mode looks down on ofline captures.");
 
 	if (!p0f_context.api_sock && p0f_context.api_max_conn != API_MAX_CONN)
 		FATAL("Option -S makes sense only with -s.");
 
-	if (daemon_mode) {
+	if (p0f_context.daemon_mode) {
 
-		if (read_file)
+		if (libp0f_context.read_file)
 			FATAL("Daemon mode and offline captures don't mix.");
 
 		if (!p0f_context.log_file && !p0f_context.api_sock)
@@ -965,7 +958,7 @@ int main(int argc, char **argv) {
 
 	http_init();
 
-	read_config(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE);
+	read_config(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE, &libp0f_context);
 
 	prepare_pcap();
 	prepare_bpf();
@@ -976,7 +969,7 @@ int main(int argc, char **argv) {
 	if (p0f_context.api_sock)
 		open_api();
 
-	if (daemon_mode) {
+	if (p0f_context.daemon_mode) {
 		p0f_context.null_fd = open("/dev/null", O_RDONLY);
 		if (p0f_context.null_fd < 0) PFATAL("Cannot open '/dev/null'.");
 	}
@@ -984,20 +977,20 @@ int main(int argc, char **argv) {
 	if (p0f_context.switch_user)
 		drop_privs();
 
-	if (daemon_mode)
+	if (p0f_context.daemon_mode)
 		fork_off();
 
-	signal(SIGHUP, daemon_mode ? SIG_IGN : abort_handler);
+	signal(SIGHUP, p0f_context.daemon_mode ? SIG_IGN : abort_handler);
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
 
-	if (read_file)
+	if (libp0f_context.read_file)
 		offline_event_loop();
 	else
 		live_event_loop();
 
-	if (!daemon_mode)
-		SAYF("\nAll done. Processed %lu packets.\n", packet_cnt);
+	if (!p0f_context.daemon_mode)
+		SAYF("\nAll done. Processed %lu packets.\n", libp0f_context.packet_cnt);
 
 #ifdef DEBUG_BUILD
 	destroy_all_hosts();

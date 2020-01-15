@@ -11,8 +11,6 @@
 #ifndef HAVE_CONFIG_H_
 #define HAVE_CONFIG_H_
 
-#include "types.h"
-
 /* ------------------------------------------
  * Things you may reasonably want to change *
  * -----------------------------------------*/

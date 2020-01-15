@@ -11,8 +11,6 @@
 #ifndef HAVE_READFP_H_
 #define HAVE_READFP_H_
 
-#include "types.h"
-
 // List of fingerprinting modules:
 #define CF_MOD_TCP 0x00  // fp_tcp.c
 #define CF_MOD_MTU 0x01  // fp_mtu.c
@@ -28,11 +26,9 @@
 #define SYS_CLASS_FLAG (1u << 31)
 #define SYS_NF(_x) ((_x) & ~SYS_CLASS_FLAG)
 
-extern char **fp_os_classes;
-extern char **fp_os_names;
+struct libp0f_context_t;
+void read_config(const char *fname, libp0f_context_t *libp0f_context);
 
-void read_config(const char *fname);
-
-uint32_t lookup_name_id(const char *name, uint8_t len);
+uint32_t lookup_name_id(const char *name, uint8_t len, libp0f_context_t *libp0f_context);
 
 #endif

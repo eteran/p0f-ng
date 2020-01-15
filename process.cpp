@@ -25,7 +25,6 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include "alloc-inl.h"
 #include "config.h"
 #include "debug.h"
 #include "hash.h"
@@ -33,7 +32,6 @@
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
-#include "types.h"
 
 #include "fp_http.h"
 #include "fp_mtu.h"
@@ -66,11 +64,9 @@ process_context_t process_context;
 
 }
 
-uint64_t packet_cnt; // Total number of packets processed
-
 static void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context);
-static void nuke_flows(uint8_t silent);
-static void expire_cache();
+static void nuke_flows(uint8_t silent, libp0f_context_t *libp0f_context);
+static void expire_cache(libp0f_context_t *libp0f_context);
 
 // Get unix time in milliseconds.
 uint64_t get_unix_time_ms() {
@@ -83,12 +79,12 @@ time_t get_unix_time() {
 }
 
 // Find link-specific offset (pcap knows, but won't tell).
-static void find_offset(const uint8_t *data, int32_t total_len) {
+static void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0f_context) {
 
 	uint8_t i;
 
 	// Check hardcoded values for some of the most common options.
-	switch (link_type) {
+	switch (libp0f_context->link_type) {
 	case DLT_RAW:
 		process_context.link_off = 0;
 		return;
@@ -136,7 +132,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 		if (total_len >= MIN_TCP6 && (data[i] >> 4) == IP_VER6) {
 			auto hdr = reinterpret_cast<const struct ipv6_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
-				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, link_type);
+				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, libp0f_context->link_type);
 				process_context.link_off = i;
 				break;
 			}
@@ -148,7 +144,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 		if ((data[i] >> 4) == IP_VER4) {
 			auto hdr = reinterpret_cast<const struct ipv4_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
-				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, link_type);
+				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, libp0f_context->link_type);
 				process_context.link_off = i;
 				break;
 			}
@@ -203,11 +199,12 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	const uint8_t *opt_end;
 
-	packet_cnt++;
+	libp0f_context->packet_cnt++;
 
 	process_context.cur_time = &hdr->ts;
 
-	if (!(packet_cnt % EXPIRE_INTERVAL)) expire_cache();
+	if (!(libp0f_context->packet_cnt % EXPIRE_INTERVAL))
+		expire_cache(libp0f_context);
 
 	// Be paranoid about how much data we actually have off the wire.
 	packet_len = std::min(hdr->len, hdr->caplen);
@@ -218,7 +215,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	// Account for link-level headers.
 	if (process_context.link_off < 0) {
-		find_offset(data, packet_len);
+		find_offset(data, packet_len, libp0f_context);
 	}
 
 	if (process_context.link_off > 0) {
@@ -771,15 +768,15 @@ static void destroy_host(struct host_data *h) {
 }
 
 // Indiscriminately kill some of the older hosts.
-static void nuke_hosts() {
+static void nuke_hosts(libp0f_context_t *libp0f_context) {
 
 	uint32_t kcnt            = 1 + (process_context.host_cnt * KILL_PERCENT / 100);
 	struct host_data *target = process_context.host_by_age;
 
-	if (!read_file)
+	if (!libp0f_context->read_file)
 		WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
 
-	nuke_flows(1);
+	nuke_flows(1, libp0f_context);
 
 	while (kcnt && target) {
 		struct host_data *next = target->older;
@@ -792,11 +789,12 @@ static void nuke_hosts() {
 }
 
 // Create a minimal host data.
-static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
+static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *libp0f_context) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
 
-	if (process_context.host_cnt > max_hosts) nuke_hosts();
+	if (process_context.host_cnt > libp0f_context->max_hosts)
+		nuke_hosts(libp0f_context);
 
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
@@ -916,13 +914,13 @@ static void destroy_flow(struct packet_flow *f) {
 }
 
 // Indiscriminately kill some of the oldest flows.
-static void nuke_flows(uint8_t silent) {
+static void nuke_flows(uint8_t silent, libp0f_context_t *libp0f_context) {
 
 	uint32_t kcnt = 1 + (process_context.flow_cnt * KILL_PERCENT / 100);
 
 	if (silent) {
 		DEBUG("[#] Pruning connections - trying to delete %u...\n", kcnt);
-	} else if (!read_file) {
+	} else if (!libp0f_context->read_file) {
 		WARN("Too many tracked connections, deleting %u. "
 			 "Use -m to adjust.",
 			 kcnt);
@@ -934,12 +932,12 @@ static void nuke_flows(uint8_t silent) {
 }
 
 // Create flow, and host data if necessary. If counts exceeded, prune old.
-static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
+static struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 
 	uint32_t bucket = get_flow_bucket(pk);
 
-	if (process_context.flow_cnt > max_conn) {
-		nuke_flows(0);
+	if (process_context.flow_cnt > libp0f_context->max_conn) {
+		nuke_flows(0, libp0f_context);
 	}
 
 	DEBUG("[#] Creating flow from SYN: %s/%u -> ",
@@ -955,14 +953,14 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	if (nf->client)
 		touch_host(nf->client);
 	else
-		nf->client = create_host(pk->src, pk->ip_ver);
+		nf->client = create_host(pk->src, pk->ip_ver, libp0f_context);
 
 	nf->server = lookup_host(pk->dst, pk->ip_ver);
 
 	if (nf->server)
 		touch_host(nf->server);
 	else
-		nf->server = create_host(pk->dst, pk->ip_ver);
+		nf->server = create_host(pk->dst, pk->ip_ver, libp0f_context);
 
 	nf->client->use_cnt++;
 	nf->server->use_cnt++;
@@ -1033,7 +1031,7 @@ static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) 
 }
 
 // Go through host and flow cache, expire outdated items.
-static void expire_cache() {
+static void expire_cache(libp0f_context_t *libp0f_context) {
 	struct host_data *target;
 	static time_t pt;
 
@@ -1045,12 +1043,12 @@ static void expire_cache() {
 
 	DEBUG("[#] Cache expiration kicks in...\n");
 
-	while (process_context.flow_by_age && ct - process_context.flow_by_age->created > conn_max_age)
+	while (process_context.flow_by_age && ct - process_context.flow_by_age->created > libp0f_context->conn_max_age)
 		destroy_flow(process_context.flow_by_age);
 
 	target = process_context.host_by_age;
 
-	while (target && ct - target->last_seen > host_idle_limit * 60) {
+	while (target && ct - target->last_seen > libp0f_context->host_idle_limit * 60) {
 		struct host_data *newer = target->newer;
 		if (!target->use_cnt) {
 			destroy_host(target);
@@ -1085,7 +1083,7 @@ static void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_conte
 			destroy_flow(f);
 		}
 
-		f = create_flow_from_syn(pk);
+		f = create_flow_from_syn(pk, libp0f_context);
 
 		tsig = fingerprint_tcp(1, pk, f, libp0f_context);
 
