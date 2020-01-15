@@ -23,7 +23,7 @@ struct http_id {
 
 // Another internal structure for UA -> OS maps:
 struct ua_map_record {
-	char *name;
+	const char *name;
 	uint32_t id;
 };
 

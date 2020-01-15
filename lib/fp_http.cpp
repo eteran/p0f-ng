@@ -16,6 +16,7 @@
 #include <ctime>
 #include <ostream>
 #include <sstream>
+#include <vector>
 #include <unistd.h>
 
 #include <netinet/in.h>
@@ -69,8 +70,7 @@ struct http_context_t {
 	struct http_sig_record *sigs[2];
 	uint32_t sig_cnt[2];
 
-	struct ua_map_record *ua_map; // Mappings between U-A and OS
-	uint32_t ua_map_cnt;
+	std::vector<struct ua_map_record> ua_map; // Mappings between U-A and OS
 };
 
 http_context_t http_context;
@@ -478,10 +478,10 @@ void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0
 
 		uint32_t i;
 
-		for (i = 0; i < http_context.ua_map_cnt; i++)
+		for (i = 0; i < http_context.ua_map.size(); i++)
 			if (strstr(f->http_tmp.sw, http_context.ua_map[i].name)) break;
 
-		if (i != http_context.ua_map_cnt) {
+		if (i != http_context.ua_map.size()) {
 
 			if (http_context.ua_map[i].id != hd->last_name_id) {
 
@@ -1059,20 +1059,20 @@ void http_parse_ua(char *val, uint32_t line_no, libp0f_context_t *libp0f_context
 
 	while (*val) {
 
-		uint32_t id;
-		char *name = nullptr;
-
 		nxt = val;
-		while (*nxt && (isalnum(*nxt) || strchr(NAME_CHARS, *nxt)))
+		while (*nxt && (isalnum(*nxt) || strchr(NAME_CHARS, *nxt))) {
 			nxt++;
+		}
 
-		if (val == nxt)
+		if (val == nxt) {
 			FATAL("Malformed system name in line %u.", line_no);
+		}
 
-		id = lookup_name_id(val, nxt - val, libp0f_context);
+		uint32_t id = lookup_name_id(val, nxt - val, libp0f_context);
 
 		val = nxt;
 
+		char *name = nullptr;
 		if (*val == '=') {
 
 			if (val[1] != '[')
@@ -1092,16 +1092,10 @@ void http_parse_ua(char *val, uint32_t line_no, libp0f_context_t *libp0f_context
 			val = nxt + 1;
 		}
 
-		http_context.ua_map = static_cast<struct ua_map_record *>(realloc(http_context.ua_map, (http_context.ua_map_cnt + 1) * sizeof(struct ua_map_record)));
-
-		http_context.ua_map[http_context.ua_map_cnt].id = id;
-
-		if (!name)
-			http_context.ua_map[http_context.ua_map_cnt].name = libp0f_context->fp_os_names[id];
-		else
-			http_context.ua_map[http_context.ua_map_cnt].name = name;
-
-		http_context.ua_map_cnt++;
+		struct ua_map_record record;
+		record.id = id;
+		record.name = (!name) ? libp0f_context->fp_os_names[id] : name;
+		http_context.ua_map.push_back(record);
 
 		if (*val == ',') val++;
 	}
