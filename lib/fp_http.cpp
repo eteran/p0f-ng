@@ -67,8 +67,7 @@ struct http_context_t {
 
 	/* Signatures aren't bucketed due to the complex matching used; but we use
 	 * Bloom filters to go through them quickly. */
-	struct http_sig_record *sigs[2];
-	uint32_t sig_cnt[2];
+	std::vector<struct http_sig_record> sigs[2];
 
 	std::vector<struct ua_map_record> ua_map; // Mappings between U-A and OS
 };
@@ -120,13 +119,14 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 
 	struct http_sig_record *gmatch = nullptr;
-	struct http_sig_record *ref    = http_context.sigs[to_srv];
-	uint32_t cnt                   = http_context.sig_cnt[to_srv];
+	struct http_sig_record *ref    = &http_context.sigs[to_srv][0];
+	uint32_t cnt                   = http_context.sigs[to_srv].size();
 
 	while (cnt--) {
 
 		struct http_sig *rs = ref->sig;
-		uint32_t ts_hdr = 0, rs_hdr = 0;
+		uint32_t ts_hdr = 0;
+		uint32_t rs_hdr = 0;
 
 		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver)
 			goto next_sig;
@@ -910,10 +910,6 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 
 	auto hsig = static_cast<struct http_sig *>(calloc(sizeof(struct http_sig), 1));
 
-	http_context.sigs[to_srv] = static_cast<struct http_sig_record *>(realloc(http_context.sigs[to_srv], sizeof(struct http_sig_record) * (http_context.sig_cnt[to_srv] + 1)));
-
-	struct http_sig_record *hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
-
 	if (val[1] != ':')
 		FATAL("Malformed signature in line %u.", line_no);
 
@@ -1038,18 +1034,18 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 		FATAL("Signature in line %u is already covered by line %u.",
 			  line_no, hsig->matched->line_no);
 
-	hrec->class_id = sig_class;
-	hrec->name_id  = sig_name;
-	hrec->flavor   = sig_flavor;
-	hrec->label_id = label_id;
-	hrec->sys      = sys;
-	hrec->sys_cnt  = sys_cnt;
-	hrec->line_no  = line_no;
-	hrec->generic  = generic;
+	struct http_sig_record hrec;
+	hrec.class_id = sig_class;
+	hrec.name_id  = sig_name;
+	hrec.flavor   = sig_flavor;
+	hrec.label_id = label_id;
+	hrec.sys      = sys;
+	hrec.sys_cnt  = sys_cnt;
+	hrec.line_no  = line_no;
+	hrec.generic  = generic;
+	hrec.sig = hsig;
 
-	hrec->sig = hsig;
-
-	http_context.sig_cnt[to_srv]++;
+	http_context.sigs[to_srv].push_back(hrec);
 }
 
 // Register new HTTP signature.
