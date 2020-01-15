@@ -26,9 +26,9 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
-#include "api.h"
-#include "config.h"
-#include "debug.h"
+#include "p0f/api.h"
+#include "p0f/config.h"
+#include "p0f/debug.h"
 
 namespace {
 

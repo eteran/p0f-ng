@@ -32,9 +32,9 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include "config.h"
-#include "debug.h"
-#include "tcp.h"
+#include "p0f/config.h"
+#include "p0f/debug.h"
+#include "p0f/tcp.h"
 
 namespace {
 

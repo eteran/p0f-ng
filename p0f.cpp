@@ -42,15 +42,15 @@
 #include <pcap-bpf.h>
 #endif
 
-#include "alloc-inl.h"
-#include "api.h"
-#include "api_client.h"
-#include "debug.h"
-#include "fp_http.h"
-#include "p0f.h"
-#include "process.h"
-#include "readfp.h"
-#include "tcp.h"
+#include "p0f/alloc-inl.h"
+#include "p0f/api.h"
+#include "p0f/api_client.h"
+#include "p0f/debug.h"
+#include "p0f/fp_http.h"
+#include "p0f/p0f.h"
+#include "p0f/process.h"
+#include "p0f/readfp.h"
+#include "p0f/tcp.h"
 
 #ifndef PF_INET6
 #define PF_INET6 10

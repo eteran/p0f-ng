@@ -5,10 +5,12 @@ add_executable(p0f-sendsyn6
 	p0f-sendsyn6.cpp
 )
 
-target_compile_options(p0f-sendsyn6 
-	PUBLIC -Wno-format -funsigned-char
+target_compile_options(p0f-sendsyn6
+PUBLIC
+	-Wall -Wno-format -funsigned-char
 )
 
-target_include_directories(p0f-sendsyn6
-	PRIVATE ../../
+target_link_libraries(p0f-sendsyn6
+PUBLIC
+    p0f-engine
 )

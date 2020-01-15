@@ -6,9 +6,11 @@ add_executable(p0f-client
 )
 
 target_compile_options(p0f-client 
-	PUBLIC -Wall -Wno-format -funsigned-char
+PUBLIC
+	-Wall -Wno-format -funsigned-char
 )
 
-target_include_directories(p0f-client
-	PRIVATE ../../
+target_link_libraries(p0f-client
+PUBLIC
+    p0f-engine
 )

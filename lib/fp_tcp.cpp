@@ -18,16 +18,16 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "api.h"
-#include "config.h"
-#include "debug.h"
-#include "fp_tcp.h"
-#include "hash.h"
-#include "p0f.h"
-#include "process.h"
-#include "readfp.h"
-#include "tcp.h"
-#include "util.h"
+#include "p0f/api.h"
+#include "p0f/config.h"
+#include "p0f/debug.h"
+#include "p0f/fp_tcp.h"
+#include "p0f/hash.h"
+#include "p0f/p0f.h"
+#include "p0f/process.h"
+#include "p0f/readfp.h"
+#include "p0f/tcp.h"
+#include "p0f/util.h"
 
 namespace {
 

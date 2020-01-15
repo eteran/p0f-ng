@@ -22,14 +22,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "alloc-inl.h"
-#include "config.h"
-#include "debug.h"
-#include "fp_http.h"
-#include "fp_mtu.h"
-#include "fp_tcp.h"
-#include "p0f.h"
-#include "readfp.h"
+#include "p0f/alloc-inl.h"
+#include "p0f/config.h"
+#include "p0f/debug.h"
+#include "p0f/fp_http.h"
+#include "p0f/fp_mtu.h"
+#include "p0f/fp_tcp.h"
+#include "p0f/p0f.h"
+#include "p0f/readfp.h"
 
 namespace {
 
