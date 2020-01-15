@@ -15,6 +15,7 @@
 
 #include "fp_http.h"
 #include "fp_tcp.h"
+#include <string>
 
 // Parsed information handed over by the pcap callback:
 struct packet_data {
@@ -165,16 +166,14 @@ struct packet_flow {
 	int16_t srv_tps = 0; // Computed TS divisor (-1 = bad)
 	int16_t cli_tps = 0;
 
-	char *request         = nullptr; // Client-originating data
-	uint32_t req_len      = 0;       // Captured data length
-	uint32_t next_cli_seq = 0;       // Next seq on cli -> srv packet
+	std::string request;       // Client-originating data
+	uint32_t next_cli_seq = 0; // Next seq on cli -> srv packet
 
-	char *response        = nullptr; // Server-originating data
-	uint32_t resp_len     = 0;       // Captured data length
-	uint32_t next_srv_seq = 0;       // Next seq on srv -> cli packet
-	uint16_t syn_mss      = 0;       // MSS on SYN packet
+	std::string response;      // Server-originating data
+	uint32_t next_srv_seq = 0; // Next seq on srv -> cli packet
+	uint16_t syn_mss      = 0; // MSS on SYN packet
 
-	uint32_t created = 0; // Flow creation date (unix time)
+	time_t created = 0; // Flow creation date (unix time)
 
 	// Application-level fingerprinting:
 

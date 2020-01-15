@@ -659,14 +659,14 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 // Parse name=value pairs into a signature.
 uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, libp0f_context_t *libp0f_context) {
 
-	uint32_t plen = to_srv ? f->req_len : f->resp_len;
+	uint32_t plen = to_srv ? f->request.size() : f->response.size();
 
 	uint32_t off;
 
 	// Try to parse name: value pairs.
 	while ((off = f->http_pos) < plen) {
 
-		char *pay = to_srv ? f->request : f->response;
+		const char *const pay = to_srv ? f->request.data() : f->response.data();
 
 		uint32_t nlen, vlen, vstart;
 		uint32_t hcount;
@@ -1111,8 +1111,8 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 
 	if (to_srv) {
 
-		const char *const pay = f->request;
-		bool can_get_more     = (f->req_len < MAX_FLOW_DATA);
+		const char *const pay = f->request.data();
+		bool can_get_more     = (f->request.size() < MAX_FLOW_DATA);
 
 		// Request done, but pending response?
 		if (f->http_req_done)
@@ -1124,7 +1124,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 			const char *sig_at;
 
 			// Ooh, new flow!
-			if (f->req_len < 15)
+			if (f->request.size() < 15)
 				return can_get_more;
 
 			// Scan until \n, or until binary data spotted.
@@ -1138,7 +1138,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 				return 0;
 			}
 
-			while (off < f->req_len && off < HTTP_MAX_URL && (chr = pay[off]) != '\n') {
+			while (off < f->request.size() && off < HTTP_MAX_URL && (chr = pay[off]) != '\n') {
 				if (chr != '\r' && (chr < 0x20 || chr > 0x7f)) {
 					DEBUG("[#] Not HTTP - character 0x%02x encountered.\n", chr);
 					f->in_http = -1;
@@ -1156,7 +1156,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 			}
 
 			// Not enough data yet?
-			if (off == f->req_len) {
+			if (off == f->request.size()) {
 				f->http_pos = off;
 
 				if (!can_get_more) {
@@ -1189,8 +1189,8 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 
 	} else {
 
-		const char *const pay = f->response;
-		bool can_get_more     = (f->resp_len < MAX_FLOW_DATA);
+		const char *const pay = f->response.data();
+		bool can_get_more     = (f->response.size() < MAX_FLOW_DATA);
 
 		// Response before request? Bail out.
 		if (!f->in_http || !f->http_req_done) {
@@ -1202,13 +1202,13 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 
 			uint8_t chr;
 
-			if (f->resp_len < 13)
+			if (f->response.size() < 13)
 				return can_get_more;
 
 			// Scan until \n, or until binary data spotted.
 			uint32_t off = f->http_pos;
 
-			while (off < f->resp_len && off < HTTP_MAX_URL && (chr = pay[off]) != '\n') {
+			while (off < f->response.size() && off < HTTP_MAX_URL && (chr = pay[off]) != '\n') {
 				if (chr != '\r' && (chr < 0x20 || chr > 0x7f)) {
 					DEBUG("[#] Invalid HTTP response - character 0x%02x encountered.\n",
 						  chr);
@@ -1227,7 +1227,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 			}
 
 			// Not enough data yet?
-			if (off == f->resp_len) {
+			if (off == f->response.size()) {
 				f->http_pos = off;
 				if (!can_get_more) {
 					DEBUG("[#] Invalid HTTP response - no opening line found.\n");

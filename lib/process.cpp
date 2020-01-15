@@ -150,8 +150,6 @@ void destroy_flow(struct packet_flow *f) {
 
 	free_sig_hdrs(&f->http_tmp);
 
-	free(f->request);
-	free(f->response);
 	delete f;
 
 	process_context.flow_cnt--;
@@ -538,13 +536,9 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 			}
 
 			// Append data
-			if (f->req_len < MAX_FLOW_DATA && pk->pay_len) {
-
-				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->req_len);
-
-				f->request = static_cast<char *>(realloc(f->request, f->req_len + read_amt + 1));
-				memcpy(f->request + f->req_len, pk->payload, read_amt);
-				f->req_len += read_amt;
+			if (f->request.size() < MAX_FLOW_DATA && pk->pay_len) {
+				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->request.size());
+				f->request.append(reinterpret_cast<char *>(pk->payload), read_amt);
 			}
 
 			check_ts_tcp(1, pk, f, libp0f_context);
@@ -564,13 +558,10 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 			}
 
 			// Append data
-			if (f->resp_len < MAX_FLOW_DATA && pk->pay_len) {
+			if (f->response.size() < MAX_FLOW_DATA && pk->pay_len) {
 
-				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
-
-				f->response = static_cast<char *>(realloc(f->response, f->resp_len + read_amt + 1));
-				memcpy(f->response + f->resp_len, pk->payload, read_amt);
-				f->resp_len += read_amt;
+				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->response.size());
+				f->response.append(reinterpret_cast<char *>(pk->payload), read_amt);
 			}
 
 			check_ts_tcp(0, pk, f, libp0f_context);
@@ -587,7 +578,7 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 			DEBUG("[#] All modules done, no need to keep tracking flow.\n");
 			destroy_flow(f);
 
-		} else if (f->req_len >= MAX_FLOW_DATA && f->resp_len >= MAX_FLOW_DATA) {
+		} else if (f->request.size() >= MAX_FLOW_DATA && f->response.size() >= MAX_FLOW_DATA) {
 
 			DEBUG("[#] Per-flow capture size limit exceeded.\n");
 			destroy_flow(f);
