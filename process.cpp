@@ -139,7 +139,6 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 			auto hdr = reinterpret_cast<const struct ipv6_hdr *>(data + i);
 
 			if (hdr->proto == PROTO_TCP) {
-
 				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, link_type);
 				link_off = i;
 				break;
@@ -433,7 +432,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	/***************
    * TCP parsing *
    ***************/
-
 	data = reinterpret_cast<const uint8_t *>(tcp);
 
 	tcp_doff = (tcp->doff_rsvd >> 4) * 4;
@@ -468,27 +466,25 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	}
 
 	pk.win = ntohs(RD16(tcp->win));
-
 	pk.seq = ntohl(RD32(tcp->seq));
 
 	/* Take note of miscellanous features and quirks. */
 
-	if ((tcp->flags & (TCP_ECE | TCP_CWR)) ||
-		(tcp->doff_rsvd & TCP_NS_RES)) pk.quirks |= QUIRK_ECN;
+	if ((tcp->flags & (TCP_ECE | TCP_CWR)) || (tcp->doff_rsvd & TCP_NS_RES))
+		pk.quirks |= QUIRK_ECN;
 
-	if (!pk.seq) pk.quirks |= QUIRK_ZERO_SEQ;
+	if (!pk.seq)
+		pk.quirks |= QUIRK_ZERO_SEQ;
 
 	if (tcp->flags & TCP_ACK) {
-
-		if (!RD32(tcp->ack)) pk.quirks |= QUIRK_ZERO_ACK;
-
+		if (!RD32(tcp->ack))
+			pk.quirks |= QUIRK_ZERO_ACK;
 	} else {
 
 		/* A good proportion of RSTs tend to have "illegal" ACK numbers, so
-       ignore these. */
+		 * ignore these. */
 
 		if (RD32(tcp->ack) & !(tcp->flags & TCP_RST)) {
-
 			DEBUG("[#] Non-zero ACK on a non-ACK packet: 0x%08x.\n",
 				  ntohl(RD32(tcp->ack)));
 
@@ -497,13 +493,9 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	}
 
 	if (tcp->flags & TCP_URG) {
-
 		pk.quirks |= QUIRK_URG;
-
 	} else {
-
 		if (RD16(tcp->urg)) {
-
 			DEBUG("[#] Non-zero UPtr on a non-URG packet: 0x%08x.\n",
 				  ntohl(RD16(tcp->urg)));
 
@@ -511,17 +503,14 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 	}
 
-	if (tcp->flags & TCP_PUSH) pk.quirks |= QUIRK_PUSH;
+	if (tcp->flags & TCP_PUSH)
+		pk.quirks |= QUIRK_PUSH;
 
 	/* Handle payload data. */
-
 	if (tcp_doff == packet_len) {
-
 		pk.payload = nullptr;
 		pk.pay_len = 0;
-
 	} else {
-
 		pk.payload = const_cast<uint8_t *>(data) + tcp_doff;
 		pk.pay_len = packet_len - tcp_doff;
 	}

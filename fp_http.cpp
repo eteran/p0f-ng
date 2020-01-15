@@ -81,7 +81,7 @@ constexpr uint64_t bloom4_64(uint32_t val) {
 }
 
 /* Look up or register new header */
-int32_t lookup_hdr(const char *name, uint32_t len, uint8_t create) {
+int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 
 	uint32_t bucket = hash32(name, len) % SIG_BUCKETS;
 
@@ -95,8 +95,8 @@ int32_t lookup_hdr(const char *name, uint32_t len, uint8_t create) {
 	}
 
 	/* Not found! */
-
-	if (!create) return -1;
+	if (!create)
+		return -1;
 
 	http_context.hdr_names = static_cast<struct header_name *>(realloc(http_context.hdr_names, (http_context.hdr_cnt + 1) * sizeof(struct header_name)));
 
@@ -223,10 +223,8 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 				continue;
 			}
 
-			if (rs->hdr[rs_hdr].value &&
-				(!ts->hdr[ts_hdr].value ||
-				 !strstr(ts->hdr[ts_hdr].value,
-						 rs->hdr[rs_hdr].value))) goto next_sig;
+			if (rs->hdr[rs_hdr].value && (!ts->hdr[ts_hdr].value || !strstr(ts->hdr[ts_hdr].value, rs->hdr[rs_hdr].value)))
+				goto next_sig;
 
 			ts_hdr++;
 			rs_hdr++;
@@ -239,11 +237,13 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 
 			uint64_t miss_bloom4 = bloom4_64(rs->miss[rs_hdr]);
 
-			if ((ts->hdr_bloom4 & miss_bloom4) != miss_bloom4) continue;
+			if ((ts->hdr_bloom4 & miss_bloom4) != miss_bloom4)
+				continue;
 
 			/* Okay, possible instance of a banned header - scan list... */
 			for (ts_hdr = 0; ts_hdr < ts->hdr_cnt; ts_hdr++)
-				if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id) goto next_sig;
+				if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id)
+					goto next_sig;
 		}
 
 		/* When doing dupe detection, we want to allow a signature with
@@ -252,16 +252,19 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 
 		if (dupe_det) {
 
-			if (rs->miss_cnt > ts->miss_cnt) goto next_sig;
+			if (rs->miss_cnt > ts->miss_cnt)
+				goto next_sig;
 
 			for (rs_hdr = 0; rs_hdr < rs->miss_cnt; rs_hdr++) {
 
 				for (ts_hdr = 0; ts_hdr < ts->miss_cnt; ts_hdr++)
-					if (rs->miss[rs_hdr] == ts->miss[ts_hdr]) break;
+					if (rs->miss[rs_hdr] == ts->miss[ts_hdr])
+						break;
 
 				/* One of the reference headers doesn't appear in current sig! */
 
-				if (ts_hdr == ts->miss_cnt) goto next_sig;
+				if (ts_hdr == ts->miss_cnt)
+					goto next_sig;
 			}
 		}
 
@@ -279,25 +282,21 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 			gmatch = ref;
 
 	next_sig:
-
 		ref = ref + 1;
 	}
 
 	/* A generic signature is the best we could find. */
 
 	if (!dupe_det && gmatch) {
-
 		ts->matched = gmatch;
-
-		if (gmatch->sig->sw && ts->sw && !strstr(ts->sw, gmatch->sig->sw)) ts->dishonest = 1;
+		if (gmatch->sig->sw && ts->sw && !strstr(ts->sw, gmatch->sig->sw))
+			ts->dishonest = 1;
 	}
 }
 
 /* Register new HTTP signature. */
 
-void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name,
-					   char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
-					   char *val, uint32_t line_no) {
+void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
 
 	struct http_sig *hsig;
 	struct http_sig_record *hrec;
@@ -996,7 +995,6 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		char *pay = to_srv ? f->request : f->response;
 
 		uint32_t nlen, vlen, vstart;
-		int32_t hid;
 		uint32_t hcount;
 
 		/* Empty line? Dispatch for fingerprinting! */
@@ -1112,23 +1110,18 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 
 		if (pay[off - 1] == '\r') vlen--;
 
-		/* Header value starts at vstart, and has vlen bytes (may be zero). Record
-       this in the signature. */
+		/* Header value starts at vstart, and has vlen bytes (may be zero).
+		 * Record this in the signature. */
 
-		hid = lookup_hdr(pay + f->http_pos, nlen, 0);
+		const int32_t hid = lookup_hdr(pay + f->http_pos, nlen, 0);
 
 		f->http_tmp.hdr[hcount].id = hid;
 
 		if (hid < 0) {
-
 			/* Header ID not found, store literal value. */
-
 			f->http_tmp.hdr[hcount].name = ck_memdup_str(pay + f->http_pos, nlen);
-
 		} else {
-
 			/* Found - update Bloom filter. */
-
 			f->http_tmp.hdr_bloom4 |= bloom4_64(hid);
 		}
 
@@ -1142,7 +1135,6 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 			f->http_tmp.hdr[hcount].value = val;
 
 			if (to_srv) {
-
 				switch (hid) {
 				case HDR_UA:
 					f->http_tmp.sw = val;
@@ -1157,9 +1149,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 				}
 
 			} else {
-
 				switch (hid) {
-
 				case HDR_SRV:
 					f->http_tmp.sw = val;
 					break;
@@ -1312,14 +1302,10 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			if (f->resp_len < 13) return can_get_more;
 
 			/* Scan until \n, or until binary data spotted. */
-
 			off = f->http_pos;
 
-			while (off < f->resp_len && off < HTTP_MAX_URL &&
-				   (chr = pay[off]) != '\n') {
-
+			while (off < f->resp_len && off < HTTP_MAX_URL && (chr = pay[off]) != '\n') {
 				if (chr != '\r' && (chr < 0x20 || chr > 0x7f)) {
-
 					DEBUG("[#] Invalid HTTP response - character 0x%02x encountered.\n",
 						  chr);
 					f->in_http = -1;
@@ -1332,9 +1318,7 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			/* Newline too far or too close? */
 
 			if (off == HTTP_MAX_URL || off < 13) {
-
 				DEBUG("[#] Invalid HTTP response - newline offset %u.\n", off);
-
 				f->in_http = -1;
 				return 0;
 			}
@@ -1342,11 +1326,8 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			/* Not enough data yet? */
 
 			if (off == f->resp_len) {
-
 				f->http_pos = off;
-
 				if (!can_get_more) {
-
 					DEBUG("[#] Invalid HTTP response - no opening line found.\n");
 					f->in_http = -1;
 				}
@@ -1357,17 +1338,13 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			/* Bad HTTP/1.x signature? */
 
 			if (strncmp(pay, "HTTP/1.", 7)) {
-
 				DEBUG("[#] Invalid HTTP response - bad signature.\n");
-
 				f->in_http = -1;
 				return 0;
 			}
 
 			f->http_tmp.http_ver = (pay[7] == '1');
-
 			f->http_pos = off + 1;
-
 			DEBUG("[#] HTTP response starts correctly.\n");
 		}
 

@@ -11,6 +11,7 @@
 #ifndef HAVE_FP_HTTP_H_
 #define HAVE_FP_HTTP_H_
 
+#include "config.h"
 #include "types.h"
 
 /* A structure used for looking up various headers internally in fp_http.c: */
@@ -83,20 +84,11 @@ struct http_sig_record {
 	struct http_sig *sig; /* Actual signature data              */
 };
 
-/* Register new HTTP signature. */
-
 struct packet_flow;
-
 void http_parse_ua(char *val, uint32_t line_no);
-
-void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name,
-					   char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
-					   char *val, uint32_t line_no);
-
+void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no);
 uint8_t process_http(uint8_t to_srv, struct packet_flow *f);
-
 void free_sig_hdrs(struct http_sig *h);
-
 void http_init();
 
-#endif /* _HAVE_FP_HTTP_H */
+#endif /* HAVE_FP_HTTP_H_ */
