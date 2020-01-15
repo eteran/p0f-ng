@@ -535,7 +535,7 @@ header_check:
 
 // Parse HTTP date field.
 time_t parse_date(const char *str) {
-	struct tm t;
+	struct tm t = {};
 
 	if (!strptime(str, "%a, %d %b %Y %H:%M:%S %Z", &t)) {
 		DEBUG("[#] Invalid 'Date' field ('%s').\n", str);
