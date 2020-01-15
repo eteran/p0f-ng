@@ -14,7 +14,6 @@
 #include "types.h"
 
 // Simplified data for signature matching and NAT detection:
-
 struct tcp_sig {
 
 	uint32_t opt_hash; // Hash of opt_layout & opt_cnt
@@ -46,7 +45,6 @@ struct tcp_sig {
 };
 
 // Methods for matching window size in tcp_sig:
-
 #define WIN_TYPE_NORMAL 0x00 // Literal value
 #define WIN_TYPE_ANY 0x01    // Wildcard (p0f.fp sigs only)
 #define WIN_TYPE_MOD 0x02    // Modulo check (p0f.fp sigs only)
@@ -54,7 +52,6 @@ struct tcp_sig {
 #define WIN_TYPE_MTU 0x04    // Window size MTU multiplier
 
 // Record for a TCP signature read from p0f.fp:
-
 struct tcp_sig_record {
 
 	uint8_t generic  = 0;       // Generic entry?
@@ -90,4 +87,4 @@ void fingerprint_sendsyn(struct packet_data *pk);
 
 void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f);
 
-#endif // _HAVE_FP_TCP_H
+#endif

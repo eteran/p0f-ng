@@ -65,4 +65,4 @@ struct api_client {
 	uint32_t out_off;                 // Response buffer offset
 };
 
-#endif // !HAVE_P0F_H_
+#endif

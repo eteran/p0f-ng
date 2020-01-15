@@ -15,21 +15,18 @@
 #include "types.h"
 
 // A structure used for looking up various headers internally in fp_http.c:
-
 struct http_id {
 	const char *name;
 	uint32_t id;
 };
 
 // Another internal structure for UA -> OS maps:
-
 struct ua_map_record {
 	char *name;
 	uint32_t id;
 };
 
 // HTTP header field:
-
 struct http_hdr {
 	int32_t id;       // Lookup ID (-1 = none)
 	char *name;       // Text name (nullptr = use lookup ID)
@@ -38,7 +35,6 @@ struct http_hdr {
 };
 
 // Request / response signature collected from the wire:
-
 struct http_sig {
 
 	int8_t http_ver; // HTTP version (-1 = any)
@@ -65,7 +61,6 @@ struct http_sig {
 };
 
 // Record for a HTTP signature read from p0f.fp:
-
 struct http_sig_record {
 
 	int32_t class_id; // OS class ID (-1 = user)
@@ -91,4 +86,4 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f);
 void free_sig_hdrs(struct http_sig *h);
 void http_init();
 
-#endif // HAVE_FP_HTTP_H_
+#endif

@@ -31,7 +31,6 @@ enum IP_VER {
 #define IP_TOS_ECT 0x02 // ECN supported
 
 // Encapsulated protocols we care about:
-
 #define PROTO_TCP 0x06
 
 /*-------
@@ -51,7 +50,6 @@ struct ipv4_hdr {
 	uint8_t dst[4];     // Destination IP
 
 	// Dword-aligned options may follow.
-
 } __attribute__((packed));
 
 // IP flags:
@@ -78,10 +76,9 @@ struct ipv6_hdr {
 
 } __attribute__((packed));
 
-/*******
+/*------
  * TCP *
- *******/
-
+ * ----*/
 struct tcp_hdr {
 
 	uint16_t sport;    // Source port
@@ -95,11 +92,9 @@ struct tcp_hdr {
 	uint16_t urg;      // "Urgent" pointer
 
 	// Dword-aligned options may follow.
-
 } __attribute__((packed));
 
 // Normal flags:
-
 #define TCP_FIN 0x01
 #define TCP_SYN 0x02
 #define TCP_RST 0x04
@@ -108,7 +103,6 @@ struct tcp_hdr {
 #define TCP_URG 0x20
 
 // ECN stuff:
-
 #define TCP_ECE 0x40    // ECN supported (SYN) or detected
 #define TCP_CWR 0x80    // ECE acknowledgment
 #define TCP_NS_RES 0x01 // ECE notification via TCP
@@ -128,4 +122,4 @@ struct tcp_hdr {
 constexpr int MIN_TCP4 = (sizeof(struct ipv4_hdr) + sizeof(struct tcp_hdr));
 constexpr int MIN_TCP6 = (sizeof(struct ipv6_hdr) + sizeof(struct tcp_hdr));
 
-#endif // !HAVE_TCP_H_
+#endif

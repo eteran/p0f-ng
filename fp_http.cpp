@@ -113,7 +113,6 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 }
 
 // Pre-register essential headers.
-
 void http_init() {
 
 	memcpy(&http_context.req_optional, &req_optional_init, sizeof(http_context.req_optional));
@@ -178,7 +177,6 @@ void http_init() {
 }
 
 // Find match for a signature.
-
 static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_det) {
 
 	struct http_sig_record *gmatch = nullptr;
@@ -190,16 +188,16 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 		struct http_sig *rs = ref->sig;
 		uint32_t ts_hdr = 0, rs_hdr = 0;
 
-		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver) goto next_sig;
+		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver)
+			goto next_sig;
 
 		/* Check that all the headers listed for the p0f.fp signature (probably)
 		 * appear in the examined traffic. */
-
-		if ((ts->hdr_bloom4 & rs->hdr_bloom4) != rs->hdr_bloom4) goto next_sig;
+		if ((ts->hdr_bloom4 & rs->hdr_bloom4) != rs->hdr_bloom4)
+			goto next_sig;
 
 		/* Confirm the ordering and values of headers (this is relatively slow,
 		 * hence the Bloom filter first). */
-
 		while (rs_hdr < rs->hdr_cnt) {
 
 			uint32_t orig_ts = ts_hdr;
@@ -210,13 +208,14 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 
 			if (ts_hdr == ts->hdr_cnt) {
 
-				if (!rs->hdr[rs_hdr].optional) goto next_sig;
+				if (!rs->hdr[rs_hdr].optional)
+					goto next_sig;
 
 				/* If this is an optional header, check that it doesn't appear
 				 * anywhere else. */
-
 				for (ts_hdr = 0; ts_hdr < ts->hdr_cnt; ts_hdr++)
-					if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id) goto next_sig;
+					if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id)
+						goto next_sig;
 
 				ts_hdr = orig_ts;
 				rs_hdr++;
@@ -249,7 +248,6 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 		/* When doing dupe detection, we want to allow a signature with
 		 * additional banned headers to precede one with fewer,
 		 * or with a different set. */
-
 		if (dupe_det) {
 
 			if (rs->miss_cnt > ts->miss_cnt)
@@ -262,7 +260,6 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 						break;
 
 				// One of the reference headers doesn't appear in current sig!
-
 				if (ts_hdr == ts->miss_cnt)
 					goto next_sig;
 			}
@@ -286,7 +283,6 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 	}
 
 	// A generic signature is the best we could find.
-
 	if (!dupe_det && gmatch) {
 		ts->matched = gmatch;
 		if (gmatch->sig->sw && ts->sw && !strstr(ts->sw, gmatch->sig->sw))
@@ -295,7 +291,6 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 }
 
 // Register new HTTP signature.
-
 void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
 
 	char *nxt;
@@ -326,7 +321,6 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 	val += 2;
 
 	// horder
-
 	while (*val != ':') {
 
 		uint8_t optional = 0;
@@ -388,7 +382,6 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 	val++;
 
 	// habsent
-
 	while (*val != ':') {
 
 		if (hsig->miss_cnt >= HTTP_MAX_HDRS)
@@ -418,7 +411,6 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 	val++;
 
 	// exp_sw
-
 	if (*val) {
 
 		if (strchr(val, ':'))
@@ -448,7 +440,6 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 }
 
 // Register new HTTP signature.
-
 void http_parse_ua(char *val, uint32_t line_no) {
 
 	char *nxt;
@@ -525,7 +516,6 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 			uint8_t optional = 0;
 
 			// Check the "optional" list.
-
 			list = to_srv ? http_context.req_optional : http_context.resp_optional;
 
 			while (list->name) {
@@ -541,7 +531,6 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 			if (!(val = hsig->hdr[i].value)) continue;
 
 			// Next, make sure that the value is not on the ignore list.
-
 			if (optional) continue;
 
 			list = to_srv ? http_context.req_skipval : http_context.resp_skipval;
@@ -553,8 +542,8 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 			if (list->name) continue;
 
-			/* Looks like it's not on the list, so let's output a cleaned-up version
-         up to HTTP_MAX_SHOW. */
+			/* Looks like it's not on the list, so let's output a cleaned-up
+			 * version up to HTTP_MAX_SHOW. */
 
 			tpos = 0;
 
@@ -637,7 +626,6 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 }
 
 // Dump signature flags.
-
 static const char *dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
 
 	std::stringstream ss;
@@ -657,8 +645,7 @@ static const char *dump_flags(const struct http_sig *hsig, const struct http_sig
 }
 
 /* Score signature differences. For unknown signatures, the presumption is that
-   they identify apps, so the logic is quite different from TCP. */
-
+ * they identify apps, so the logic is quite different from TCP. */
 static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 
 	struct http_sig_record *m = f->http_tmp.matched;
@@ -674,21 +661,17 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 		ref = hd->http_req_os;
 
 	} else {
-
 		hd  = f->server;
 		ref = hd->http_resp;
 
 		// If the signature is for a different port, don't read too much into it.
-
 		if (hd->http_resp_port != f->srv_port) ref = nullptr;
 	}
 
 	if (!m) {
-
 		/* No match. The user is probably running another app; this is only of
-       interest if a server progresses from known to unknown. We can't
-       compare two unknown server sigs with that much confidence. */
-
+		 * interest if a server progresses from known to unknown. We can't
+		 * compare two unknown server sigs with that much confidence. */
 		if (!to_srv && ref && ref->matched) {
 
 			DEBUG("[#] HTTP server signature changed from known to unknown.\n");
@@ -700,16 +683,12 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 	}
 
 	if (m->class_id == -1) {
-
 		/* Got a match for an application signature. Make sure it runs on the
-       OS we have on file... */
-
+		 * OS we have on file... */
 		verify_tool_class(to_srv, f, m->sys, m->sys_cnt);
 
 		// ...and check for inconsistencies in server behavior.
-
 		if (!to_srv && ref && ref->matched) {
-
 			if (ref->matched->name_id != m->name_id) {
 
 				DEBUG("[#] Name on the matched HTTP server signature changes.\n");
@@ -726,9 +705,8 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 
 	} else {
 
-		/* Ooh, spiffy: a match for an OS signature! There will be about two uses
-       for this code, ever. */
-
+		/* Ooh, spiffy: a match for an OS signature! There will be about two
+		 * uses for this code, ever. */
 		if (ref && ref->matched) {
 
 			if (ref->matched->name_id != m->name_id) {
@@ -753,8 +731,7 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 		}
 
 		/* If we haven't pointed out anything major yet, also complain if the
-       signature doesn't match host data. */
-
+		 * signature doesn't match host data. */
 		if (!diff_already && hd->last_name_id != m->name_id) {
 
 			DEBUG("[#] Matched HTTP OS signature different than host data.\n");
@@ -764,8 +741,7 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 	}
 
 	/* If we have determined that U-A looks legit, but the OS doesn't match,
-     that's a clear sign of trouble. */
-
+	 * that's a clear sign of trouble. */
 	if (to_srv && m->class_id == -1 && f->http_tmp.sw && !f->http_tmp.dishonest) {
 
 		uint32_t i;
@@ -794,7 +770,6 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 header_check:
 
 	// Okay, some last-resort checks. This is obviously concerning:
-
 	if (f->http_tmp.via) {
 		DEBUG("[#] Explicit use of Via or X-Forwarded-For.\n");
 		score += 8;
@@ -802,7 +777,6 @@ header_check:
 	}
 
 	// Last but not least, see what happened to 'Date':
-
 	if (ref && !to_srv && ref->date && f->http_tmp.date) {
 
 		auto recv_diff = static_cast<int64_t>(f->http_tmp.recv_date) - ref->recv_date;
@@ -827,7 +801,6 @@ header_check:
 }
 
 // Look up HTTP signature, create an observation.
-
 static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 
 	struct http_sig_record *m;
@@ -874,11 +847,9 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 	score_nat(to_srv, f);
 
 	// Save observations needed to score future responses.
-
 	if (!to_srv) {
 
 		// For server response, always store the signature.
-
 		free(f->server->http_resp);
 		f->server->http_resp = static_cast<struct http_sig *>(ck_memdup(&f->http_tmp, sizeof(struct http_sig)));
 
@@ -896,7 +867,6 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 			if (m->class_id != -1) {
 
 				// If this is an OS signature, update host record.
-
 				f->server->last_class_id = m->class_id;
 				f->server->last_name_id  = m->name_id;
 				f->server->last_flavor   = m->flavor;
@@ -905,7 +875,6 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 			} else {
 
 				// Otherwise, record app data.
-
 				f->server->http_name_id = m->name_id;
 				f->server->http_flavor  = m->flavor;
 
@@ -922,7 +891,6 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 			if (m->class_id != -1) {
 
 				// Client request - only OS sig is of any note.
-
 				free(f->client->http_req_os);
 				f->client->http_req_os = static_cast<struct http_sig *>(ck_memdup(&f->http_tmp, sizeof(struct http_sig)));
 
@@ -940,7 +908,6 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 			} else {
 
 				// Record app data for the API.
-
 				f->client->http_name_id = m->name_id;
 				f->client->http_flavor  = m->flavor;
 
@@ -951,7 +918,6 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 }
 
 // Free up any allocated strings in http_sig.
-
 void free_sig_hdrs(struct http_sig *h) {
 
 	uint32_t i;
@@ -963,7 +929,6 @@ void free_sig_hdrs(struct http_sig *h) {
 }
 
 // Parse HTTP date field.
-
 static time_t parse_date(const char *str) {
 	struct tm t;
 
@@ -976,7 +941,6 @@ static time_t parse_date(const char *str) {
 }
 
 // Parse name=value pairs into a signature.
-
 static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_get_more) {
 
 	uint32_t plen = to_srv ? f->req_len : f->resp_len;
@@ -984,7 +948,6 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 	uint32_t off;
 
 	// Try to parse name: value pairs.
-
 	while ((off = f->http_pos) < plen) {
 
 		char *pay = to_srv ? f->request : f->response;
@@ -993,7 +956,6 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		uint32_t hcount;
 
 		// Empty line? Dispatch for fingerprinting!
-
 		if (pay[off] == '\r' || pay[off] == '\n') {
 
 			f->http_tmp.recv_date = get_unix_time();
@@ -1001,11 +963,9 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 			fingerprint_http(to_srv, f);
 
 			/* If this is a request, flush the collected signature and prepare
-         for parsing the response. If it's a response, just shut down HTTP
-         parsing on this flow. */
-
+			 * for parsing the response. If it's a response, just shut down HTTP
+			 * parsing on this flow. */
 			if (to_srv) {
-
 				f->http_req_done = 1;
 				f->http_pos      = 0;
 
@@ -1013,16 +973,13 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 				memset(&f->http_tmp, 0, sizeof(struct http_sig));
 
 				return 1;
-
 			} else {
-
 				f->in_http = -1;
 				return 0;
 			}
 		}
 
 		// Looks like we're getting a header value. See if we have room for it.
-
 		if ((hcount = f->http_tmp.hdr_cnt) >= HTTP_MAX_HDRS) {
 
 			DEBUG("[#] Too many HTTP headers in a %s.\n", to_srv ? "request" : "response");
@@ -1032,7 +989,6 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		}
 
 		// Try to extract header name.
-
 		nlen = 0;
 
 		while ((isalnum(pay[off]) || pay[off] == '-' || pay[off] == '_') &&
@@ -1055,7 +1011,6 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		}
 
 		// Empty, excessively long, or non-':'-followed header name?
-
 		if (!nlen || pay[off] != ':' || nlen > HTTP_MAX_HDR_NAME) {
 
 			DEBUG("[#] Invalid HTTP header encountered (len = %u, char = 0x%02x).\n",
@@ -1066,8 +1021,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		}
 
 		/* At this point, header name starts at f->http_pos, and has nlen bytes.
-       Skip ':' and a subsequent whitespace next. */
-
+		 * Skip ':' and a subsequent whitespace next. */
 		off++;
 
 		if (off < plen && isblank(pay[off])) off++;
@@ -1076,9 +1030,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		vlen   = 0;
 
 		// Find the next \n.
-
 		while (off < plen && vlen <= HTTP_MAX_HDR_VAL && pay[off] != '\n') {
-
 			off++;
 			vlen++;
 		}
@@ -1091,7 +1043,6 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		}
 
 		if (off == plen) {
-
 			if (!can_get_more) {
 				DEBUG("[#] End of HTTP %s before end of headers.\n",
 					  to_srv ? "request" : "response");
@@ -1102,12 +1053,10 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		}
 
 		// If party is using \r\n terminators, go back one char.
-
 		if (pay[off - 1] == '\r') vlen--;
 
 		/* Header value starts at vstart, and has vlen bytes (may be zero).
 		 * Record this in the signature. */
-
 		const int32_t hid = lookup_hdr(pay + f->http_pos, nlen, 0);
 
 		f->http_tmp.hdr[hcount].id = hid;
@@ -1121,8 +1070,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		}
 
 		/* If there's a value, store that too. For U-A and Server, also update
-       'sw'; and for requests, collect Accept-Language. */
-
+		 * 'sw'; and for requests, collect Accept-Language. */
 		if (vlen) {
 
 			auto val = ck_memdup_str(pay + vstart, vlen);
@@ -1160,7 +1108,6 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 		}
 
 		// Moving on...
-
 		f->http_tmp.hdr_cnt++;
 		f->http_pos = off + 1;
 	}
@@ -1174,13 +1121,11 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 	return can_get_more;
 }
 
-/* Examine request or response; returns 1 if more data needed and plausibly can
-   be read. Note that the buffer is always NUL-terminated. */
-
+/* Examine request or response; returns 1 if more data needed and plausibly
+ * can be read. Note that the buffer is always NUL-terminated. */
 uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 	// Already decided this flow is not worth tracking?
-
 	if (f->in_http < 0)
 		return 0;
 
@@ -1224,7 +1169,6 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			}
 
 			// Newline too far or too close?
-
 			if (off == HTTP_MAX_URL || off < 14) {
 				DEBUG("[#] Not HTTP - newline offset %u.\n", off);
 				f->in_http = -1;
@@ -1314,7 +1258,6 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			}
 
 			// Bad HTTP/1.x signature?
-
 			if (strncmp(pay, "HTTP/1.", 7)) {
 				DEBUG("[#] Invalid HTTP response - bad signature.\n");
 				f->in_http = -1;

@@ -18,7 +18,6 @@
 #include "types.h"
 
 // Parsed information handed over by the pcap callback:
-
 struct packet_data {
 
 	uint8_t ip_ver;   // IP_VER4, IP_VER6
@@ -55,7 +54,6 @@ struct packet_data {
 };
 
 // IP-level quirks:
-
 #define QUIRK_ECN 0x00000001     // ECN supported
 #define QUIRK_DF 0x00000002      // DF used (probably PMTUD)
 #define QUIRK_NZ_ID 0x00000004   // Non-zero IDs when DF set
@@ -64,7 +62,6 @@ struct packet_data {
 #define QUIRK_FLOW 0x00000020    // IPv6 flows used
 
 // Core TCP quirks:
-
 #define QUIRK_ZERO_SEQ 0x00001000 // SEQ is zero
 #define QUIRK_NZ_ACK 0x00002000   // ACK non-zero when ACK flag not set
 #define QUIRK_ZERO_ACK 0x00004000 // ACK is zero when ACK flag set
@@ -73,7 +70,6 @@ struct packet_data {
 #define QUIRK_PUSH 0x00020000     // PUSH flag on a control packet
 
 // TCP option quirks:
-
 #define QUIRK_OPT_ZERO_TS1 0x01000000 // Own timestamp set to zero
 #define QUIRK_OPT_NZ_TS2 0x02000000   // Peer timestamp non-zero on SYN
 #define QUIRK_OPT_EOL_NZ 0x04000000   // Non-zero padding past EOL
@@ -81,7 +77,6 @@ struct packet_data {
 #define QUIRK_OPT_BAD 0x10000000      // Problem parsing TCP options
 
 // Host record with persistent fingerprinting data:
-
 struct host_data {
 
 	struct host_data *prev  = nullptr;
@@ -146,7 +141,6 @@ struct host_data {
 #define NAT_TTL 0x0040      // TTL changes unexpectedly
 #define NAT_FUZZY 0x0080    // Signature fuzziness changes
 #define NAT_MSS 0x0100      // MSS changes
-
 #define NAT_APP_LB 0x0200   // Server signature changes
 #define NAT_APP_VIA 0x0400  // Via / X-Forwarded-For seen
 #define NAT_APP_DATE 0x0800 // Date changes in a weird way
@@ -205,4 +199,4 @@ void verify_tool_class(uint8_t to_srv, const packet_flow *f, uint32_t *sys, uint
 struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver);
 void destroy_all_hosts();
 
-#endif // !HAVE_PROCESS_H_
+#endif

@@ -223,7 +223,6 @@ static void config_parse_line(char *line) {
 	char *eon = nullptr;
 
 	// Special handling for [module:direction]...
-
 	if (*line == '[') {
 
 		char *dir = nullptr;
@@ -231,7 +230,6 @@ static void config_parse_line(char *line) {
 		line++;
 
 		// Simplified case for [mtu].
-
 		if (!strcmp(line, "mtu]")) {
 
 			fp_context.mod_type = CF_MOD_MTU;
@@ -278,7 +276,6 @@ static void config_parse_line(char *line) {
 	}
 
 	// Everything else follows the 'name = value' approach.
-
 	val = line;
 
 	while (isalpha(*val) || *val == '_')

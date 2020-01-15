@@ -30,4 +30,4 @@ inline uint32_t RD32p(const void *ptr) {
 #define RD16(_val) RD16p(&_val)
 #define RD32(_val) RD32p(&_val)
 
-#endif // ! _HAVE_TYPES_H
+#endif

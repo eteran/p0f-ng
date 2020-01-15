@@ -49,8 +49,7 @@ uint8_t guess_dist(uint8_t ttl) {
 }
 
 /* Figure out if window size is a multiplier of MSS or MTU. We don't take window
-   scaling into account, because neither do TCP stack developers. */
-
+ * scaling into account, because neither do TCP stack developers. */
 int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t syn_mss) {
 
 	uint16_t win = ts->win;
@@ -71,7 +70,6 @@ int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t sy
 	RET_IF_DIV(mss, 0, "MSS");
 
 	// Some systems will sometimes subtract 12 bytes when timestamps are in use.
-
 	if (ts->ts1) RET_IF_DIV(mss12, 0, "MSS - 12");
 
 	/* Some systems use MTU on the wrong interface, so let's check for the most
@@ -87,14 +85,12 @@ int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t sy
 	}
 
 	// Some systems use MTU instead of MSS:
-
 	RET_IF_DIV(mss + MIN_TCP4, 1, "MTU (IPv4)");
 	RET_IF_DIV(mss + ts->tot_hdr, 1, "MTU (actual size)");
 	if (ts->ip_ver == IP_VER6) RET_IF_DIV(mss + MIN_TCP6, 1, "MTU (IPv6)");
 	RET_IF_DIV(1500, 1, "MTU (1500)");
 
 	// On SYN+ACKs, some systems use of the peer:
-
 	if (syn_mss) {
 
 		RET_IF_DIV(syn_mss, 0, "peer MSS");
@@ -130,9 +126,8 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 		if (ref->sig->opt_hash != ts->opt_hash) continue;
 
 		/* If the p0f.fp signature has no IP version specified, we need
-	   to remove IPv6-specific quirks from it when matching IPv4
-	   packets, and vice versa. */
-
+		 * to remove IPv6-specific quirks from it when matching IPv4
+		 * packets, and vice versa. */
 		if (refs->ip_ver == -1)
 			ref_quirks &= ((ts->ip_ver == IP_VER4) ? ~(QUIRK_FLOW) : ~(QUIRK_DF | QUIRK_NZ_ID | QUIRK_ZERO_ID));
 
@@ -141,9 +136,8 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 			uint32_t deleted = (ref_quirks ^ ts->quirks) & ref_quirks,
 					 added   = (ref_quirks ^ ts->quirks) & ts->quirks;
 
-			/* If there is a difference in quirks, but it amounts to 'df' or 'id+'
-		 disappearing, or 'id-' or 'ecn' appearing, allow a fuzzy match. */
-
+			/* If there is a difference in quirks, but it amounts to 'df' or
+			 * 'id+' disappearing, or 'id-' or 'ecn' appearing, allow a fuzzy match. */
 			if (fmatch || (deleted & ~(QUIRK_DF | QUIRK_NZ_ID)) ||
 				(added & ~(QUIRK_ZERO_ID | QUIRK_ECN))) continue;
 
@@ -151,39 +145,31 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 		}
 
 		// Fixed parameters.
-
 		if (refs->opt_eol_pad != ts->opt_eol_pad ||
 			refs->ip_opt_len != ts->ip_opt_len) continue;
 
 		// TTL matching, with a provision to allow fuzzy match.
-
 		if (ref->bad_ttl) {
-
 			if (refs->ttl < ts->ttl) continue;
 
 		} else {
-
 			if (refs->ttl < ts->ttl || refs->ttl - ts->ttl > MAX_DIST) fuzzy = 1;
 		}
 
 		// Simple wildcards.
-
 		if (refs->mss != -1 && refs->mss != ts->mss) continue;
 		if (refs->wscale != -1 && refs->wscale != ts->wscale) continue;
 		if (refs->pay_class != -1 && refs->pay_class != ts->pay_class) continue;
 
 		// Window size.
-
 		if (ts->win_type != WIN_TYPE_NORMAL) {
 
 			// Comparing two p0f.fp signatures.
-
 			if (refs->win_type != ts->win_type || refs->win != ts->win) continue;
 
 		} else {
 
 			// Comparing real-world stuff.
-
 			switch (refs->win_type) {
 
 			case WIN_TYPE_NORMAL:
@@ -211,7 +197,6 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 		}
 
 		// Got a match? If not fuzzy, return. If fuzzy, keep looking.
-
 		if (!fuzzy) {
 
 			if (!ref->generic) {
@@ -229,7 +214,6 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 	}
 
 	// OK, no definitive match so far...
-
 	if (dupe_det) return;
 
 	/* If we found a generic signature, and nothing better, let's just use
@@ -244,7 +228,6 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 	}
 
 	// No fuzzy matching for userland tools.
-
 	if (fmatch && fmatch->class_id == -1) return;
 
 	/* Let's try to guess distance if no match; or if match TTL out of
@@ -257,7 +240,6 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 		ts->dist = fmatch->sig->ttl - ts->ttl;
 
 	// Record the outcome.
-
 	ts->matched = fmatch;
 
 	if (fmatch) ts->fuzzy = 1;
@@ -472,7 +454,6 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 	}
 
 	// We have some previous data.
-
 	if (!sig->matched || !ref->matched) {
 
 		/* One or both of the signatures are unknown. Let's see if they differ.
@@ -500,7 +481,6 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 		}
 
 		// Progression from known to unknown is also of interest for SYNs.
-
 		if (to_srv && sig->matched != ref->matched) {
 
 			DEBUG("[#] SYN signature changed from %s.\n",
@@ -513,7 +493,6 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 	} else {
 
 		// Both signatures known!
-
 		if (ref->matched->name_id != sig->matched->name_id) {
 
 			DEBUG("[#] TCP signature different OS type on previous sig.\n");
@@ -525,7 +504,6 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 		} else if (to_srv) {
 
 			// SYN signatures match superficially, but...
-
 			if (ref->matched->label_id != sig->matched->label_id) {
 
 				/* SYN label changes are a weak but useful signal. SYN+ACK signatures
@@ -547,7 +525,6 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 			} else if (sig->fuzzy != ref->fuzzy) {
 
 				// Fuzziness change on a perfectly matched signature?
-
 				DEBUG("[#] SYN signature fuzziness changes.\n");
 				score += 1;
 				reason |= NAT_FUZZY;
@@ -603,7 +580,6 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 	}
 
 	// Change of MTU is always sketchy.
-
 	if (sig->mss != ref->mss) {
 
 		DEBUG("[#] MSS for signature changed from %u to %u.\n", ref->mss, sig->mss);
@@ -655,7 +631,6 @@ log_and_update:
 	add_nat_score(to_srv, f, reason, score);
 
 	// Update some of the essential records.
-
 	if (sig->matched) {
 
 		hd->last_class_id = sig->matched->class_id;
@@ -691,7 +666,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	struct tcp_sig_record *trec;
 
 	// IP version
-
 	switch (*val) {
 	case '4':
 		ver = IP_VER4;
@@ -711,7 +685,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	val += 2;
 
 	// Initial TTL (possibly ttl+dist or ttl-)
-
 	nxt = val;
 	while (isdigit(*nxt))
 		nxt++;
@@ -747,7 +720,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	}
 
 	// Length of IP options
-
 	nxt = val;
 	while (isdigit(*nxt))
 		nxt++;
@@ -761,7 +733,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	val = nxt + 1;
 
 	// MSS
-
 	if (*val == '*' && val[1] == ':') {
 		mss = -1;
 		val += 2;
@@ -779,7 +750,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	}
 
 	// window size, followed by comma
-
 	if (*val == '*' && val[1] == ',') {
 		win_type = WIN_TYPE_ANY;
 		win      = 0;
@@ -1019,7 +989,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	val++;
 
 	// Payload class
-
 	if (!strcmp(val, "*"))
 		pay_class = -1;
 	else if (!strcmp(val, "0"))
@@ -1030,7 +999,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 		FATAL("Malformed payload class in line %u.", line_no);
 
 	// Phew, okay, we're done. Now, create tcp_sig...
-
 	tsig = static_cast<struct tcp_sig *>(calloc(sizeof(struct tcp_sig), 1));
 
 	tsig->opt_hash    = opt_hash;
@@ -1049,7 +1017,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	tsig->pay_class = pay_class;
 
 	// No need to set ts1, recv_ms, match, fuzzy, dist
-
 	tcp_find_match(to_srv, tsig, 1, 0);
 
 	if (tsig->matched)
@@ -1057,7 +1024,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 			  line_no, tsig->matched->line_no);
 
 	// Everything checks out, so let's register it.
-
 	bucket = opt_hash % SIG_BUCKETS;
 
 	tcp_context.sigs[to_srv][bucket] = static_cast<struct tcp_sig_record *>(realloc(tcp_context.sigs[to_srv][bucket], (tcp_context.sig_cnt[to_srv][bucket] + 1) * sizeof(struct tcp_sig_record)));
@@ -1135,7 +1101,6 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk, struct p
 	if (pk->tcp_type == TCP_SYN) f->syn_mss = pk->mss;
 
 	// That's about as far as we go with non-OS signatures.
-
 	if (m && m->class_id == -1) {
 		verify_tool_class(to_srv, f, m->sys, m->sys_cnt);
 		free(sig);
@@ -1223,7 +1188,6 @@ void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f)
 	freq = ffreq;
 
 	// Round the frequency neatly.
-
 	if (freq == 0)
 		freq = 1;
 	else if (freq >= 1 && freq <= 10) {

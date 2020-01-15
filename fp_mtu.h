@@ -14,7 +14,6 @@
 #include "types.h"
 
 // Record for a TCP signature read from p0f.fp:
-
 struct mtu_sig_record {
 
 	char *name;
@@ -30,4 +29,4 @@ void mtu_register_sig(char *name, char *val, uint32_t line_no);
 
 void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f);
 
-#endif // _HAVE_FP_MTU_H
+#endif

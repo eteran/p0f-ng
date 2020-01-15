@@ -38,9 +38,7 @@
 #include "debug.h"
 #include "tcp.h"
 
-
 /* Do a basic IPv6 TCP checksum. */
-
 static void tcp_cksum(uint8_t* src, uint8_t* dst, struct tcp_hdr* t, uint8_t opt_len) {
 
   uint32_t sum, i;

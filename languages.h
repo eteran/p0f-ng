@@ -278,4 +278,4 @@ static const char *languages[256][MAX_LANG * 2 + 1] = {
 
 };
 
-#endif // !_HAVE_LANGUAGES_H
+#endif

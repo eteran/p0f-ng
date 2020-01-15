@@ -40,7 +40,7 @@
 #include <net/bpf.h>
 #else
 #include <pcap-bpf.h>
-#endif // !NET_BPF
+#endif
 
 #include "alloc-inl.h"
 #include "api.h"
@@ -54,15 +54,15 @@
 
 #ifndef PF_INET6
 #define PF_INET6 10
-#endif // !PF_INET6
+#endif
 
 #ifndef O_NOFOLLOW
 #define O_NOFOLLOW 0
-#endif // !O_NOFOLLOW
+#endif
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
-#endif // !O_LARGEFILE
+#endif
 
 char *read_file;                            // File to read pcap data from
 uint32_t max_conn        = MAX_CONN;        // Connection entry count limit
@@ -289,7 +289,6 @@ void list_interfaces() {
 		SAYF("     Description : %s\n", dev->description ? dev->description : "-");
 
 		// Let's try to find something we can actually display.
-
 		while (a && a->addr->sa_family != PF_INET && a->addr->sa_family != PF_INET6)
 			a = a->next;
 
@@ -625,7 +624,6 @@ void live_event_loop() {
 		}
 
 		// Examine pfds...
-
 		for (uint32_t cur = 0; cur < pfd_count; cur++) {
 			if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
 				case 0:
@@ -651,7 +649,6 @@ void live_event_loop() {
 				default: {
 
 					// Write API response, restart state when complete.
-
 					if (ctable[cur]->in_off < sizeof(struct p0f_api_query))
 						FATAL("Inconsistent p0f_api_response state.\n");
 
@@ -662,7 +659,6 @@ void live_event_loop() {
 					ctable[cur]->out_off += i;
 
 					// All done? Back to square zero then!
-
 					if (ctable[cur]->out_off == sizeof(struct p0f_api_response)) {
 
 						ctable[cur]->in_off = ctable[cur]->out_off = 0;
@@ -730,7 +726,6 @@ void live_event_loop() {
 					ctable[cur]->in_off += i;
 
 					// Query in place? Compute response and prepare to send it back.
-
 					if (ctable[cur]->in_off == sizeof(struct p0f_api_query)) {
 
 						handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
@@ -740,7 +735,6 @@ void live_event_loop() {
 				}
 
 			// Processed all reported updates already? If so, bail out early.
-
 			if (pfds[cur].revents && !--pret) break;
 		}
 	}
@@ -992,7 +986,7 @@ int main(int argc, char **argv) {
 
 #ifdef DEBUG_BUILD
 	destroy_all_hosts();
-#endif // DEBUG_BUILD
+#endif
 
 	return 0;
 }

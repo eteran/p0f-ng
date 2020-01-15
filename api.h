@@ -29,17 +29,13 @@
 #define P0F_MATCH_GENERIC 0x02
 
 // Keep these structures aligned to avoid architecture-specific padding.
-
 struct p0f_api_query {
-
 	uint32_t magic;    // Must be P0F_QUERY_MAGIC
 	uint8_t addr_type; // P0F_ADDR_*
 	uint8_t addr[16];  // IP address (big endian left align)
-
 } __attribute__((packed));
 
 struct p0f_api_response {
-
 	uint32_t magic;  // Must be P0F_RESP_MAGIC
 	uint32_t status; // P0F_STATUS_*
 
@@ -67,7 +63,6 @@ struct p0f_api_response {
 	char link_type[P0F_STR_MAX + 1]; // Link type
 
 	char language[P0F_STR_MAX + 1]; // Language
-
 } __attribute__((packed));
 
 #ifdef _FROM_P0F

@@ -138,4 +138,4 @@ constexpr uint32_t hash32(const void *key, uint32_t len) {
 	return c;
 }
 
-#endif // !HAVE_HASH_H_
+#endif

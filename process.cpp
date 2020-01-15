@@ -87,42 +87,32 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 	uint8_t i;
 
 	// Check hardcoded values for some of the most common options.
-
 	switch (link_type) {
-
 	case DLT_RAW:
 		process_context.link_off = 0;
 		return;
-
 	case DLT_NULL:
 	case DLT_PPP:
 		process_context.link_off = 4;
 		return;
-
 	case DLT_LOOP:
-
 #ifdef DLT_PPP_SERIAL
 	case DLT_PPP_SERIAL:
 #endif // DLT_PPP_SERIAL
-
 	case DLT_PPP_ETHER:
 		process_context.link_off = 8;
 		return;
-
 	case DLT_EN10MB:
 		process_context.link_off = 14;
 		return;
-
 #ifdef DLT_LINUX_SLL
 	case DLT_LINUX_SLL:
 		process_context.link_off = 16;
 		return;
 #endif // DLT_LINUX_SLL
-
 	case DLT_PFLOG:
 		process_context.link_off = 28;
 		return;
-
 	case DLT_IEEE802_11:
 		process_context.link_off = 32;
 		return;
@@ -217,7 +207,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	if (!(packet_cnt % EXPIRE_INTERVAL)) expire_cache();
 
 	// Be paranoid about how much data we actually have off the wire.
-
 	packet_len = std::min(hdr->len, hdr->caplen);
 	if (packet_len > SNAPLEN) packet_len = SNAPLEN;
 
@@ -225,7 +214,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	//    hdr->len, hdr->caplen, SNAPLEN);
 
 	// Account for link-level headers.
-
 	if (process_context.link_off < 0) {
 		find_offset(data, packet_len);
 	}
@@ -321,7 +309,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		if (ip4->tos_ecn & (IP_TOS_CE | IP_TOS_ECT)) pk.quirks |= QUIRK_ECN;
 
 		// Tag some of the corner cases associated with implementation quirks.
-
 		if (flags_off & IP4_MBZ) pk.quirks |= QUIRK_NZ_MBZ;
 
 		if (flags_off & IP4_DF) {
@@ -356,7 +343,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 
 		// Bail out if the result leaves no room for IPv6 + TCP headers.
-
 		if (packet_len < MIN_TCP6) {
 			DEBUG("[#] packet_len = %u. Too short for IPv6 + TCP, giving up!\n",
 				  packet_len);
@@ -436,7 +422,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	pk.tcp_type = tcp->flags & (TCP_SYN | TCP_ACK | TCP_FIN | TCP_RST);
 
 	// NUL, SYN+FIN, SYN+RST, FIN+RST, etc, should go to /dev/null.
-
 	if (((tcp->flags & TCP_SYN) && (tcp->flags & (TCP_FIN | TCP_RST))) ||
 		((tcp->flags & TCP_FIN) && (tcp->flags & TCP_RST)) ||
 		!pk.tcp_type) {
@@ -449,7 +434,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	pk.seq = ntohl(RD32(tcp->seq));
 
 	// Take note of miscellanous features and quirks.
-
 	if ((tcp->flags & (TCP_ECE | TCP_CWR)) || (tcp->doff_rsvd & TCP_NS_RES))
 		pk.quirks |= QUIRK_ECN;
 
@@ -538,13 +522,11 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		case TCPOPT_NOP:
 
 			// NOP is a single-byte option that does nothing.
-
 			break;
 
 		case TCPOPT_MAXSEG:
 
 			// MSS is a four-byte option with specified size.
-
 			if (data + 3 > opt_end) {
 				DEBUG("[#] MSS option would end past end of header (%ld left).\n",
 					  opt_end - data);
@@ -565,7 +547,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		case TCPOPT_WSCALE:
 
 			// WS is a three-byte option with specified size.
-
 			if (data + 2 > opt_end) {
 				DEBUG("[#] WS option would end past end of header (%ld left).\n",
 					  opt_end - data);
@@ -588,7 +569,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		case TCPOPT_SACKOK:
 
 			// SACKOK is a two-byte option with specified size.
-
 			if (data + 1 > opt_end) {
 				DEBUG("[#] SACKOK option would end past end of header (%ld left).\n",
 					  opt_end - data);
@@ -632,7 +612,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		case TCPOPT_TSTAMP:
 
 			// Timestamp is a ten-byte option with specified size.
-
 			if (data + 9 > opt_end) {
 				DEBUG("[#] TStamp option would end past end of header (%ld left).\n",
 					  opt_end - data);
@@ -664,7 +643,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		default:
 
 			// Unknown option, presumably with specified size.
-
 			if (data == opt_end) {
 				DEBUG("[#] Unknown option 0x%02x without room for length field.",
 					  data[-1]);
@@ -719,7 +697,6 @@ static uint32_t get_flow_bucket(struct packet_data *pk) {
 }
 
 // Calculate hash bucket for host_data.
-
 static uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket;
@@ -730,7 +707,6 @@ static uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
 }
 
 // Look up host data.
-
 struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket     = get_host_bucket(addr, ip_ver);
@@ -749,7 +725,6 @@ struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 }
 
 // Destroy host data.
-
 static void destroy_host(struct host_data *h) {
 
 	uint32_t bucket;
@@ -762,7 +737,6 @@ static void destroy_host(struct host_data *h) {
 		  addr_to_str(h->addr, h->ip_ver), bucket);
 
 	// Remove it from the bucketed linked list.
-
 	if (h->next) h->next->prev = h->prev;
 
 	if (h->prev)
@@ -771,7 +745,6 @@ static void destroy_host(struct host_data *h) {
 		process_context.host_b[bucket] = h->next;
 
 	// Remove from the by-age linked list.
-
 	if (h->newer)
 		h->newer->older = h->older;
 	else
@@ -783,7 +756,6 @@ static void destroy_host(struct host_data *h) {
 		process_context.host_by_age = h->newer;
 
 	// Free memory.
-
 	free(h->last_syn);
 	free(h->last_synack);
 
@@ -796,7 +768,6 @@ static void destroy_host(struct host_data *h) {
 }
 
 // Indiscriminately kill some of the older hosts.
-
 static void nuke_hosts() {
 
 	uint32_t kcnt            = 1 + (process_context.host_cnt * KILL_PERCENT / 100);
@@ -818,7 +789,6 @@ static void nuke_hosts() {
 }
 
 // Create a minimal host data.
-
 static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
@@ -866,7 +836,6 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 }
 
 // Touch host data to make it more recent.
-
 static void touch_host(struct host_data *h) {
 
 	DEBUG("[#] Refreshing host data: %s\n", addr_to_str(h->addr, h->ip_ver));
@@ -874,7 +843,6 @@ static void touch_host(struct host_data *h) {
 	if (h != process_context.newest_host) {
 
 		// Remove from the the by-age linked list.
-
 		h->newer->older = h->older;
 
 		if (h->older)
@@ -883,7 +851,6 @@ static void touch_host(struct host_data *h) {
 			process_context.host_by_age = h->newer;
 
 		// Re-insert in front.
-
 		process_context.newest_host->newer = h;
 		h->older                           = process_context.newest_host;
 		h->newer                           = nullptr;
@@ -895,7 +862,6 @@ static void touch_host(struct host_data *h) {
 	}
 
 	// Update last seen time.
-
 	h->last_seen = get_unix_time();
 }
 
@@ -965,7 +931,6 @@ static void nuke_flows(uint8_t silent) {
 }
 
 // Create flow, and host data if necessary. If counts exceeded, prune old.
-
 static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 
 	uint32_t bucket = get_flow_bucket(pk);
@@ -1020,7 +985,6 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	process_context.newest_flow = nf;
 
 	// Populate other data
-
 	nf->cli_port = pk->sport;
 	nf->srv_port = pk->dport;
 	nf->bucket   = bucket;
@@ -1033,7 +997,6 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 }
 
 // Look up an existing flow.
-
 static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) {
 
 	uint32_t bucket       = get_flow_bucket(pk);
@@ -1067,7 +1030,6 @@ static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) 
 }
 
 // Go through host and flow cache, expire outdated items.
-
 static void expire_cache() {
 	struct host_data *target;
 	static time_t pt;
@@ -1095,7 +1057,6 @@ static void expire_cache() {
 }
 
 // Insert data from a packet into a flow, call handlers as appropriate.
-
 static void flow_dispatch(struct packet_data *pk) {
 
 	struct tcp_sig *tsig;
@@ -1158,7 +1119,6 @@ static void flow_dispatch(struct packet_data *pk) {
 		}
 
 		// This is about as far as we want to go with p0f-sendsyn.
-
 		if (f->sendsyn) {
 
 			fingerprint_tcp(0, pk, f);
@@ -1186,7 +1146,6 @@ static void flow_dispatch(struct packet_data *pk) {
 		tsig = fingerprint_tcp(0, pk, f);
 
 		// SYN from real OS, SYN+ACK from a client stack. Weird, but whatever.
-
 		if (!tsig) {
 			destroy_flow(f);
 			return;
@@ -1220,7 +1179,6 @@ static void flow_dispatch(struct packet_data *pk) {
 		if (!f) return;
 
 		// Stop there, you criminal scum!
-
 		if (f->sendsyn) {
 			destroy_flow(f);
 			return;
@@ -1241,7 +1199,6 @@ static void flow_dispatch(struct packet_data *pk) {
 			if (f->next_cli_seq != pk->seq) {
 
 				// Not a simple dupe?
-
 				if (f->next_cli_seq - pk->pay_len != pk->seq)
 					DEBUG("[#] Expected client seq 0x%08x, got 0x%08x.\n", f->next_cli_seq, pk->seq);
 
@@ -1249,7 +1206,6 @@ static void flow_dispatch(struct packet_data *pk) {
 			}
 
 			// Append data
-
 			if (f->req_len < MAX_FLOW_DATA && pk->pay_len) {
 
 				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->req_len);
@@ -1268,7 +1224,6 @@ static void flow_dispatch(struct packet_data *pk) {
 			if (f->next_srv_seq != pk->seq) {
 
 				// Not a simple dupe?
-
 				if (f->next_srv_seq - pk->pay_len != pk->seq)
 					DEBUG("[#] Expected server seq 0x%08x, got 0x%08x.\n",
 						  f->next_cli_seq, pk->seq);
@@ -1277,7 +1232,6 @@ static void flow_dispatch(struct packet_data *pk) {
 			}
 
 			// Append data
-
 			if (f->resp_len < MAX_FLOW_DATA && pk->pay_len) {
 
 				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
@@ -1316,7 +1270,6 @@ static void flow_dispatch(struct packet_data *pk) {
 }
 
 // Add NAT score, check if alarm due.
-
 void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score) {
 
 	static char rea[1024];
@@ -1417,7 +1370,6 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 }
 
 // Verify if tool class (called from modules).
-
 void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt) {
 
 	struct host_data *hd = nullptr;
@@ -1446,7 +1398,6 @@ void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sy
 		}
 
 	// Oops, a mismatch.
-
 	if (i == sys_cnt) {
 
 		DEBUG("[#] Detected app not supposed to run on host OS.\n");
@@ -1460,7 +1411,6 @@ void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sy
 }
 
 // Clean up everything.
-
 void destroy_all_hosts() {
 
 	while (process_context.flow_by_age)
