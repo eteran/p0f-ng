@@ -186,7 +186,7 @@ void config_parse_sys(char *val) {
 			}
 		}
 
-		fp_context.cur_sys                           = static_cast<uint32_t *>(realloc(fp_context.cur_sys, (fp_context.cur_sys_cnt + 1) * 4));
+		fp_context.cur_sys                           = static_cast<uint32_t *>(realloc(fp_context.cur_sys, (fp_context.cur_sys_cnt + 1) * sizeof(uint32_t)));
 		fp_context.cur_sys[fp_context.cur_sys_cnt++] = i;
 
 		*nxt = orig;

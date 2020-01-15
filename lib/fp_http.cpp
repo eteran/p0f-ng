@@ -35,8 +35,6 @@
 #include "p0f/tcp.h"
 #include "p0f/util.h"
 
-#define SLOF(_str) _str, strlen(_str)
-
 namespace {
 
 constexpr int HDR_UA  = 0;
@@ -78,15 +76,16 @@ constexpr uint64_t bloom4_64(uint32_t val) {
 }
 
 // Look up or register new header
-int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
+int32_t lookup_hdr(const std::string &name, uint8_t create) {
 
-	uint32_t bucket = hash32(name, len) % SIG_BUCKETS;
+	std::hash<std::string> hasher;
+	uint32_t bucket = hasher(name) % SIG_BUCKETS;
 
 	uint32_t *p = &http_context.hdr_by_hash[bucket][0];
 	uint32_t i  = http_context.hdr_by_hash[bucket].size();
 
 	while (i--) {
-		if (http_context.hdr_names[*p].size() == len && http_context.hdr_names[*p] == std::string(name, len)) {
+		if (http_context.hdr_names[*p] == name) {
 			return *p;
 		}
 		p++;
@@ -98,7 +97,7 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 
 	size_t index = http_context.hdr_names.size();
 
-	http_context.hdr_names.push_back(std::string(name, len));
+	http_context.hdr_names.push_back(name);
 	http_context.hdr_by_hash[bucket].push_back(index);
 
 	return index;
@@ -773,7 +772,7 @@ uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, li
 
 		/* Header value starts at vstart, and has vlen bytes (may be zero).
 		 * Record this in the signature. */
-		const int32_t hid = lookup_hdr(pay + f->http_pos, nlen, 0);
+		const int32_t hid = lookup_hdr(std::string(pay + f->http_pos, nlen), 0);
 
 		f->http_tmp.hdr[hcount].id = hid;
 
@@ -852,46 +851,46 @@ void http_init() {
 	uint32_t i;
 
 	// Do not change - other code depends on the ordering of first 6 entries.
-	lookup_hdr(SLOF("User-Agent"), 1);      // 0
-	lookup_hdr(SLOF("Server"), 1);          // 1
-	lookup_hdr(SLOF("Accept-Language"), 1); // 2
-	lookup_hdr(SLOF("Via"), 1);             // 3
-	lookup_hdr(SLOF("X-Forwarded-For"), 1); // 4
-	lookup_hdr(SLOF("Date"), 1);            // 5
+	lookup_hdr("User-Agent", 1);      // 0
+	lookup_hdr("Server", 1);          // 1
+	lookup_hdr("Accept-Language", 1); // 2
+	lookup_hdr("Via", 1);             // 3
+	lookup_hdr("X-Forwarded-For", 1); // 4
+	lookup_hdr("Date", 1);            // 5
 
 	i = 0;
 	while (http_context.req_optional[i].name) {
-		http_context.req_optional[i].id = lookup_hdr(SLOF(http_context.req_optional[i].name), 1);
+		http_context.req_optional[i].id = lookup_hdr(http_context.req_optional[i].name, 1);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.resp_optional[i].name) {
-		http_context.resp_optional[i].id = lookup_hdr(SLOF(http_context.resp_optional[i].name), 1);
+		http_context.resp_optional[i].id = lookup_hdr(http_context.resp_optional[i].name, 1);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.req_skipval[i].name) {
-		http_context.req_skipval[i].id = lookup_hdr(SLOF(http_context.req_skipval[i].name), 1);
+		http_context.req_skipval[i].id = lookup_hdr(http_context.req_skipval[i].name, 1);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.resp_skipval[i].name) {
-		http_context.resp_skipval[i].id = lookup_hdr(SLOF(http_context.resp_skipval[i].name), 1);
+		http_context.resp_skipval[i].id = lookup_hdr(http_context.resp_skipval[i].name, 1);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.req_common[i].name) {
-		http_context.req_common[i].id = lookup_hdr(SLOF(http_context.req_common[i].name), 1);
+		http_context.req_common[i].id = lookup_hdr(http_context.req_common[i].name, 1);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.resp_common[i].name) {
-		http_context.resp_common[i].id = lookup_hdr(SLOF(http_context.resp_common[i].name), 1);
+		http_context.resp_common[i].id = lookup_hdr(http_context.resp_common[i].name, 1);
 		i++;
 	}
 }
@@ -944,7 +943,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 		if (val == nxt)
 			FATAL("Malformed header name in line %u.", line_no);
 
-		uint32_t id = lookup_hdr(val, nxt - val, 1);
+		uint32_t id = lookup_hdr(std::string(val, nxt - val), 1);
 
 		hsig->hdr[hsig->hdr_cnt].id       = id;
 		hsig->hdr[hsig->hdr_cnt].optional = optional;
@@ -996,7 +995,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 		if (val == nxt)
 			FATAL("Malformed header name in line %u.", line_no);
 
-		uint32_t id = lookup_hdr(val, nxt - val, 1);
+		uint32_t id = lookup_hdr(std::string(val, nxt - val), 1);
 
 		hsig->miss[hsig->miss_cnt] = id;
 

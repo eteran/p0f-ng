@@ -85,8 +85,8 @@ struct host_data {
 	struct host_data *newer = nullptr;
 	uint32_t use_cnt        = 0; // Number of packet_flows attached
 
-	uint32_t first_seen = 0; // Record created (unix time)
-	uint32_t last_seen  = 0; // Host last seen (unix time)
+	time_t first_seen = 0; // Record created (unix time)
+	time_t last_seen  = 0; // Host last seen (unix time)
 	uint32_t total_conn = 0; // Total number of connections ever
 
 	uint8_t ip_ver   = 0;  // Address type
