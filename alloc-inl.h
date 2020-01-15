@@ -23,7 +23,7 @@ inline char *ck_strdup(const char *str) {
 
 	size_t size = strlen(str) + 1;
 	void *ret   = malloc(size);
-	return (char *)memcpy(ret, str, size);
+	return static_cast<char *>(memcpy(ret, str, size));
 }
 
 inline void *ck_memdup(const void *mem, uint32_t size) {
@@ -40,7 +40,7 @@ inline char *ck_memdup_str(const char *mem, uint32_t size) {
 	if (!mem || !size)
 		return nullptr;
 
-	auto ret = (char *)malloc(size + 1);
+	auto ret = static_cast<char *>(malloc(size + 1));
 	memcpy(ret, mem, size);
 	ret[size] = 0;
 	return ret;

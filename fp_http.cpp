@@ -98,12 +98,13 @@ int32_t lookup_hdr(const char *name, uint32_t len, uint8_t create) {
 
 	if (!create) return -1;
 
-	http_context.hdr_names = (struct header_name *)realloc(http_context.hdr_names, (http_context.hdr_cnt + 1) * sizeof(struct header_name));
+	http_context.hdr_names = static_cast<struct header_name *>(realloc(http_context.hdr_names, (http_context.hdr_cnt + 1) * sizeof(struct header_name)));
 
 	http_context.hdr_names[http_context.hdr_cnt].name = ck_memdup_str(name, len);
 	http_context.hdr_names[http_context.hdr_cnt].size = len;
 
-	http_context.hdr_by_hash[bucket]                                 = (uint32_t *)realloc(http_context.hdr_by_hash[bucket], (http_context.hbh_cnt[bucket] + 1) * 4);
+	http_context.hdr_by_hash[bucket] = static_cast<uint32_t *>(realloc(http_context.hdr_by_hash[bucket], (http_context.hbh_cnt[bucket] + 1) * 4));
+
 	http_context.hdr_by_hash[bucket][http_context.hbh_cnt[bucket]++] = http_context.hdr_cnt++;
 
 	return http_context.hdr_cnt - 1;
@@ -303,9 +304,9 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 
 	char *nxt;
 
-	hsig = (struct http_sig *)calloc(sizeof(struct http_sig), 1);
+	hsig = static_cast<struct http_sig *>(calloc(sizeof(struct http_sig), 1));
 
-	http_context.sigs[to_srv] = (struct http_sig_record *)realloc(http_context.sigs[to_srv], sizeof(struct http_sig_record) * (http_context.sig_cnt[to_srv] + 1));
+	http_context.sigs[to_srv] = static_cast<struct http_sig_record *>(realloc(http_context.sigs[to_srv], sizeof(struct http_sig_record) * (http_context.sig_cnt[to_srv] + 1)));
 
 	hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
 
@@ -493,8 +494,7 @@ void http_parse_ua(char *val, uint32_t line_no) {
 			val = nxt + 1;
 		}
 
-		http_context.ua_map = (struct ua_map_record *)realloc(http_context.ua_map, (http_context.ua_map_cnt + 1) *
-																					   sizeof(struct ua_map_record));
+		http_context.ua_map = static_cast<struct ua_map_record *>(realloc(http_context.ua_map, (http_context.ua_map_cnt + 1) * sizeof(struct ua_map_record)));
 
 		http_context.ua_map[http_context.ua_map_cnt].id = id;
 
@@ -564,7 +564,7 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 			tpos = 0;
 
-			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && (uint8_t)val[tpos] < 0x80 &&
+			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && static_cast<uint8_t>(val[tpos]) < 0x80 &&
 				   val[tpos] != ']' && val[tpos] != '|') {
 
 				tmp[tpos] = val[tpos];
@@ -582,12 +582,12 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 			append_format(ss, "%s%s", had_prev ? "," : "", hsig->hdr[i].name);
 			had_prev = 1;
 
-			if (!(val = hsig->hdr[i].value)) continue;
+			if (!(val = hsig->hdr[i].value))
+				continue;
 
 			tpos = 0;
 
-			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && (uint8_t)val[tpos] < 0x80 &&
-				   val[tpos] != ']') {
+			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && static_cast<uint8_t>(val[tpos]) < 0x80 && val[tpos] != ']') {
 				tmp[tpos] = val[tpos];
 				tpos++;
 			}
@@ -608,7 +608,8 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 	while (list->name) {
 
 		for (i = 0; i < hsig->hdr_cnt; i++)
-			if (hsig->hdr[i].id == list->id) break;
+			if (hsig->hdr[i].id == list->id)
+				break;
 
 		if (i == hsig->hdr_cnt) {
 			append_format(ss, "%s%s", had_prev ? "," : "", list->name);
@@ -624,8 +625,8 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 		tpos = 0;
 
-		while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && (uint8_t)val[tpos] < 0x80 &&
-			   val[tpos] != ']') {
+		while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && static_cast<uint8_t>(val[tpos]) < 0x80 && val[tpos] != ']') {
+
 			tmp[tpos] = val[tpos];
 			tpos++;
 		}
@@ -810,8 +811,8 @@ header_check:
 
 	if (ref && !to_srv && ref->date && f->http_tmp.date) {
 
-		int64_t recv_diff = ((int64_t)f->http_tmp.recv_date) - ref->recv_date;
-		int64_t hdr_diff  = ((int64_t)f->http_tmp.date) - ref->date;
+		auto recv_diff = static_cast<int64_t>(f->http_tmp.recv_date) - ref->recv_date;
+		auto hdr_diff  = static_cast<int64_t>(f->http_tmp.date) - ref->date;
 
 		if (hdr_diff < -HTTP_MAX_DATE_DIFF ||
 			hdr_diff > recv_diff + HTTP_MAX_DATE_DIFF) {
@@ -885,7 +886,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 		/* For server response, always store the signature. */
 
 		free(f->server->http_resp);
-		f->server->http_resp = (struct http_sig *)ck_memdup(&f->http_tmp, sizeof(struct http_sig));
+		f->server->http_resp = static_cast<struct http_sig *>(ck_memdup(&f->http_tmp, sizeof(struct http_sig)));
 
 		f->server->http_resp->hdr_cnt = 0;
 		f->server->http_resp->sw      = nullptr;
@@ -929,7 +930,7 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 				/* Client request - only OS sig is of any note. */
 
 				free(f->client->http_req_os);
-				f->client->http_req_os = (struct http_sig *)ck_memdup(&f->http_tmp, sizeof(struct http_sig));
+				f->client->http_req_os = static_cast<struct http_sig *>(ck_memdup(&f->http_tmp, sizeof(struct http_sig)));
 
 				f->client->http_req_os->hdr_cnt = 0;
 				f->client->http_req_os->sw      = nullptr;

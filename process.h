@@ -196,9 +196,9 @@ struct packet_flow {
 
 extern uint64_t packet_cnt;
 
-void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data);
+void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *data);
 
-uint8_t *addr_to_str(uint8_t *data, uint8_t ip_ver);
+char *addr_to_str(uint8_t *data, uint8_t ip_ver);
 
 uint64_t get_unix_time_ms();
 time_t get_unix_time();

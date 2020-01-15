@@ -77,27 +77,23 @@ int32_t link_type;                          /* PCAP link type                   
 namespace {
 
 struct p0f_context_t {
-	char *use_iface           = nullptr;      /* Interface to listen on             */
-	char *orig_rule           = nullptr;      /* Original filter rule               */
-	char *switch_user         = nullptr;      /* Target username                    */
-	char *log_file            = nullptr;      /* Binary log file name               */
-	char *api_sock            = nullptr;      /* API socket file name               */
-	char *fp_file             = nullptr;      /* Location of p0f.fp                 */
-	uint32_t api_max_conn     = API_MAX_CONN; /* Maximum number of API connections  */
-	struct api_client *api_cl = nullptr;      /* Array with API client state        */
+	char *use_iface   = nullptr; /* Interface to listen on             */
+	char *orig_rule   = nullptr; /* Original filter rule               */
+	char *switch_user = nullptr; /* Target username                    */
+	char *log_file    = nullptr; /* Binary log file name               */
+	char *api_sock    = nullptr; /* API socket file name               */
+	char *fp_file     = nullptr; /* Location of p0f.fp                 */
 
-	int32_t null_fd = -1; /* File descriptor of /dev/null       */
-	int32_t api_fd  = -1; /* API socket descriptor              */
+	struct api_client *api_cl = nullptr; /* Array with API client state        */
+	FILE *lf                  = nullptr; /* Log file stream                    */
+	pcap_t *pt                = nullptr; /* PCAP capture thingy                */
 
-	FILE *lf = nullptr; /* Log file stream                    */
-
-	uint8_t stop_soon = 0; /* Ctrl-C or so pressed?              */
-
-	uint8_t set_promisc = 0; /* Use promiscuous mode?              */
-
-	pcap_t *pt = nullptr; /* PCAP capture thingy                */
-
-	uint8_t obs_fields = 0; /* No of pending observation fields   */
+	uint32_t api_max_conn = API_MAX_CONN; /* Maximum number of API connections  */
+	int32_t null_fd       = -1;           /* File descriptor of /dev/null       */
+	int32_t api_fd        = -1;           /* API socket descriptor              */
+	uint8_t stop_soon     = 0;            /* Ctrl-C or so pressed?              */
+	uint8_t set_promisc   = 0;            /* Use promiscuous mode?              */
+	uint8_t obs_fields    = 0;            /* No of pending observation fields   */
 };
 
 p0f_context_t p0f_context;
@@ -105,8 +101,7 @@ p0f_context_t p0f_context;
 /* Display usage information */
 [[noreturn]] void usage() {
 
-	ERRORF(
-
+	constexpr char message[] =
 		"Usage: p0f [ ...options... ] [ 'filter rule' ]\n"
 		"\n"
 		"Network interface options:\n"
@@ -137,8 +132,10 @@ p0f_context_t p0f_context;
 		"Optional filter expressions (man tcpdump) can be specified in the command\n"
 		"line to prevent p0f from looking at incidental network traffic.\n"
 		"\n"
-		"Problems? You can reach the author at <lcamtuf@coredump.cx>.\n",
+		"Problems? You can reach the author at <lcamtuf@coredump.cx>.\n";
 
+	ERRORF(
+		message,
 		FP_FILE,
 #ifndef __CYGWIN__
 		API_MAX_CONN,
@@ -241,7 +238,7 @@ void open_api() {
 
 	old_umask = umask(0777 ^ API_MODE);
 
-	if (bind(p0f_context.api_fd, (struct sockaddr *)&u, sizeof(u)))
+	if (bind(p0f_context.api_fd, reinterpret_cast<struct sockaddr *>(&u), sizeof(u)))
 		PFATAL("bind() on '%s' failed.", p0f_context.api_sock);
 
 	umask(old_umask);
@@ -252,7 +249,7 @@ void open_api() {
 	if (fcntl(p0f_context.api_fd, F_SETFL, O_NONBLOCK))
 		PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
 
-	p0f_context.api_cl = (struct api_client *)calloc(p0f_context.api_max_conn, sizeof(struct api_client));
+	p0f_context.api_cl = static_cast<struct api_client *>(calloc(p0f_context.api_max_conn, sizeof(struct api_client)));
 
 	for (i = 0; i < p0f_context.api_max_conn; i++)
 		p0f_context.api_cl[i].fd = -1;
@@ -296,9 +293,9 @@ void list_interfaces() {
 		if (a) {
 
 			if (a->addr->sa_family == PF_INET)
-				SAYF("     IP address  : %s\n", addr_to_str(((uint8_t *)a->addr) + 4, IP_VER4));
+				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 4, IP_VER4));
 			else
-				SAYF("     IP address  : %s\n", addr_to_str(((uint8_t *)a->addr) + 8, IP_VER6));
+				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 8, IP_VER6));
 
 		} else
 			SAYF("     IP address  : (none)\n");
@@ -323,7 +320,7 @@ uint8_t *find_interface(int num) {
 	do {
 
 		if (!num--) {
-			uint8_t *ret = ck_strdup(dev->name);
+			char *ret = ck_strdup(dev->name);
 			pcap_freealldevs(dev);
 			return ret;
 		}
@@ -366,27 +363,26 @@ void prepare_pcap() {
 			if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT) {
 				pcap_if_t *alldevs = nullptr;
 				char error[PCAP_ERRBUF_SIZE];
-				if(pcap_findalldevs(&alldevs, error) == 0) {
-					p0f_context.use_iface = alldevs->name;
-					pcap_freealldevs(alldevs);
+				if (pcap_findalldevs(&alldevs, error)) {
+					FATAL("pcap_findalldevs: %s\n", error);
 				}
+
+				p0f_context.use_iface = alldevs->name;
+				pcap_freealldevs(alldevs);
 			}
 
 			if (!p0f_context.use_iface) {
 				FATAL("libpcap is out of ideas; use -i to specify interface.");
 			}
-
 		}
 
 #ifdef __CYGWIN__
 
 		/* On Windows, interface names are unwieldy, and people prefer to use
-	   numerical IDs. */
+		 * numerical IDs. */
 
 		else {
-
 			int iface_id;
-
 			if (sscanf(p0f_context.use_iface, "%u", &iface_id) == 1) {
 				p0f_context.use_iface = find_interface(iface_id);
 			}
@@ -397,7 +393,7 @@ void prepare_pcap() {
 #else
 
 		/* PCAP timeouts tend to be broken, so we'll use a very small value
-	   and rely on select() instead. */
+		 * and rely on select() instead. */
 
 		p0f_context.pt = pcap_open_live(p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 5, pcap_err);
 
@@ -433,35 +429,33 @@ retry_no_vlan:
 	if (!p0f_context.orig_rule) {
 
 		if (vlan_support) {
-			final_rule = (char *)"tcp or (vlan and tcp)";
+			final_rule = const_cast<char *>("tcp or (vlan and tcp)");
 		} else {
-			final_rule = (char *)"tcp";
+			final_rule = const_cast<char *>("tcp");
 		}
 
 	} else {
 
 		if (vlan_support) {
-
-			final_rule = (char *)calloc(strlen(p0f_context.orig_rule) * 2 + 64, 1);
-
+			final_rule = static_cast<char *>(calloc(strlen(p0f_context.orig_rule) * 2 + 64, 1));
 			sprintf(final_rule, "(tcp and (%s)) or (vlan and tcp and (%s))",
-					p0f_context.orig_rule, p0f_context.orig_rule);
+					p0f_context.orig_rule,
+					p0f_context.orig_rule);
 
 		} else {
-
-			final_rule = (char *)calloc(strlen(p0f_context.orig_rule) + 16, 1);
-
-			sprintf(final_rule, "tcp and (%s)", p0f_context.orig_rule);
+			final_rule = static_cast<char *>(calloc(strlen(p0f_context.orig_rule) + 16, 1));
+			sprintf(final_rule, "tcp and (%s)",
+					p0f_context.orig_rule);
 		}
 	}
 
 	DEBUG("[#] Computed rule: %s\n", final_rule);
 
 	if (pcap_compile(p0f_context.pt, &flt, final_rule, 1, 0)) {
-
 		if (vlan_support) {
+			if (p0f_context.orig_rule)
+				free(final_rule);
 
-			if (p0f_context.orig_rule) free(final_rule);
 			vlan_support = 0;
 			goto retry_no_vlan;
 		}
@@ -642,8 +636,8 @@ void live_event_loop() {
 	 queries on Windows, you are welcome to fix this :-) */
 
 	/* We need room for pcap, and possibly p0f_context.api_fd + api_clients. */
-	auto pfds   = (struct pollfd *)calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct pollfd));
-	auto ctable = (struct api_client **)calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct api_client *));
+	auto pfds   = static_cast<struct pollfd *>(calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct pollfd)));
+	auto ctable = static_cast<struct api_client **>(calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct api_client *)));
 
 	uint32_t pfd_count = regen_pfds(pfds, ctable);
 
@@ -724,7 +718,7 @@ void live_event_loop() {
 				switch (cur) {
 				case 0:
 					/* Process traffic on the capture interface. */
-					if (pcap_dispatch(p0f_context.pt, -1, (pcap_handler)parse_packet, 0) < 0)
+					if (pcap_dispatch(p0f_context.pt, -1, parse_packet, 0) < 0)
 						FATAL("Packet capture interface is down.");
 					break;
 				case 1:
@@ -769,8 +763,8 @@ void live_event_loop() {
 						FATAL("Inconsistent p0f_api_query state.\n");
 
 					ssize_t i = read(pfds[cur].fd,
-							 (&ctable[cur]->in_data) + ctable[cur]->in_off,
-							 sizeof(struct p0f_api_query) - ctable[cur]->in_off);
+									 (&ctable[cur]->in_data) + ctable[cur]->in_off,
+									 sizeof(struct p0f_api_query) - ctable[cur]->in_off);
 
 					if (i < 0)
 						PFATAL("read() on API socket fails despite POLLIN.");
@@ -826,7 +820,7 @@ void offline_event_loop() {
 		SAYF("[+] Processing capture data.\n\n");
 
 	while (!p0f_context.stop_soon) {
-		if (pcap_dispatch(p0f_context.pt, -1, (pcap_handler)parse_packet, nullptr) <= 0) {
+		if (pcap_dispatch(p0f_context.pt, -1, parse_packet, nullptr) <= 0) {
 			return;
 		}
 	}

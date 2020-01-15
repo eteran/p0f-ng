@@ -64,7 +64,7 @@ static void expire_cache();
 
 /* Get unix time in milliseconds. */
 uint64_t get_unix_time_ms() {
-	return ((uint64_t)cur_time->tv_sec) * 1000 + (cur_time->tv_usec / 1000);
+	return (cur_time->tv_sec) * 1000 + (cur_time->tv_usec / 1000);
 }
 
 /* Get unix time in seconds. */
@@ -126,7 +126,9 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 
 	for (i = 0; i < 40; i += 2, total_len -= 2) {
 
-		if (total_len < MIN_TCP4) break;
+		if (total_len < MIN_TCP4) {
+			break;
+		}
 
 		/* Perhaps this is IPv6? We check three things: IP version (first 4 bits);
        total length sufficient to accommodate IPv6 and TCP headers; and the
@@ -134,7 +136,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 
 		if (total_len >= MIN_TCP6 && (data[i] >> 4) == IP_VER6) {
 
-			struct ipv6_hdr *hdr = (struct ipv6_hdr *)(data + i);
+			auto hdr = reinterpret_cast<const struct ipv6_hdr *>(data + i);
 
 			if (hdr->proto == PROTO_TCP) {
 
@@ -149,7 +151,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 
 		if ((data[i] >> 4) == IP_VER4) {
 
-			struct ipv4_hdr *hdr = (struct ipv4_hdr *)(data + i);
+			auto hdr = reinterpret_cast<const struct ipv4_hdr *>(data + i);
 
 			if (hdr->proto == PROTO_TCP) {
 
@@ -177,7 +179,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 
 /* Convert IPv4 or IPv6 address to a human-readable form. */
 
-uint8_t *addr_to_str(uint8_t *data, uint8_t ip_ver) {
+char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 
 	static char tmp[128];
 
@@ -197,23 +199,22 @@ uint8_t *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 				(data[12] << 8) | data[13], (data[14] << 8) | data[15]);
 	}
 
-	return (uint8_t *)tmp;
+	return tmp;
 }
 
 /* Parse PCAP input, with plenty of sanity checking. Store interesting details
    in a protocol-agnostic buffer that will be then examined upstream. */
-
-void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data) {
+void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *data) {
 
 	(void)junk;
 
-	struct tcp_hdr *tcp;
-	struct packet_data pk = {};
+	const struct tcp_hdr *tcp = nullptr;
+	struct packet_data pk     = {};
 
 	int32_t packet_len;
 	uint32_t tcp_doff;
 
-	uint8_t *opt_end;
+	const uint8_t *opt_end;
 
 	packet_cnt++;
 
@@ -253,10 +254,10 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 	if ((*data >> 4) == IP_VER4) {
 
 		/************************
-     * IPv4 header parsing. *
-     ************************/
+		* IPv4 header parsing. *
+		************************/
 
-		const struct ipv4_hdr *ip4 = (struct ipv4_hdr *)data;
+		auto ip4 = reinterpret_cast<const struct ipv4_hdr *>(data);
 
 		uint32_t hdr_len   = (ip4->ver_hlen & 0x0F) * 4;
 		uint16_t flags_off = ntohs(RD16(ip4->flags_off));
@@ -350,7 +351,7 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 
 		pk.tot_hdr = hdr_len;
 
-		tcp = (struct tcp_hdr *)(data + hdr_len);
+		tcp = reinterpret_cast<const struct tcp_hdr *>(data + hdr_len);
 		packet_len -= hdr_len;
 
 	} else if ((*data >> 4) == IP_VER6) {
@@ -359,9 +360,9 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
      * IPv6 header parsing. *
      ************************/
 
-		const struct ipv6_hdr *ip6 = (struct ipv6_hdr *)data;
-		uint32_t ver_tos           = ntohl(RD32(ip6->ver_tos));
-		uint32_t tot_len           = ntohs(RD16(ip6->pay_len)) + sizeof(struct ipv6_hdr);
+		auto ip6         = reinterpret_cast<const struct ipv6_hdr *>(data);
+		uint32_t ver_tos = ntohl(RD32(ip6->ver_tos));
+		uint32_t tot_len = ntohs(RD16(ip6->pay_len)) + sizeof(struct ipv6_hdr);
 
 		/* If the packet claims to be shorter than what we received off the wire,
        honor this claim to account for etherleak-type bugs. */
@@ -416,7 +417,7 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 
 		pk.tot_hdr = sizeof(struct ipv6_hdr);
 
-		tcp = (struct tcp_hdr *)(ip6 + 1);
+		tcp = reinterpret_cast<const struct tcp_hdr *>(ip6 + 1);
 		packet_len -= sizeof(struct ipv6_hdr);
 
 	} else {
@@ -433,7 +434,7 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
    * TCP parsing *
    ***************/
 
-	data = (uint8_t *)tcp;
+	data = reinterpret_cast<const uint8_t *>(tcp);
 
 	tcp_doff = (tcp->doff_rsvd >> 4) * 4;
 
@@ -521,7 +522,7 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 
 	} else {
 
-		pk.payload = (uint8_t *)data + tcp_doff;
+		pk.payload = const_cast<uint8_t *>(data) + tcp_doff;
 		pk.pay_len = packet_len - tcp_doff;
 	}
 
@@ -529,8 +530,8 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
    * TCP option parsing *
    **********************/
 
-	opt_end = (uint8_t *)data + tcp_doff; /* First byte of non-option data */
-	data    = (uint8_t *)(tcp + 1);
+	opt_end = data + tcp_doff; /* First byte of non-option data */
+	data    = reinterpret_cast<const uint8_t *>(tcp + 1);
 
 	pk.opt_cnt     = 0;
 	pk.opt_eol_pad = 0;
@@ -682,7 +683,7 @@ void parse_packet(void *junk, const struct pcap_pkthdr *hdr, const uint8_t *data
 			if (pk.tcp_type == TCP_SYN && RD32p(data + 5)) {
 
 				DEBUG("[#] Non-zero second timestamp: 0x%08x.\n",
-					  ntohl(*(uint32_t *)(data + 5)));
+					  ntohl(*reinterpret_cast<const uint32_t *>(data + 5)));
 
 				pk.quirks |= QUIRK_OPT_NZ_TS2;
 			}
@@ -852,14 +853,13 @@ static void nuke_hosts() {
 static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
-	struct host_data *nh;
 
 	if (host_cnt > max_hosts) nuke_hosts();
 
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
 
-	nh = (struct host_data *)calloc(sizeof(struct host_data), 1);
+	auto nh = reinterpret_cast<struct host_data *>(calloc(sizeof(struct host_data), 1));
 
 	/* Insert into the bucketed linked list. */
 
@@ -1014,7 +1014,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	DEBUG("%s/%u (bucket %u)\n",
 		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, bucket);
 
-	nf = (struct packet_flow *)calloc(sizeof(struct packet_flow), 1);
+	nf = static_cast<struct packet_flow *>(calloc(sizeof(struct packet_flow), 1));
 
 	nf->client = lookup_host(pk->src, pk->ip_ver);
 
@@ -1293,7 +1293,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->req_len);
 
-				f->request = (char *)realloc(f->request, f->req_len + read_amt + 1);
+				f->request = static_cast<char *>(realloc(f->request, f->req_len + read_amt + 1));
 				memcpy(f->request + f->req_len, pk->payload, read_amt);
 				f->req_len += read_amt;
 			}
@@ -1321,7 +1321,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
 
-				f->response = (char *)realloc(f->response, f->resp_len + read_amt + 1);
+				f->response = static_cast<char *>(realloc(f->response, f->resp_len + read_amt + 1));
 				memcpy(f->response + f->resp_len, pk->payload, read_amt);
 				f->resp_len += read_amt;
 			}

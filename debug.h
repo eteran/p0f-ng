@@ -57,4 +57,4 @@
 		exit(1);                                     \
 	} while (0)
 
-#endif /* ! _HAVE_DEBUG_H */
+#endif /* ! HAVE_DEBUG_H_ */

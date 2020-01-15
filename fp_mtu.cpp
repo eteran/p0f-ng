@@ -52,7 +52,7 @@ void mtu_register_sig(char *name, char *val, uint32_t line_no) {
 
 	bucket = mtu % SIG_BUCKETS;
 
-	mtu_context.sigs[bucket] = (struct mtu_sig_record *)realloc(mtu_context.sigs[bucket], (mtu_context.sig_cnt[bucket] + 1) * sizeof(struct mtu_sig_record));
+	mtu_context.sigs[bucket] = static_cast<struct mtu_sig_record *>(realloc(mtu_context.sigs[bucket], (mtu_context.sig_cnt[bucket] + 1) * sizeof(struct mtu_sig_record)));
 
 	mtu_context.sigs[bucket][mtu_context.sig_cnt[bucket]].mtu  = mtu;
 	mtu_context.sigs[bucket][mtu_context.sig_cnt[bucket]].name = name;

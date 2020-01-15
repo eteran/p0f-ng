@@ -77,7 +77,7 @@ void config_parse_classes(char *val) {
 		if (nxt == val || (*nxt && *nxt != ','))
 			FATAL("Malformed class entry in line %u.", fp_context.line_no);
 
-		fp_os_classes = (char **)realloc(fp_os_classes, (fp_context.class_cnt + 1) * sizeof(char *));
+		fp_os_classes = static_cast<char **>(realloc(fp_os_classes, (fp_context.class_cnt + 1) * sizeof(char *)));
 
 		fp_os_classes[fp_context.class_cnt++] = ck_memdup_str(val, nxt - val);
 
@@ -200,12 +200,12 @@ void config_parse_sys(char *val) {
 				if (!strcasecmp(val, fp_os_names[i])) break;
 
 			if (i == fp_context.name_cnt) {
-				fp_os_names                        = (char **)realloc(fp_os_names, (fp_context.name_cnt + 1) * sizeof(char *));
+				fp_os_names                        = static_cast<char **>(realloc(fp_os_names, (fp_context.name_cnt + 1) * sizeof(char *)));
 				fp_os_names[fp_context.name_cnt++] = ck_memdup_str(val, nxt - val);
 			}
 		}
 
-		fp_context.cur_sys                           = (uint32_t *)realloc(fp_context.cur_sys, (fp_context.cur_sys_cnt + 1) * 4);
+		fp_context.cur_sys                           = static_cast<uint32_t *>(realloc(fp_context.cur_sys, (fp_context.cur_sys_cnt + 1) * 4));
 		fp_context.cur_sys[fp_context.cur_sys_cnt++] = i;
 
 		*nxt = orig;
@@ -373,7 +373,7 @@ uint32_t lookup_name_id(const char *name, uint8_t len) {
 
 		fp_context.sig_name = fp_context.name_cnt;
 
-		fp_os_names                        = (char **)realloc(fp_os_names, (fp_context.name_cnt + 1) * sizeof(char *));
+		fp_os_names                        = static_cast<char **>(realloc(fp_os_names, (fp_context.name_cnt + 1) * sizeof(char *)));
 		fp_os_names[fp_context.name_cnt++] = ck_memdup_str(name, len);
 	}
 
@@ -387,29 +387,30 @@ void read_config(const char *fname) {
 	char *data;
 	char *cur;
 
-	int32_t f = open(fname, O_RDONLY);
-	if (f < 0) PFATAL("Cannot open '%s' for reading.", fname);
+	int f = open(fname, O_RDONLY);
+	if (f < 0)
+		PFATAL("Cannot open '%s' for reading.", fname);
 
-	if (fstat(f, &st)) PFATAL("fstat() on '%s' failed.", fname);
+	if (fstat(f, &st))
+		PFATAL("fstat() on '%s' failed.", fname);
 
 	if (!st.st_size) {
 		close(f);
 		goto end_fp_read;
 	}
 
-	cur = data = (char *)calloc(st.st_size + 1, 1);
+	data = static_cast<char *>(calloc(st.st_size + 1, 1));
+	cur  = data;
 
-	if (read(f, data, st.st_size) != st.st_size)
+	if (read(f, data, st.st_size) != st.st_size) {
 		FATAL("Short read from '%s'.", fname);
+	}
 
 	data[st.st_size] = 0;
-
 	close(f);
 
 	/* If you put NUL in your p0f.fp... Well, sucks to be you. */
-
 	while (1) {
-
 		char *eol;
 
 		fp_context.line_no++;

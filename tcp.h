@@ -127,7 +127,7 @@ struct tcp_hdr {
  * Other stuff *
  ***************/
 
-constexpr size_t MIN_TCP4 = (sizeof(struct ipv4_hdr) + sizeof(struct tcp_hdr));
-constexpr size_t MIN_TCP6 = (sizeof(struct ipv6_hdr) + sizeof(struct tcp_hdr));
+constexpr int MIN_TCP4 = (sizeof(struct ipv4_hdr) + sizeof(struct tcp_hdr));
+constexpr int MIN_TCP6 = (sizeof(struct ipv6_hdr) + sizeof(struct tcp_hdr));
 
 #endif /* !HAVE_TCP_H_ */
