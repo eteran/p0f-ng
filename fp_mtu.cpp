@@ -8,11 +8,11 @@
 
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <unistd.h>
 
-#include <ctype.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 

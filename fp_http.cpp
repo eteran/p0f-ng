@@ -11,12 +11,12 @@
 #define _FROM_FP_HTTP
 //#define _GNU_SOURCE
 
-#include <ctype.h>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
 #include <ostream>
 #include <sstream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 
 #include <netinet/in.h>

@@ -11,8 +11,8 @@
 #ifndef HAVE_ALLOC_INL_H_
 #define HAVE_ALLOC_INL_H_
 
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 
 #include "config.h"
 #include "types.h"

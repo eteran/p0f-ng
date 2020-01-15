@@ -11,13 +11,13 @@
 //#define _GNU_SOURCE
 #define _FROM_P0F
 
+#include <cerrno>
 #include <clocale>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <dirent.h>
-#include <errno.h>
 #include <getopt.h>
 #include <grp.h>
 #include <poll.h>
