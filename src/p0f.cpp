@@ -19,6 +19,7 @@
 #include <dirent.h>
 #include <getopt.h>
 #include <grp.h>
+#include <memory>
 #include <poll.h>
 #include <pwd.h>
 #include <unistd.h>
@@ -101,7 +102,7 @@ p0f_context_t p0f_context;
 // Display usage information
 [[noreturn]] void usage() {
 
-	constexpr char message[] =
+	constexpr const char message[] =
 		"Usage: p0f [ ...options... ] [ 'filter rule' ]\n"
 		"\n"
 		"Network interface options:\n"
@@ -145,38 +146,42 @@ p0f_context_t p0f_context;
 // Get rid of unnecessary file descriptors
 void close_spare_fds() {
 
-	int32_t i, closed = 0;
-	DIR *d;
-	struct dirent *de;
-
-	d = opendir("/proc/self/fd");
-
+	int32_t closed = 0;
+	DIR *d         = opendir("/proc/self/fd");
 	if (!d) {
 		// Best we could do...
-		for (i = 3; i < 256; i++)
-			if (!close(i)) closed++;
+		for (int i = 3; i < 256; i++) {
+			if (!close(i)) {
+				// TODO(eteran): Why count this, it seems we never output this number from this path
+				closed++;
+			}
+		}
 		return;
 	}
 
-	while ((de = readdir(d))) {
-		i = atoi(de->d_name);
-		if (i > 2 && !close(i)) closed++;
+	while (struct dirent *de = readdir(d)) {
+		const int i = atoi(de->d_name);
+		if (i > 2 && !close(i)) {
+			closed++;
+		}
 	}
 
 	closedir(d);
 
-	if (closed)
-		SAYF("[+] Closed %u file descriptor%s.\n", closed, closed == 1 ? "" : "s");
+	if (closed) {
+		SAYF("[+] Closed %u file descriptor%s.\n",
+			 closed,
+			 closed == 1 ? "" : "s");
+	}
 }
 
 // Create or open log file
 void open_log() {
 
-	struct stat st;
-
 	int log_fd = open(p0f_context.log_file, O_WRONLY | O_APPEND | O_NOFOLLOW | O_LARGEFILE);
 	if (log_fd >= 0) {
 
+		struct stat st;
 		if (fstat(log_fd, &st))
 			PFATAL("fstat() on '%s' failed.", p0f_context.log_file);
 
@@ -184,7 +189,6 @@ void open_log() {
 			FATAL("'%s' is not a regular file.", p0f_context.log_file);
 
 	} else {
-
 		if (errno != ENOENT)
 			PFATAL("Cannot open '%s'.", p0f_context.log_file);
 
@@ -208,19 +212,13 @@ void open_log() {
 // Create and start listening on API socket
 void open_api() {
 
-	int32_t old_umask;
-	uint32_t i;
-
-	struct sockaddr_un u;
-	struct stat st;
-
 	p0f_context.api_fd = socket(PF_UNIX, SOCK_STREAM, 0);
 
 	if (p0f_context.api_fd < 0)
 		PFATAL("socket(PF_UNIX) failed.");
 
-	memset(&u, 0, sizeof(u));
-	u.sun_family = AF_UNIX;
+	struct sockaddr_un u = {};
+	u.sun_family         = AF_UNIX;
 
 	if (strlen(p0f_context.api_sock) >= sizeof(u.sun_path))
 		FATAL("API socket filename is too long for sockaddr_un (blame Unix).");
@@ -229,14 +227,14 @@ void open_api() {
 
 	/* This is bad, but you can't do any better with standard unix socket
 	 * semantics today :-( */
-
+	struct stat st;
 	if (!stat(p0f_context.api_sock, &st) && !S_ISSOCK(st.st_mode))
 		FATAL("'%s' exists but is not a socket.", p0f_context.api_sock);
 
 	if (unlink(p0f_context.api_sock) && errno != ENOENT)
 		PFATAL("unlink('%s') failed.", p0f_context.api_sock);
 
-	old_umask = umask(0777 ^ API_MODE);
+	mode_t old_umask = umask(0777 ^ API_MODE);
 
 	if (bind(p0f_context.api_fd, reinterpret_cast<struct sockaddr *>(&u), sizeof(u)))
 		PFATAL("bind() on '%s' failed.", p0f_context.api_sock);
@@ -251,7 +249,7 @@ void open_api() {
 
 	p0f_context.api_cl = new struct api_client[p0f_context.api_max_conn];
 
-	for (i = 0; i < p0f_context.api_max_conn; i++) {
+	for (uint32_t i = 0; i < p0f_context.api_max_conn; i++) {
 		p0f_context.api_cl[i].fd = -1;
 	}
 
@@ -269,7 +267,6 @@ void list_interfaces() {
 
 	/* There is a bug in several years' worth of libpcap releases that causes it
 	 * to SEGV here if /sys/class/net is not readable. See http://goo.gl/nEnGx */
-
 	if (access("/sys/class/net", R_OK | X_OK) && errno != ENOENT) {
 		FATAL("This operation requires access to /sys/class/net/, sorry.");
 	}
@@ -283,20 +280,18 @@ void list_interfaces() {
 	}
 
 	SAYF("\n-- Available interfaces --\n");
-
 	do {
-
 		pcap_addr_t *a = dev->addresses;
 
 		SAYF("\n%3d: Name        : %s\n", i++, dev->name);
 		SAYF("     Description : %s\n", dev->description ? dev->description : "-");
 
 		// Let's try to find something we can actually display.
-		while (a && a->addr->sa_family != PF_INET && a->addr->sa_family != PF_INET6)
+		while (a && a->addr->sa_family != PF_INET && a->addr->sa_family != PF_INET6) {
 			a = a->next;
+		}
 
 		if (a) {
-
 			if (a->addr->sa_family == PF_INET)
 				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 4, IP_VER4));
 			else
@@ -306,7 +301,6 @@ void list_interfaces() {
 			SAYF("     IP address  : (none)\n");
 
 	} while ((dev = dev->next));
-
 	SAYF("\n");
 
 	pcap_freealldevs(dev);
@@ -374,39 +368,32 @@ void prepare_pcap() {
 // Initialize BPF filtering
 void prepare_bpf() {
 
-	struct bpf_program flt;
-	memset(&flt, 0, sizeof(flt));
+	struct bpf_program flt = {};
 
-	char *final_rule     = nullptr;
-	uint8_t vlan_support = 0;
+	char final_rule[4096];
 
 	/* VLAN matching is somewhat brain-dead: you need to request it explicitly,
-	 and it alters the semantics of the remainder of the expression. */
-
-	vlan_support = (pcap_datalink(p0f_context.pt) == DLT_EN10MB);
+	 * and it alters the semantics of the remainder of the expression. */
+	bool vlan_support = (pcap_datalink(p0f_context.pt) == DLT_EN10MB);
 
 retry_no_vlan:
 
 	if (!p0f_context.orig_rule) {
-
 		if (vlan_support) {
-			final_rule = const_cast<char *>("tcp or (vlan and tcp)");
+			snprintf(final_rule, sizeof(final_rule), "tcp or (vlan and tcp)");
 		} else {
-			final_rule = const_cast<char *>("tcp");
+			snprintf(final_rule, sizeof(final_rule), "tcp");
 		}
-
 	} else {
 
 		if (vlan_support) {
-			final_rule = static_cast<char *>(calloc(strlen(p0f_context.orig_rule) * 2 + 64, 1));
-			sprintf(final_rule, "(tcp and (%s)) or (vlan and tcp and (%s))",
-					p0f_context.orig_rule,
-					p0f_context.orig_rule);
+			snprintf(final_rule, sizeof(final_rule), "(tcp and (%s)) or (vlan and tcp and (%s))",
+					 p0f_context.orig_rule,
+					 p0f_context.orig_rule);
 
 		} else {
-			final_rule = static_cast<char *>(calloc(strlen(p0f_context.orig_rule) + 16, 1));
-			sprintf(final_rule, "tcp and (%s)",
-					p0f_context.orig_rule);
+			snprintf(final_rule, sizeof(final_rule), "tcp and (%s)",
+					 p0f_context.orig_rule);
 		}
 	}
 
@@ -414,10 +401,7 @@ retry_no_vlan:
 
 	if (pcap_compile(p0f_context.pt, &flt, final_rule, 1, 0)) {
 		if (vlan_support) {
-			if (p0f_context.orig_rule)
-				free(final_rule);
-
-			vlan_support = 0;
+			vlan_support = false;
 			goto retry_no_vlan;
 		}
 
@@ -435,24 +419,19 @@ retry_no_vlan:
 	pcap_freecode(&flt);
 
 	if (!p0f_context.orig_rule) {
-
 		SAYF("[+] Default packet filtering configured%s.\n",
 			 vlan_support ? " [+VLAN]" : "");
-
 	} else {
-
 		SAYF("[+] Custom filtering rule enabled: %s%s\n",
 			 p0f_context.orig_rule ? p0f_context.orig_rule : "tcp",
 			 vlan_support ? " [+VLAN]" : "");
-
-		free(final_rule);
 	}
 }
 
 // Drop privileges and chroot(), with some sanity checks
 void drop_privs() {
 
-	struct passwd *pw = getpwnam(p0f_context.switch_user);
+	struct passwd *const pw = getpwnam(p0f_context.switch_user);
 
 	if (!pw)
 		FATAL("User '%s' not found.", p0f_context.switch_user);
@@ -495,16 +474,16 @@ void drop_privs() {
 void fork_off() {
 
 	fflush(nullptr);
-	int32_t npid = fork();
 
-	if (npid < 0) PFATAL("fork() failed.");
-
-	if (!npid) {
-
+	switch (pid_t npid = fork()) {
+	case -1:
+		PFATAL("fork() failed.");
+	case 0:
 		/* Let's assume all this is fairly unlikely to fail, so we can live
-	   with the parent possibly proclaiming success prematurely. */
+		 * with the parent possibly proclaiming success prematurely. */
 
-		if (dup2(p0f_context.null_fd, 0) < 0) PFATAL("dup2() failed.");
+		if (dup2(p0f_context.null_fd, 0) < 0)
+			PFATAL("dup2() failed.");
 
 		/* If stderr is redirected to a file, keep that fd and use it for
 		 * normal output. */
@@ -523,13 +502,13 @@ void fork_off() {
 			PFATAL("chdir('/') failed.");
 
 		setsid();
-
-	} else {
-		SAYF("[+] Daemon process created, PID %u (stderr %s).\n", npid,
+		break;
+	default:
+		SAYF("[+] Daemon process created, PID %u (stderr %s).\n",
+			 npid,
 			 isatty(2) ? "not kept" : "kept as-is");
 
 		SAYF("\nGood luck, you're on your own now!\n");
-
 		exit(0);
 	}
 }
@@ -545,9 +524,7 @@ void abort_handler(int sig) {
 }
 
 // Regenerate pollfd data for poll()
-uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
-	uint32_t i;
-	uint32_t count = 2;
+uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::unique_ptr<struct api_client *[]> &ctable) {
 
 	pfds[0].fd     = pcap_fileno(p0f_context.pt);
 	pfds[0].events = (POLLIN | POLLERR | POLLHUP);
@@ -560,8 +537,8 @@ uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 	pfds[1].fd     = p0f_context.api_fd;
 	pfds[1].events = (POLLIN | POLLERR | POLLHUP);
 
-	for (i = 0; i < p0f_context.api_max_conn; i++) {
-
+	uint32_t count = 2;
+	for (uint32_t i = 0; i < p0f_context.api_max_conn; i++) {
 		if (p0f_context.api_cl[i].fd == -1) {
 			continue;
 		}
@@ -570,7 +547,6 @@ uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 
 		/* If we haven't received a complete query yet, wait for POLLIN.
 		 * Otherwise, we want to write stuff. */
-
 		if (p0f_context.api_cl[i].in_off < sizeof(struct p0f_api_query))
 			pfds[count].events = (POLLIN | POLLERR | POLLHUP);
 		else
@@ -583,12 +559,9 @@ uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 }
 
 // Process API queries.
-void handle_query(struct p0f_api_query *q, struct p0f_api_response *r) {
+void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
 
-	struct host_data *h;
-
-	memset(r, 0, sizeof(struct p0f_api_response));
-
+	r        = {};
 	r->magic = P0F_RESP_MAGIC;
 
 	if (q->magic != P0F_QUERY_MAGIC) {
@@ -597,6 +570,7 @@ void handle_query(struct p0f_api_query *q, struct p0f_api_response *r) {
 		return;
 	}
 
+	const struct host_data *h = nullptr;
 	switch (q->addr_type) {
 	case P0F_ADDR_IPV4:
 	case P0F_ADDR_IPV6:
@@ -673,8 +647,9 @@ void live_event_loop() {
 	 * queries on Windows, you are welcome to fix this :-) */
 
 	// We need room for pcap, and possibly p0f_context.api_fd + api_clients.
-	auto pfds   = static_cast<struct pollfd *>(calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct pollfd)));
-	auto ctable = static_cast<struct api_client **>(calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct api_client *)));
+	const size_t clients = 1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0);
+	auto pfds            = std::make_unique<struct pollfd[]>(clients);
+	auto ctable          = std::make_unique<struct api_client *[]>(clients);
 
 	uint32_t pfd_count = regen_pfds(pfds, ctable);
 
@@ -691,7 +666,7 @@ void live_event_loop() {
 
 	poll_again:
 
-		int32_t pret = poll(pfds, pfd_count, 10);
+		int pret = poll(pfds.get(), pfd_count, 10);
 		if (pret < 0) {
 			if (errno == EINTR)
 				break;
@@ -773,9 +748,7 @@ void live_event_loop() {
 						p0f_context.api_cl[i].fd = accept(p0f_context.api_fd, nullptr, nullptr);
 
 						if (p0f_context.api_cl[i].fd < 0) {
-
 							WARN("Unable to handle API connection: accept() fails.");
-
 						} else {
 
 							if (fcntl(p0f_context.api_cl[i].fd, F_SETFL, O_NONBLOCK))
@@ -790,8 +763,9 @@ void live_event_loop() {
 							goto poll_again;
 						}
 
-					} else
+					} else {
 						WARN("Too many API connections (use -S to adjust).\n");
+					}
 
 					break;
 
@@ -826,17 +800,15 @@ void live_event_loop() {
 		}
 	}
 
-	free(ctable);
-	free(pfds);
-
 	WARN("User-initiated shutdown.");
 }
 
 // Simple event loop for processing offline captures.
 void offline_event_loop() {
 
-	if (!p0f_context.daemon_mode)
+	if (!p0f_context.daemon_mode) {
 		SAYF("[+] Processing capture data.\n\n");
+	}
 
 	while (!p0f_context.stop_soon) {
 		if (pcap_dispatch(p0f_context.pt, -1, parse_packet, reinterpret_cast<u_char *>(&libp0f_context)) <= 0) {
@@ -850,14 +822,19 @@ void offline_event_loop() {
 // Open log entry.
 void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const struct packet_flow *f) {
 
-	if (p0f_context.obs_fields)
+	if (p0f_context.obs_fields) {
 		FATAL("Premature end of observation.");
+	}
 
 	if (!p0f_context.daemon_mode) {
-		SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
+		SAYF(".-[ %s/%u -> ",
+			 addr_to_str(f->client->addr, f->client->ip_ver),
 			 f->cli_port);
-		SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
-			 f->srv_port, keyword);
+
+		SAYF("%s/%u (%s) ]-\n|\n",
+			 addr_to_str(f->server->addr, f->client->ip_ver),
+			 f->srv_port,
+			 keyword);
 
 		SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server",
 			 addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
@@ -867,15 +844,19 @@ void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, cons
 	if (p0f_context.log_file) {
 		char tmp[64];
 
-		time_t ut     = get_unix_time();
-		struct tm *lt = localtime(&ut);
+		const time_t ut = get_unix_time();
+		strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", localtime(&ut));
 
-		strftime(tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
+		LOGF("[%s] mod=%s|cli=%s/%u|",
+			 tmp,
+			 keyword,
+			 addr_to_str(f->client->addr, f->client->ip_ver),
+			 f->cli_port);
 
-		LOGF("[%s] mod=%s|cli=%s/%u|", tmp, keyword, addr_to_str(f->client->addr, f->client->ip_ver), f->cli_port);
-
-		LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
-			 f->srv_port, to_srv ? "cli" : "srv");
+		LOGF("srv=%s/%u|subj=%s",
+			 addr_to_str(f->server->addr, f->server->ip_ver),
+			 f->srv_port,
+			 to_srv ? "cli" : "srv");
 	}
 
 	p0f_context.obs_fields = field_cnt;
@@ -909,16 +890,16 @@ void add_observation_field(const char *key, const char *value) {
 // Main entry point
 int main(int argc, char **argv) {
 
-	int32_t r;
-
 	setlinebuf(stdout);
 
 	SAYF("--- p0f " VERSION " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
 
-	if (getuid() != geteuid())
+	if (getuid() != geteuid()) {
 		FATAL("Please don't make me setuid. See README for more.\n");
+	}
 
-	while ((r = getopt(argc, argv, "+LS:df:i:m:o:pr:s:t:u:")) != -1)
+	int r;
+	while ((r = getopt(argc, argv, "+LS:df:i:m:o:pr:s:t:u:")) != -1) {
 		switch (r) {
 		case 'L':
 			list_interfaces();
@@ -1004,13 +985,14 @@ int main(int argc, char **argv) {
 		default:
 			usage();
 		}
+	}
 
 	if (optind < argc) {
-
-		if (optind + 1 == argc)
+		if (optind + 1 == argc) {
 			p0f_context.orig_rule = argv[optind];
-		else
+		} else {
 			FATAL("Filter rule must be a single parameter (use quotes).");
+		}
 	}
 
 	if (libp0f_context.read_file && p0f_context.api_sock)
@@ -1072,9 +1054,5 @@ int main(int argc, char **argv) {
 	if (!p0f_context.daemon_mode)
 		SAYF("\nAll done. Processed %lu packets.\n", libp0f_context.packet_cnt);
 
-#ifdef DEBUG_BUILD
 	destroy_all_hosts();
-#endif
-
-	return 0;
 }

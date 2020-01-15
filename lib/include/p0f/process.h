@@ -195,7 +195,7 @@ uint64_t get_unix_time_ms();
 time_t get_unix_time();
 void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context);
 void verify_tool_class(bool to_srv, const packet_flow *f, uint32_t *sys, uint32_t sys_cnt, libp0f_context_t *libp0f_context);
-struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver);
+struct host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver);
 void destroy_all_hosts();
 
 #endif

@@ -206,7 +206,7 @@ void nuke_flows(uint8_t silent, libp0f_context_t *libp0f_context) {
 }
 
 // Calculate hash bucket for host_data.
-uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
+uint32_t get_host_bucket(const uint8_t *addr, uint8_t ip_ver) {
 	uint32_t bucket = hash32(addr, (ip_ver == IP_VER4) ? 4 : 16);
 	return bucket % HOST_BUCKETS;
 }
@@ -1234,7 +1234,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 }
 
 // Look up host data.
-struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
+struct host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket     = get_host_bucket(addr, ip_ver);
 	struct host_data *h = process_context.host_b[bucket];
