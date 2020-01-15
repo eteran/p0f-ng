@@ -225,7 +225,7 @@ void open_api() {
 	strcpy(u.sun_path, p0f_context.api_sock);
 
 	/* This is bad, but you can't do any better with standard unix socket
-     semantics today :-( */
+	 * semantics today :-( */
 
 	if (!stat(p0f_context.api_sock, &st) && !S_ISSOCK(st.st_mode))
 		FATAL("'%s' exists but is not a socket.", p0f_context.api_sock);
@@ -265,7 +265,7 @@ void list_interfaces() {
 	uint8_t i = 0;
 
 	/* There is a bug in several years' worth of libpcap releases that causes it
-	 to SEGV here if /sys/class/net is not readable. See http://goo.gl/nEnGx */
+	 * to SEGV here if /sys/class/net is not readable. See http://goo.gl/nEnGx */
 
 	if (access("/sys/class/net", R_OK | X_OK) && errno != ENOENT) {
 		FATAL("This operation requires access to /sys/class/net/, sorry.");

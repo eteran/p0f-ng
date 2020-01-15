@@ -129,24 +129,21 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 	}
 
 	/* If this fails, try to auto-detect. There is a slight risk that if the
-     first packet we see is maliciously crafted, and somehow gets past the
-     configured BPF filter, we will configure the wrong offset. But that
-     seems fairly unlikely. */
+	 * first packet we see is maliciously crafted, and somehow gets past the
+	 * configured BPF filter, we will configure the wrong offset. But that
+	 * seems fairly unlikely. */
 
 	for (i = 0; i < 40; i += 2, total_len -= 2) {
-
 		if (total_len < MIN_TCP4) {
 			break;
 		}
 
 		/* Perhaps this is IPv6? We check three things: IP version (first 4 bits);
-       total length sufficient to accommodate IPv6 and TCP headers; and the
-       "next protocol" field equal to PROTO_TCP. */
+		 * total length sufficient to accommodate IPv6 and TCP headers; and the
+		 * "next protocol" field equal to PROTO_TCP. */
 
 		if (total_len >= MIN_TCP6 && (data[i] >> 4) == IP_VER6) {
-
 			auto hdr = reinterpret_cast<const struct ipv6_hdr *>(data + i);
-
 			if (hdr->proto == PROTO_TCP) {
 				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, link_type);
 				process_context.link_off = i;
@@ -154,15 +151,12 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 			}
 		}
 
-		/* Okay, let's try IPv4 then. The same approach, except the shortest packet
-       size must be just enough to accommodate IPv4 + TCP (already checked). */
-
+		/* Okay, let's try IPv4 then. The same approach, except the shortest
+		 * packet size must be just enough to accommodate IPv4 + TCP
+		 * (already checked). */
 		if ((data[i] >> 4) == IP_VER4) {
-
 			auto hdr = reinterpret_cast<const struct ipv4_hdr *>(data + i);
-
 			if (hdr->proto == PROTO_TCP) {
-
 				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, link_type);
 				process_context.link_off = i;
 				break;
@@ -174,32 +168,24 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
      complain once and try again soon. */
 
 	if (process_context.link_off >= 4 && data[i - 4] == 0x81 && data[i - 3] == 0x00) {
-
 		DEBUG("[#] Adjusting offset due to VLAN tagging.\n");
 		process_context.link_off -= 4;
-
 	} else if (process_context.link_off == -1) {
-
 		process_context.link_off = -2;
 		WARN("Unable to find link-specific packet offset. This is bad.");
 	}
 }
 
 // Convert IPv4 or IPv6 address to a human-readable form.
-
 char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 
 	static char tmp[128];
 
 	/* We could be using inet_ntop(), but on systems that have older libc
-     but still see passing IPv6 traffic, we would be in a pickle. */
-
+	 * but still see passing IPv6 traffic, we would be in a pickle. */
 	if (ip_ver == IP_VER4) {
-
 		sprintf(tmp, "%u.%u.%u.%u", data[0], data[1], data[2], data[3]);
-
 	} else {
-
 		sprintf(tmp, "%x:%x:%x:%x:%x:%x:%x:%x",
 				(data[0] << 8) | data[1], (data[2] << 8) | data[3],
 				(data[4] << 8) | data[5], (data[6] << 8) | data[7],
@@ -211,7 +197,7 @@ char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 }
 
 /* Parse PCAP input, with plenty of sanity checking. Store interesting details
-   in a protocol-agnostic buffer that will be then examined upstream. */
+ * in a protocol-agnostic buffer that will be then examined upstream. */
 void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *data) {
 
 	(void)junk;
@@ -261,10 +247,9 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	if ((*data >> 4) == IP_VER4) {
 
-		/************************
-		* IPv4 header parsing. *
-		************************/
-
+		/* ----------------------
+		 * IPv4 header parsing. *
+		 * ---------------------*/
 		auto ip4 = reinterpret_cast<const struct ipv4_hdr *>(data);
 
 		uint32_t hdr_len   = (ip4->ver_hlen & 0x0F) * 4;
@@ -272,15 +257,13 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		uint16_t tot_len   = ntohs(RD16(ip4->tot_len));
 
 		/* If the packet claims to be shorter than what we received off the wire,
-       honor this claim to account for etherleak-type bugs. */
-
+		 * honor this claim to account for etherleak-type bugs. */
 		if (packet_len > tot_len) {
 			packet_len = tot_len;
 			// DEBUG("[#] ipv4.tot_len = %u, adjusted accordingly.\n", tot_len);
 		}
 
 		// Bail out if the result leaves no room for IPv4 + TCP headers.
-
 		if (packet_len < MIN_TCP4) {
 			DEBUG("[#] packet_len = %u. Too short for IPv4 + TCP, giving up!\n",
 				  packet_len);
@@ -288,7 +271,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 
 		// Bail out if the declared length of IPv4 headers is nonsensical.
-
 		if (hdr_len < sizeof(struct ipv4_hdr)) {
 			DEBUG("[#] ipv4.hdr_len = %u. Too short for IPv4, giving up!\n",
 				  hdr_len);
@@ -296,8 +278,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 
 		/* If the packet claims to be longer than the recv buffer, best to back
-       off - even though we could just ignore this and recover. */
-
+		 * off - even though we could just ignore this and recover. */
 		if (tot_len > packet_len) {
 			DEBUG("[#] ipv4.tot_len = %u but packet_len = %u, bailing out!\n",
 				  tot_len, packet_len);
@@ -305,8 +286,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 
 		/* And finally, bail out if after skipping the IPv4 header as specified
-       (including options), there wouldn't be enough room for TCP. */
-
+		 * (including options), there wouldn't be enough room for TCP. */
 		if (hdr_len + sizeof(struct tcp_hdr) > packet_len) {
 			DEBUG("[#] ipv4.hdr_len = %u, packet_len = %d, no room for TCP!\n",
 				  hdr_len, packet_len);
@@ -314,22 +294,19 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 
 		// Bail out if the subsequent protocol is not TCP.
-
 		if (ip4->proto != PROTO_TCP) {
 			DEBUG("[#] Whoa, IPv4 packet with non-TCP payload (%u)?\n", ip4->proto);
 			return;
 		}
 
 		/* Ignore any traffic with MF or non-zero fragment offset specified. We
-       can do enough just fingerprinting the non-fragmented traffic. */
-
+		 * can do enough just fingerprinting the non-fragmented traffic. */
 		if (flags_off & ~(IP4_DF | IP4_MBZ)) {
 			DEBUG("[#] Packet fragment (0x%04x), letting it slide!\n", flags_off);
 			return;
 		}
 
 		// Store some relevant information about the packet.
-
 		pk.ip_ver = IP_VER4;
 
 		pk.ip_opt_len = hdr_len - 20;
@@ -364,17 +341,15 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	} else if ((*data >> 4) == IP_VER6) {
 
-		/************************
-     * IPv6 header parsing. *
-     ************************/
-
+		/* ----------------------
+		 * IPv6 header parsing. *
+		 * ---------------------*/
 		auto ip6         = reinterpret_cast<const struct ipv6_hdr *>(data);
 		uint32_t ver_tos = ntohl(RD32(ip6->ver_tos));
 		uint32_t tot_len = ntohs(RD16(ip6->pay_len)) + sizeof(struct ipv6_hdr);
 
 		/* If the packet claims to be shorter than what we received off the wire,
-       honor this claim to account for etherleak-type bugs. */
-
+		 * honor this claim to account for etherleak-type bugs. */
 		if (packet_len > tot_len) {
 			packet_len = tot_len;
 			// DEBUG("[#] ipv6.tot_len = %u, adjusted accordingly.\n", tot_len);
@@ -389,8 +364,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 
 		/* If the packet claims to be longer than the data we have, best to back
-       off - even though we could just ignore this and recover. */
-
+		 * off - even though we could just ignore this and recover. */
 		if (tot_len > packet_len) {
 			DEBUG("[#] ipv6.tot_len = %u but packet_len = %u, bailing out!\n",
 				  tot_len, packet_len);
@@ -398,16 +372,14 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 
 		/* Bail out if the subsequent protocol is not TCP. One day, we may try
-       to parse and skip IPv6 extensions, but there seems to be no point in
-       it today. */
-
+		 * to parse and skip IPv6 extensions, but there seems to be no point in
+		 * it today. */
 		if (ip6->proto != PROTO_TCP) {
 			DEBUG("[#] IPv6 packet with non-TCP payload (%u).\n", ip6->proto);
 			return;
 		}
 
 		// Store some relevant information about the packet.
-
 		pk.ip_ver = IP_VER6;
 
 		pk.ip_opt_len = 0;
@@ -438,15 +410,14 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		return;
 	}
 
-	/***************
-   * TCP parsing *
-   ***************/
+	/* -------------
+	 * TCP parsing *
+	 * ------------*/
 	data = reinterpret_cast<const uint8_t *>(tcp);
 
 	tcp_doff = (tcp->doff_rsvd >> 4) * 4;
 
 	// As usual, let's start with sanity checks.
-
 	if (tcp_doff < sizeof(struct tcp_hdr)) {
 		DEBUG("[#] tcp.hdr_len = %u, not enough for TCP!\n", tcp_doff);
 		return;
@@ -525,10 +496,9 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		pk.pay_len = packet_len - tcp_doff;
 	}
 
-	/**********************
-   * TCP option parsing *
-   **********************/
-
+	/* --------------------
+	 * TCP option parsing *
+	 * -------------------*/
 	opt_end = data + tcp_doff; // First byte of non-option data
 	data    = reinterpret_cast<const uint8_t *>(tcp + 1);
 

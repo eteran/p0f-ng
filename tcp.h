@@ -16,9 +16,9 @@
 
 #include "types.h"
 
-/*************
+/* -----------
  * IP common *
- *************/
+ * ----------*/
 
 // Protocol versions:
 enum IP_VER {
@@ -34,10 +34,9 @@ enum IP_VER {
 
 #define PROTO_TCP 0x06
 
-/********
+/*-------
  * IPv4 *
- ********/
-
+ * -----*/
 struct ipv4_hdr {
 
 	uint8_t ver_hlen;   // IP version (4), IP hdr len in dwords (4)
@@ -123,10 +122,9 @@ struct tcp_hdr {
 #define TCPOPT_SACK 5   // Actual selective ACK (10-34)
 #define TCPOPT_TSTAMP 8 // Timestamp (10)
 
-/***************
+/* -------------
  * Other stuff *
- ***************/
-
+ * ------------*/
 constexpr int MIN_TCP4 = (sizeof(struct ipv4_hdr) + sizeof(struct tcp_hdr));
 constexpr int MIN_TCP6 = (sizeof(struct ipv6_hdr) + sizeof(struct tcp_hdr));
 

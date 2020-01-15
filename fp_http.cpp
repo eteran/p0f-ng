@@ -59,7 +59,7 @@ struct http_context_t {
 	uint32_t hbh_cnt[SIG_BUCKETS];      // Number of headers in bucket
 
 	/* Signatures aren't bucketed due to the complex matching used; but we use
-	   Bloom filters to go through them quickly. */
+	 * Bloom filters to go through them quickly. */
 	struct http_sig_record *sigs[2];
 	uint32_t sig_cnt[2];
 
@@ -70,7 +70,7 @@ struct http_context_t {
 http_context_t http_context;
 
 /* Ghetto Bloom filter 4-out-of-64 bitmask generator for adding 32-bit header
-   IDs to a set. We expect around 10 members in a set. */
+ * IDs to a set. We expect around 10 members in a set. */
 constexpr uint64_t bloom4_64(uint32_t val) {
 	const uint32_t hash = hash32(&val, 4);
 	uint64_t ret        = (1ULL << (hash & 63));

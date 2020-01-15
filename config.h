@@ -13,9 +13,9 @@
 
 #include "types.h"
 
-/********************************************
+/* ------------------------------------------
  * Things you may reasonably want to change *
- ********************************************/
+ * -----------------------------------------*/
 
 // Default location of p0f.fp:
 
@@ -61,9 +61,9 @@
 #define MAX_DIST 35
 #endif // !MAX_DIST
 
-/************************
+/* ----------------------
  * Really obscure stuff *
- ************************/
+ * ---------------------*/
 
 // Maximum allocator request size (keep well under INT_MAX):
 
