@@ -219,6 +219,10 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 	}
 }
 
+void http_find_match(bool to_srv, const std::unique_ptr<struct http_sig> &ts, uint8_t dupe_det) {
+	http_find_match(to_srv, ts.get(), dupe_det);
+}
+
 // Dump a HTTP signature.
 std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
@@ -1020,7 +1024,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 		hsig->sw = ck_strdup(val);
 	}
 
-	http_find_match(to_srv, hsig.get(), 1);
+	http_find_match(to_srv, hsig, 1);
 
 	if (hsig->matched)
 		FATAL("Signature in line %u is already covered by line %u.",

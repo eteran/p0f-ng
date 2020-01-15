@@ -40,7 +40,7 @@ struct tcp_context_t {
 tcp_context_t tcp_context;
 
 // Figure out what the TTL distance might have been for an unknown sig.
-uint8_t guess_dist(uint8_t ttl) {
+constexpr uint8_t guess_dist(uint8_t ttl) {
 	if (ttl <= 32) return 32 - ttl;
 	if (ttl <= 64) return 64 - ttl;
 	if (ttl <= 128) return 128 - ttl;
@@ -49,7 +49,7 @@ uint8_t guess_dist(uint8_t ttl) {
 
 /* Figure out if window size is a multiplier of MSS or MTU. We don't take window
  * scaling into account, because neither do TCP stack developers. */
-int16_t detect_win_multi(const struct tcp_sig *ts, bool *use_mtu, uint16_t syn_mss) {
+int16_t detect_win_multi(const std::shared_ptr<struct tcp_sig> &ts, bool *use_mtu, uint16_t syn_mss) {
 
 	uint16_t win = ts->win;
 	int32_t mss = ts->mss, mss12 = mss - 12;
@@ -103,7 +103,7 @@ int16_t detect_win_multi(const struct tcp_sig *ts, bool *use_mtu, uint16_t syn_m
 }
 
 // See if any of the p0f.fp signatures matches the collected data.
-void tcp_find_match(bool to_srv, struct tcp_sig *ts, uint8_t dupe_det, uint16_t syn_mss) {
+void tcp_find_match(bool to_srv, const std::shared_ptr<struct tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss) {
 
 	struct tcp_sig_record *fmatch = nullptr;
 	struct tcp_sig_record *gmatch = nullptr;
@@ -116,7 +116,7 @@ void tcp_find_match(bool to_srv, struct tcp_sig *ts, uint8_t dupe_det, uint16_t 
 	for (size_t i = 0; i < tcp_context.sigs[to_srv][bucket].size(); i++) {
 
 		struct tcp_sig_record *ref            = &tcp_context.sigs[to_srv][bucket][i];
-		std::unique_ptr<struct tcp_sig> &refs = ref->sig;
+		const std::shared_ptr<struct tcp_sig> &refs = ref->sig;
 
 		uint8_t fuzzy       = 0;
 		uint32_t ref_quirks = refs->quirks;
@@ -245,7 +245,7 @@ void tcp_find_match(bool to_srv, struct tcp_sig *ts, uint8_t dupe_det, uint16_t 
 
 /* Convert struct packet_data to a simplified struct tcp_sig representation
    suitable for signature matching. Compute hashes. */
-void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
+void packet_to_sig(struct packet_data *pk, const std::shared_ptr<struct tcp_sig> &ts) {
 
 	ts->opt_hash = hash32(pk->opt_layout, pk->opt_cnt);
 
@@ -268,7 +268,7 @@ void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
 }
 
 // Dump unknown signature.
-std::string dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uint16_t syn_mss) {
+std::string dump_sig(const struct packet_data *pk, const std::shared_ptr<struct tcp_sig> &ts, uint16_t syn_mss) {
 
 	std::ostringstream ss;
 
@@ -383,21 +383,28 @@ std::string dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uin
 }
 
 // Dump signature-related flags.
-std::string dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
+std::string dump_flags(struct packet_data *pk, const std::shared_ptr<struct tcp_sig> &ts) {
 
 	std::ostringstream ss;
 
 	append_format(ss, "");
 
 	if (ts->matched) {
+		if (ts->matched->generic)
+			append_format(ss, " generic");
 
-		if (ts->matched->generic) append_format(ss, " generic");
-		if (ts->fuzzy) append_format(ss, " fuzzy");
-		if (ts->matched->bad_ttl) append_format(ss, " random_ttl");
+		if (ts->fuzzy)
+			append_format(ss, " fuzzy");
+
+		if (ts->matched->bad_ttl)
+			append_format(ss, " random_ttl");
 	}
 
-	if (ts->dist > MAX_DIST) append_format(ss, " excess_dist");
-	if (pk->tos) append_format(ss, " tos:0x%02x", pk->tos);
+	if (ts->dist > MAX_DIST)
+		append_format(ss, " excess_dist");
+
+	if (pk->tos)
+		append_format(ss, " tos:0x%02x", pk->tos);
 
 	std::string ret = ss.str();
 
@@ -409,22 +416,19 @@ std::string dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
 
 /* Compare current signature with historical data, draw conclusions. This
    is called only for OS sigs. */
-void score_nat(bool to_srv, struct tcp_sig *sig, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void score_nat(bool to_srv, const std::shared_ptr<struct tcp_sig> &sig, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	struct host_data *hd;
-	struct tcp_sig *ref;
+	std::shared_ptr<struct tcp_sig> ref;
 	uint8_t score        = 0;
 	uint8_t diff_already = 0;
 	uint16_t reason      = 0;
 	int32_t ttl_diff;
 
 	if (to_srv) {
-
 		hd  = f->client;
 		ref = hd->last_syn;
-
 	} else {
-
 		hd  = f->server;
 		ref = hd->last_synack;
 	}
@@ -981,7 +985,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		FATAL("Malformed payload class in line %u.", line_no);
 
 	// Phew, okay, we're done. Now, create tcp_sig...
-	auto tsig = std::make_unique<struct tcp_sig>();
+	auto tsig = std::make_shared<struct tcp_sig>();
 
 	tsig->opt_hash    = opt_hash;
 	tsig->opt_eol_pad = opt_eol_pad;
@@ -996,7 +1000,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 	tsig->pay_class   = pay_class;
 
 	// No need to set ts1, recv_ms, match, fuzzy, dist
-	tcp_find_match(to_srv, tsig.get(), 1, 0);
+	tcp_find_match(to_srv, tsig, 1, 0);
 
 	if (tsig->matched)
 		FATAL("Signature in line %u is already covered by line %u.",
@@ -1022,9 +1026,9 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 }
 
 // Fingerprint SYN or SYN+ACK.
-struct tcp_sig *fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+std::shared_ptr<struct tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
-	auto sig = static_cast<struct tcp_sig *>(calloc(sizeof(struct tcp_sig), 1));
+	auto sig = std::make_shared<struct tcp_sig>();
 	packet_to_sig(pk, sig);
 
 	/* Detect packets generated by p0f-sendsyn; they require special
@@ -1071,12 +1075,10 @@ struct tcp_sig *fingerprint_tcp(bool to_srv, struct packet_data *pk, struct pack
 	// That's about as far as we go with non-OS signatures.
 	if (m && m->class_id == -1) {
 		verify_tool_class(to_srv, f, m->sys, m->sys_cnt, libp0f_context);
-		free(sig);
 		return nullptr;
 	}
 
 	if (f->sendsyn) {
-		free(sig);
 		return nullptr;
 	}
 

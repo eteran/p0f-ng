@@ -69,7 +69,7 @@ struct tcp_sig_record {
 
 	uint8_t bad_ttl = 0; // TTL is generated randomly
 
-	std::unique_ptr<struct tcp_sig> sig; // Actual signature data
+	std::shared_ptr<struct tcp_sig> sig; // Actual signature data
 };
 
 #include "process.h"
@@ -78,7 +78,7 @@ struct packet_data;
 struct packet_flow;
 
 void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no);
-struct tcp_sig *fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
+std::shared_ptr<tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 void check_ts_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 
 #endif

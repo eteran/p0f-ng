@@ -241,9 +241,6 @@ void destroy_host(struct host_data *h) {
 		process_context.host_by_age = h->newer;
 
 	// Free memory.
-	free(h->last_syn);
-	free(h->last_synack);
-
 	free(h->http_resp);
 	free(h->http_req_os);
 
@@ -390,7 +387,7 @@ struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_
 // Insert data from a packet into a flow, call handlers as appropriate.
 void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 
-	struct tcp_sig *tsig = nullptr;
+	std::shared_ptr<struct tcp_sig> tsig;
 	bool to_srv          = false;
 	uint8_t need_more    = 0;
 
@@ -435,8 +432,6 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 		if (tsig) {
 			/* This can't be done in fingerprint_tcp because check_ts_tcp()
 			 * depends on having original SYN / SYN+ACK data. */
-
-			free(f->client->last_syn);
 			f->client->last_syn = tsig;
 		}
 
@@ -484,11 +479,8 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 		fingerprint_mtu(0, pk, f, libp0f_context);
 		check_ts_tcp(0, pk, f, libp0f_context);
 
-		free(f->server->last_synack);
 		f->server->last_synack = tsig;
-
 		f->next_srv_seq = pk->seq + 1;
-
 		break;
 
 	case TCP_RST | TCP_ACK:
@@ -574,20 +566,14 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 		need_more |= process_http(to_srv, f, libp0f_context);
 
 		if (!need_more) {
-
 			DEBUG("[#] All modules done, no need to keep tracking flow.\n");
 			destroy_flow(f);
-
 		} else if (f->request.size() >= MAX_FLOW_DATA && f->response.size() >= MAX_FLOW_DATA) {
-
 			DEBUG("[#] Per-flow capture size limit exceeded.\n");
 			destroy_flow(f);
 		}
-
 		break;
-
 	default:
-
 		WARN("Huh. Unexpected packet type 0x%02x in flow_dispatch().", pk->tcp_type);
 	}
 }

@@ -666,7 +666,7 @@ void live_event_loop() {
 
 	poll_again:
 
-		int pret = poll(pfds.get(), pfd_count, 10);
+		int pret = poll(&pfds[0], pfd_count, 10);
 		if (pret < 0) {
 			if (errno == EINTR)
 				break;
