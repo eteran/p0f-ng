@@ -298,21 +298,19 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 
 void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
 
-	struct http_sig *hsig;
-	struct http_sig_record *hrec;
 
 	char *nxt;
 
-	hsig = static_cast<struct http_sig *>(calloc(sizeof(struct http_sig), 1));
+	auto hsig = static_cast<struct http_sig *>(calloc(sizeof(struct http_sig), 1));
 
 	http_context.sigs[to_srv] = static_cast<struct http_sig_record *>(realloc(http_context.sigs[to_srv], sizeof(struct http_sig_record) * (http_context.sig_cnt[to_srv] + 1)));
 
-	hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
+	struct http_sig_record * hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
 
-	if (val[1] != ':') FATAL("Malformed signature in line %u.", line_no);
+	if (val[1] != ':')
+		FATAL("Malformed signature in line %u.", line_no);
 
 	/* http_ver */
-
 	switch (*val) {
 	case '0':
 		break;
@@ -332,7 +330,6 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 
 	while (*val != ':') {
 
-		uint32_t id;
 		uint8_t optional = 0;
 
 		if (hsig->hdr_cnt >= HTTP_MAX_HDRS)
@@ -352,12 +349,13 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 		if (val == nxt)
 			FATAL("Malformed header name in line %u.", line_no);
 
-		id = lookup_hdr(val, nxt - val, 1);
+		uint32_t id = lookup_hdr(val, nxt - val, 1);
 
 		hsig->hdr[hsig->hdr_cnt].id       = id;
 		hsig->hdr[hsig->hdr_cnt].optional = optional;
 
-		if (!optional) hsig->hdr_bloom4 |= bloom4_64(id);
+		if (!optional)
+			hsig->hdr_bloom4 |= bloom4_64(id);
 
 		val = nxt;
 
@@ -394,8 +392,6 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 
 	while (*val != ':') {
 
-		uint32_t id;
-
 		if (hsig->miss_cnt >= HTTP_MAX_HDRS)
 			FATAL("Too many headers listed in line %u.", line_no);
 
@@ -406,7 +402,7 @@ void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint3
 		if (val == nxt)
 			FATAL("Malformed header name in line %u.", line_no);
 
-		id = lookup_hdr(val, nxt - val, 1);
+		uint32_t id = lookup_hdr(val, nxt - val, 1);
 
 		hsig->miss[hsig->miss_cnt] = id;
 
