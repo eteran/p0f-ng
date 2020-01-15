@@ -298,14 +298,13 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 
 void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
 
-
 	char *nxt;
 
 	auto hsig = static_cast<struct http_sig *>(calloc(sizeof(struct http_sig), 1));
 
 	http_context.sigs[to_srv] = static_cast<struct http_sig_record *>(realloc(http_context.sigs[to_srv], sizeof(struct http_sig_record) * (http_context.sig_cnt[to_srv] + 1)));
 
-	struct http_sig_record * hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
+	struct http_sig_record *hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
 
 	if (val[1] != ':')
 		FATAL("Malformed signature in line %u.", line_no);

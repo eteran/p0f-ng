@@ -155,59 +155,55 @@ struct host_data {
 /* TCP flow record, maintained until all fingerprinting modules are happy: */
 
 struct packet_flow {
+	struct packet_flow *prev  = nullptr;
+	struct packet_flow *next  = nullptr; /* Linked lists                       */
+	struct packet_flow *older = nullptr;
+	struct packet_flow *newer = nullptr;
+	uint32_t bucket           = 0; /* Bucket this flow belongs to        */
 
-	struct packet_flow *prev, *next; /* Linked lists                       */
-	struct packet_flow *older, *newer;
-	uint32_t bucket; /* Bucket this flow belongs to        */
+	struct host_data *client = nullptr; /* Requesting client                  */
+	struct host_data *server = nullptr; /* Target server                      */
 
-	struct host_data *client; /* Requesting client                  */
-	struct host_data *server; /* Target server                      */
+	uint16_t cli_port = 0; /* Client port                        */
+	uint16_t srv_port = 0; /* Server port                        */
 
-	uint16_t cli_port; /* Client port                        */
-	uint16_t srv_port; /* Server port                        */
+	uint8_t acked   = 0; /* SYN+ACK received?                  */
+	uint8_t sendsyn = 0; /* Created by p0f-sendsyn?            */
 
-	uint8_t acked;   /* SYN+ACK received?                  */
-	uint8_t sendsyn; /* Created by p0f-sendsyn?            */
+	int16_t srv_tps = 0; /* Computed TS divisor (-1 = bad)     */
+	int16_t cli_tps = 0;
 
-	int16_t srv_tps; /* Computed TS divisor (-1 = bad)     */
-	int16_t cli_tps;
+	char *request         = nullptr; /* Client-originating data            */
+	uint32_t req_len      = 0;       /* Captured data length               */
+	uint32_t next_cli_seq = 0;       /* Next seq on cli -> srv packet      */
 
-	char *request;         /* Client-originating data            */
-	uint32_t req_len;      /* Captured data length               */
-	uint32_t next_cli_seq; /* Next seq on cli -> srv packet      */
+	char *response        = nullptr; /* Server-originating data            */
+	uint32_t resp_len     = 0;       /* Captured data length               */
+	uint32_t next_srv_seq = 0;       /* Next seq on srv -> cli packet      */
+	uint16_t syn_mss      = 0;       /* MSS on SYN packet                  */
 
-	char *response;        /* Server-originating data            */
-	uint32_t resp_len;     /* Captured data length               */
-	uint32_t next_srv_seq; /* Next seq on srv -> cli packet      */
-	uint16_t syn_mss;      /* MSS on SYN packet                  */
-
-	uint32_t created; /* Flow creation date (unix time)     */
+	uint32_t created = 0; /* Flow creation date (unix time)     */
 
 	/* Application-level fingerprinting: */
 
-	int8_t in_http; /* 0 = tbd, 1 = yes, -1 = no          */
+	int8_t in_http = 0; /* 0 = tbd, 1 = yes, -1 = no          */
 
-	uint8_t http_req_done; /* Done collecting req headers?       */
-	uint32_t http_pos;     /* Current parsing offset             */
-	uint8_t http_gotresp1; /* Got initial line of a response?    */
+	uint8_t http_req_done = 0; /* Done collecting req headers?       */
+	uint32_t http_pos     = 0; /* Current parsing offset             */
+	uint8_t http_gotresp1 = 0; /* Got initial line of a response?    */
 
-	struct http_sig http_tmp; /* Temporary signature                */
+	struct http_sig http_tmp = {}; /* Temporary signature                */
 };
 
 extern uint64_t packet_cnt;
 
 void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *data);
-
 char *addr_to_str(uint8_t *data, uint8_t ip_ver);
-
 uint64_t get_unix_time_ms();
 time_t get_unix_time();
-
 void add_nat_score(uint8_t to_srv, const packet_flow *f, uint16_t reason, uint8_t score);
 void verify_tool_class(uint8_t to_srv, const packet_flow *f, uint32_t *sys, uint32_t sys_cnt);
-
 struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver);
-
 void destroy_all_hosts();
 
-#endif /* !_HAVE_PROCESS_H */
+#endif /* !HAVE_PROCESS_H_ */

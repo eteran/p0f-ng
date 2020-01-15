@@ -11,17 +11,17 @@
 //#define _GNU_SOURCE
 #define _FROM_P0F
 
+#include <clocale>
+#include <csignal>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
 #include <dirent.h>
 #include <errno.h>
 #include <getopt.h>
 #include <grp.h>
-#include <locale.h>
 #include <poll.h>
 #include <pwd.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 
 #include <arpa/inet.h>
@@ -246,13 +246,15 @@ void open_api() {
 	if (fcntl(p0f_context.api_fd, F_SETFL, O_NONBLOCK))
 		PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
 
-	p0f_context.api_cl = static_cast<struct api_client *>(calloc(p0f_context.api_max_conn, sizeof(struct api_client)));
+	p0f_context.api_cl = new struct api_client[p0f_context.api_max_conn];
 
-	for (i = 0; i < p0f_context.api_max_conn; i++)
+	for (i = 0; i < p0f_context.api_max_conn; i++) {
 		p0f_context.api_cl[i].fd = -1;
+	}
 
 	SAYF("[+] Listening on API socket '%s' (max %u clients).\n",
-		 p0f_context.api_sock, p0f_context.api_max_conn);
+		 p0f_context.api_sock,
+		 p0f_context.api_max_conn);
 }
 
 /* Show PCAP interface list */
@@ -265,13 +267,17 @@ void list_interfaces() {
 	/* There is a bug in several years' worth of libpcap releases that causes it
 	 to SEGV here if /sys/class/net is not readable. See http://goo.gl/nEnGx */
 
-	if (access("/sys/class/net", R_OK | X_OK) && errno != ENOENT)
+	if (access("/sys/class/net", R_OK | X_OK) && errno != ENOENT) {
 		FATAL("This operation requires access to /sys/class/net/, sorry.");
+	}
 
-	if (pcap_findalldevs(&dev, pcap_err) == -1)
+	if (pcap_findalldevs(&dev, pcap_err) == -1) {
 		FATAL("pcap_findalldevs: %s\n", pcap_err);
+	}
 
-	if (!dev) FATAL("Can't find any interfaces. Maybe you need to be root?");
+	if (!dev) {
+		FATAL("Can't find any interfaces. Maybe you need to be root?");
+	}
 
 	SAYF("\n-- Available interfaces --\n");
 
@@ -351,7 +357,6 @@ void prepare_pcap() {
 		/* PCAP timeouts tend to be broken, so we'll use a very small value
 		 * and rely on select() instead. */
 		p0f_context.pt = pcap_open_live(p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 5, pcap_err);
-
 
 		if (!orig_iface)
 			SAYF("[+] Intercepting traffic on default interface '%s'.\n", p0f_context.use_iface);
@@ -555,10 +560,11 @@ uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 
 	for (i = 0; i < p0f_context.api_max_conn; i++) {
 
-		if (p0f_context.api_cl[i].fd == -1)
+		if (p0f_context.api_cl[i].fd == -1) {
 			continue;
+		}
 
-		ctable[count] = p0f_context.api_cl + i;
+		ctable[count] = &p0f_context.api_cl[i];
 
 		/* If we haven't received a complete query yet, wait for POLLIN.
 		 * Otherwise, we want to write stuff. */
@@ -573,7 +579,6 @@ uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 
 	return count;
 }
-
 
 /* Event loop! Accepts and dispatches pcap data, API queries, etc. */
 void live_event_loop() {
@@ -696,8 +701,9 @@ void live_event_loop() {
 							if (fcntl(p0f_context.api_cl[i].fd, F_SETFL, O_NONBLOCK))
 								PFATAL("fcntl() to set O_NONBLOCK on API connection fails.");
 
-							p0f_context.api_cl[i].in_off = p0f_context.api_cl[i].out_off = 0;
-							pfd_count                                                    = regen_pfds(pfds, ctable);
+							p0f_context.api_cl[i].in_off  = 0;
+							p0f_context.api_cl[i].out_off = 0;
+							pfd_count                     = regen_pfds(pfds, ctable);
 
 							DEBUG("[#] Accepted new API connection, fd %d.\n", p0f_context.api_cl[i].fd);
 
@@ -946,7 +952,6 @@ int main(int argc, char **argv) {
 
 		if (!p0f_context.switch_user)
 			SAYF("[!] Consider specifying -u in daemon mode (see README).\n");
-
 	}
 
 	tzset();

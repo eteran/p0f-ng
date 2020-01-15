@@ -9,11 +9,11 @@
  */
 
 #include <algorithm>
-#include <ctype.h>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
 #include <pcap/pcap.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 
 #include <arpa/inet.h>
@@ -38,25 +38,34 @@
 #include "fp_mtu.h"
 #include "fp_tcp.h"
 
+namespace {
+
+struct process_context_t {
+	struct host_data *host_by_age = nullptr; /* All host entries, by last mod      */
+	struct host_data *newest_host = nullptr; /* Tail of the list                   */
+
+	struct packet_flow *flow_by_age = nullptr; /* All flows, by creation time        */
+	struct packet_flow *newest_flow = nullptr; /* Tail of the list                   */
+
+	const struct timeval *cur_time = nullptr; /* Current time, courtesy of pcap     */
+
+	/* Bucketed hosts and flows: */
+	struct host_data *host_b[HOST_BUCKETS]   = {};
+	struct packet_flow *flow_b[FLOW_BUCKETS] = {};
+
+	/* Counters for bookkeeping purposes  */
+	uint32_t host_cnt = 0;
+	uint32_t flow_cnt = 0;
+
+	int8_t link_off     = -1; /* Link-specific IP header offset     */
+	uint8_t bad_packets = 0;  /* Seen non-IP packets?               */
+};
+
+process_context_t process_context;
+
+}
+
 uint64_t packet_cnt; /* Total number of packets processed  */
-
-static int8_t link_off = -1; /* Link-specific IP header offset     */
-static uint8_t bad_packets;  /* Seen non-IP packets?               */
-
-static struct host_data *host_by_age, /* All host entries, by last mod      */
-	*newest_host;                     /* Tail of the list                   */
-
-static struct packet_flow *flow_by_age, /* All flows, by creation time        */
-	*newest_flow;                       /* Tail of the list                   */
-
-static const struct timeval *cur_time; /* Current time, courtesy of pcap     */
-
-/* Bucketed hosts and flows: */
-
-static struct host_data *host_b[HOST_BUCKETS];
-static struct packet_flow *flow_b[FLOW_BUCKETS];
-
-static uint32_t host_cnt, flow_cnt; /* Counters for bookkeeping purposes  */
 
 static void flow_dispatch(struct packet_data *pk);
 static void nuke_flows(uint8_t silent);
@@ -64,12 +73,12 @@ static void expire_cache();
 
 /* Get unix time in milliseconds. */
 uint64_t get_unix_time_ms() {
-	return (cur_time->tv_sec) * 1000 + (cur_time->tv_usec / 1000);
+	return (process_context.cur_time->tv_sec) * 1000 + (process_context.cur_time->tv_usec / 1000);
 }
 
 /* Get unix time in seconds. */
 time_t get_unix_time() {
-	return cur_time->tv_sec;
+	return process_context.cur_time->tv_sec;
 }
 
 /* Find link-specific offset (pcap knows, but won't tell). */
@@ -82,12 +91,12 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 	switch (link_type) {
 
 	case DLT_RAW:
-		link_off = 0;
+		process_context.link_off = 0;
 		return;
 
 	case DLT_NULL:
 	case DLT_PPP:
-		link_off = 4;
+		process_context.link_off = 4;
 		return;
 
 	case DLT_LOOP:
@@ -97,25 +106,25 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 #endif /* DLT_PPP_SERIAL */
 
 	case DLT_PPP_ETHER:
-		link_off = 8;
+		process_context.link_off = 8;
 		return;
 
 	case DLT_EN10MB:
-		link_off = 14;
+		process_context.link_off = 14;
 		return;
 
 #ifdef DLT_LINUX_SLL
 	case DLT_LINUX_SLL:
-		link_off = 16;
+		process_context.link_off = 16;
 		return;
 #endif /* DLT_LINUX_SLL */
 
 	case DLT_PFLOG:
-		link_off = 28;
+		process_context.link_off = 28;
 		return;
 
 	case DLT_IEEE802_11:
-		link_off = 32;
+		process_context.link_off = 32;
 		return;
 	}
 
@@ -140,7 +149,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 
 			if (hdr->proto == PROTO_TCP) {
 				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, link_type);
-				link_off = i;
+				process_context.link_off = i;
 				break;
 			}
 		}
@@ -155,7 +164,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 			if (hdr->proto == PROTO_TCP) {
 
 				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, link_type);
-				link_off = i;
+				process_context.link_off = i;
 				break;
 			}
 		}
@@ -164,14 +173,14 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 	/* If we found something, adjust for VLAN tags (ETH_P_8021Q == 0x8100). Else,
      complain once and try again soon. */
 
-	if (link_off >= 4 && data[i - 4] == 0x81 && data[i - 3] == 0x00) {
+	if (process_context.link_off >= 4 && data[i - 4] == 0x81 && data[i - 3] == 0x00) {
 
 		DEBUG("[#] Adjusting offset due to VLAN tagging.\n");
-		link_off -= 4;
+		process_context.link_off -= 4;
 
-	} else if (link_off == -1) {
+	} else if (process_context.link_off == -1) {
 
-		link_off = -2;
+		process_context.link_off = -2;
 		WARN("Unable to find link-specific packet offset. This is bad.");
 	}
 }
@@ -217,7 +226,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	packet_cnt++;
 
-	cur_time = &hdr->ts;
+	process_context.cur_time = &hdr->ts;
 
 	if (!(packet_cnt % EXPIRE_INTERVAL)) expire_cache();
 
@@ -231,13 +240,13 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	/* Account for link-level headers. */
 
-	if (link_off < 0) {
+	if (process_context.link_off < 0) {
 		find_offset(data, packet_len);
 	}
 
-	if (link_off > 0) {
-		data += link_off;
-		packet_len -= link_off;
+	if (process_context.link_off > 0) {
+		data += process_context.link_off;
+		packet_len -= process_context.link_off;
 	}
 
 	/* If there is no way we could have received a complete TCP packet,
@@ -421,9 +430,9 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	} else {
 
-		if (!bad_packets) {
+		if (!process_context.bad_packets) {
 			WARN("Unknown packet type %u, link detection issue?", *data >> 4);
-			bad_packets = 1;
+			process_context.bad_packets = 1;
 		}
 
 		return;
@@ -755,7 +764,7 @@ static uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
 struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket     = get_host_bucket(addr, ip_ver);
-	struct host_data *h = host_b[bucket];
+	struct host_data *h = process_context.host_b[bucket];
 
 	while (h) {
 
@@ -789,19 +798,19 @@ static void destroy_host(struct host_data *h) {
 	if (h->prev)
 		h->prev->next = h->next;
 	else
-		host_b[bucket] = h->next;
+		process_context.host_b[bucket] = h->next;
 
 	/* Remove from the by-age linked list. */
 
 	if (h->newer)
 		h->newer->older = h->older;
 	else
-		newest_host = h->older;
+		process_context.newest_host = h->older;
 
 	if (h->older)
 		h->older->newer = h->newer;
 	else
-		host_by_age = h->newer;
+		process_context.host_by_age = h->newer;
 
 	/* Free memory. */
 
@@ -811,17 +820,17 @@ static void destroy_host(struct host_data *h) {
 	free(h->http_resp);
 	free(h->http_req_os);
 
-	free(h);
+	delete h;
 
-	host_cnt--;
+	process_context.host_cnt--;
 }
 
 /* Indiscriminately kill some of the older hosts. */
 
 static void nuke_hosts() {
 
-	uint32_t kcnt            = 1 + (host_cnt * KILL_PERCENT / 100);
-	struct host_data *target = host_by_age;
+	uint32_t kcnt            = 1 + (process_context.host_cnt * KILL_PERCENT / 100);
+	struct host_data *target = process_context.host_by_age;
 
 	if (!read_file)
 		WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
@@ -844,36 +853,32 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
 
-	if (host_cnt > max_hosts) nuke_hosts();
+	if (process_context.host_cnt > max_hosts) nuke_hosts();
 
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
 
-	auto nh = reinterpret_cast<struct host_data *>(calloc(sizeof(struct host_data), 1));
+	auto nh = new struct host_data();
 
 	/* Insert into the bucketed linked list. */
-
-	if (host_b[bucket]) {
-		host_b[bucket]->prev = nh;
-		nh->next             = host_b[bucket];
+	if (process_context.host_b[bucket]) {
+		process_context.host_b[bucket]->prev = nh;
+		nh->next                             = process_context.host_b[bucket];
 	}
 
-	host_b[bucket] = nh;
+	process_context.host_b[bucket] = nh;
 
 	/* Insert into the by-age linked list. */
+	if (process_context.newest_host) {
+		process_context.newest_host->newer = nh;
+		nh->older                          = process_context.newest_host;
+	} else {
+		process_context.host_by_age = nh;
+	}
 
-	if (newest_host) {
-
-		newest_host->newer = nh;
-		nh->older          = newest_host;
-
-	} else
-		host_by_age = nh;
-
-	newest_host = nh;
+	process_context.newest_host = nh;
 
 	/* Populate other data. */
-
 	nh->ip_ver = ip_ver;
 	memcpy(nh->addr, addr, (ip_ver == IP_VER4) ? 4 : 16);
 
@@ -885,7 +890,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 	nh->http_name_id  = -1;
 	nh->distance      = -1;
 
-	host_cnt++;
+	process_context.host_cnt++;
 
 	return nh;
 }
@@ -896,7 +901,7 @@ static void touch_host(struct host_data *h) {
 
 	DEBUG("[#] Refreshing host data: %s\n", addr_to_str(h->addr, h->ip_ver));
 
-	if (h != newest_host) {
+	if (h != process_context.newest_host) {
 
 		/* Remove from the the by-age linked list. */
 
@@ -905,18 +910,18 @@ static void touch_host(struct host_data *h) {
 		if (h->older)
 			h->older->newer = h->newer;
 		else
-			host_by_age = h->newer;
+			process_context.host_by_age = h->newer;
 
 		/* Re-insert in front. */
 
-		newest_host->newer = h;
-		h->older           = newest_host;
-		h->newer           = nullptr;
+		process_context.newest_host->newer = h;
+		h->older                           = process_context.newest_host;
+		h->newer                           = nullptr;
 
-		newest_host = h;
+		process_context.newest_host = h;
 
 		/* This wasn't the only entry on the list, so there is no
-       need to update the tail (host_by_age). */
+	   need to update the tail (process_context.host_by_age). */
 	}
 
 	/* Update last seen time. */
@@ -925,7 +930,6 @@ static void touch_host(struct host_data *h) {
 }
 
 /* Destroy a flow. */
-
 static void destroy_flow(struct packet_flow *f) {
 
 	DEBUG("[#] Destroying flow: %s/%u -> ",
@@ -936,30 +940,30 @@ static void destroy_flow(struct packet_flow *f) {
 		  f->bucket);
 
 	/* Remove it from the bucketed linked list. */
+	if (f->next) {
+		f->next->prev = f->prev;
+	}
 
-	if (f->next) f->next->prev = f->prev;
-
-	if (f->prev)
+	if (f->prev) {
 		f->prev->next = f->next;
-	else {
-		flow_b[f->bucket] = f->next;
+	} else {
+		process_context.flow_b[f->bucket] = f->next;
 	}
 
 	/* Remove from the by-age linked list. */
-
 	if (f->newer)
 		f->newer->older = f->older;
 	else {
-		newest_flow = f->older;
+		process_context.newest_flow = f->older;
 	}
 
-	if (f->older)
+	if (f->older) {
 		f->older->newer = f->newer;
-	else
-		flow_by_age = f->newer;
+	} else {
+		process_context.flow_by_age = f->newer;
+	}
 
 	/* Free memory, etc. */
-
 	f->client->use_cnt--;
 	f->server->use_cnt--;
 
@@ -967,26 +971,27 @@ static void destroy_flow(struct packet_flow *f) {
 
 	free(f->request);
 	free(f->response);
-	free(f);
+	delete f;
 
-	flow_cnt--;
+	process_context.flow_cnt--;
 }
 
 /* Indiscriminately kill some of the oldest flows. */
-
 static void nuke_flows(uint8_t silent) {
 
-	uint32_t kcnt = 1 + (flow_cnt * KILL_PERCENT / 100);
+	uint32_t kcnt = 1 + (process_context.flow_cnt * KILL_PERCENT / 100);
 
-	if (silent)
+	if (silent) {
 		DEBUG("[#] Pruning connections - trying to delete %u...\n", kcnt);
-	else if (!read_file)
+	} else if (!read_file) {
 		WARN("Too many tracked connections, deleting %u. "
 			 "Use -m to adjust.",
 			 kcnt);
+	}
 
-	while (kcnt-- && flow_by_age)
-		destroy_flow(flow_by_age);
+	while (kcnt-- && process_context.flow_by_age) {
+		destroy_flow(process_context.flow_by_age);
+	}
 }
 
 /* Create flow, and host data if necessary. If counts exceeded, prune old. */
@@ -994,9 +999,10 @@ static void nuke_flows(uint8_t silent) {
 static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 
 	uint32_t bucket = get_flow_bucket(pk);
-	struct packet_flow *nf;
 
-	if (flow_cnt > max_conn) nuke_flows(0);
+	if (process_context.flow_cnt > max_conn) {
+		nuke_flows(0);
+	}
 
 	DEBUG("[#] Creating flow from SYN: %s/%u -> ",
 		  addr_to_str(pk->src, pk->ip_ver), pk->sport);
@@ -1004,7 +1010,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	DEBUG("%s/%u (bucket %u)\n",
 		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, bucket);
 
-	nf = static_cast<struct packet_flow *>(calloc(sizeof(struct packet_flow), 1));
+	auto nf = new struct packet_flow;
 
 	nf->client = lookup_host(pk->src, pk->ip_ver);
 
@@ -1027,23 +1033,21 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	nf->server->total_conn++;
 
 	/* Insert into the bucketed linked list.*/
-
-	if (flow_b[bucket]) {
-		flow_b[bucket]->prev = nf;
-		nf->next             = flow_b[bucket];
+	if (process_context.flow_b[bucket]) {
+		process_context.flow_b[bucket]->prev = nf;
+		nf->next                             = process_context.flow_b[bucket];
 	}
 
-	flow_b[bucket] = nf;
+	process_context.flow_b[bucket] = nf;
 
 	/* Insert into the by-age linked list */
-
-	if (newest_flow) {
-		newest_flow->newer = nf;
-		nf->older          = newest_flow;
+	if (process_context.newest_flow) {
+		process_context.newest_flow->newer = nf;
+		nf->older                          = process_context.newest_flow;
 	} else
-		flow_by_age = nf;
+		process_context.flow_by_age = nf;
 
-	newest_flow = nf;
+	process_context.newest_flow = nf;
 
 	/* Populate other data */
 
@@ -1054,7 +1058,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 
 	nf->next_cli_seq = pk->seq + 1;
 
-	flow_cnt++;
+	process_context.flow_cnt++;
 	return nf;
 }
 
@@ -1063,7 +1067,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) {
 
 	uint32_t bucket       = get_flow_bucket(pk);
-	struct packet_flow *f = flow_b[bucket];
+	struct packet_flow *f = process_context.flow_b[bucket];
 
 	while (f) {
 
@@ -1086,7 +1090,6 @@ static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) 
 		}
 
 	lookup_next:
-
 		f = f->next;
 	}
 
@@ -1097,23 +1100,26 @@ static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) 
 
 static void expire_cache() {
 	struct host_data *target;
-	static uint32_t pt;
+	static time_t pt;
 
-	uint32_t ct = get_unix_time();
+	const time_t ct = get_unix_time();
 
-	if (ct == pt) return;
+	if (ct == pt)
+		return;
 	pt = ct;
 
 	DEBUG("[#] Cache expiration kicks in...\n");
 
-	while (flow_by_age && ct - flow_by_age->created > conn_max_age)
-		destroy_flow(flow_by_age);
+	while (process_context.flow_by_age && ct - process_context.flow_by_age->created > conn_max_age)
+		destroy_flow(process_context.flow_by_age);
 
-	target = host_by_age;
+	target = process_context.host_by_age;
 
 	while (target && ct - target->last_seen > host_idle_limit * 60) {
 		struct host_data *newer = target->newer;
-		if (!target->use_cnt) destroy_host(target);
+		if (!target->use_cnt) {
+			destroy_host(target);
+		}
 		target = newer;
 	}
 }
@@ -1122,7 +1128,6 @@ static void expire_cache() {
 
 static void flow_dispatch(struct packet_data *pk) {
 
-	struct packet_flow *f;
 	struct tcp_sig *tsig;
 	uint8_t to_srv    = 0;
 	uint8_t need_more = 0;
@@ -1134,14 +1139,11 @@ static void flow_dispatch(struct packet_data *pk) {
 		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, pk->tcp_type,
 		  pk->pay_len);
 
-	f = lookup_flow(pk, &to_srv);
+	struct packet_flow *f = lookup_flow(pk, &to_srv);
 
 	switch (pk->tcp_type) {
-
 	case TCP_SYN:
-
 		if (f) {
-
 			/* Perhaps just a simple dupe? */
 			if (to_srv && f->next_cli_seq - 1 == pk->seq) return;
 
@@ -1216,7 +1218,6 @@ static void flow_dispatch(struct packet_data *pk) {
 		/* SYN from real OS, SYN+ACK from a client stack. Weird, but whatever. */
 
 		if (!tsig) {
-
 			destroy_flow(f);
 			return;
 		}
@@ -1492,8 +1493,8 @@ void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sy
 
 void destroy_all_hosts() {
 
-	while (flow_by_age)
-		destroy_flow(flow_by_age);
-	while (host_by_age)
-		destroy_host(host_by_age);
+	while (process_context.flow_by_age)
+		destroy_flow(process_context.flow_by_age);
+	while (process_context.host_by_age)
+		destroy_host(process_context.host_by_age);
 }
