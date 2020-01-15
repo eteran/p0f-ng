@@ -27,6 +27,6 @@ struct packet_flow;
 
 void mtu_register_sig(char *name, char *val, uint32_t line_no);
 
-void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f);
+void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 
 #endif

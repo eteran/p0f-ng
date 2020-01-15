@@ -646,7 +646,7 @@ static const char *dump_flags(const struct http_sig *hsig, const struct http_sig
 
 /* Score signature differences. For unknown signatures, the presumption is that
  * they identify apps, so the logic is quite different from TCP. */
-static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
+static void score_nat(uint8_t to_srv, const struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	struct http_sig_record *m = f->http_tmp.matched;
 	struct host_data *hd;
@@ -685,7 +685,7 @@ static void score_nat(uint8_t to_srv, const struct packet_flow *f) {
 	if (m->class_id == -1) {
 		/* Got a match for an application signature. Make sure it runs on the
 		 * OS we have on file... */
-		verify_tool_class(to_srv, f, m->sys, m->sys_cnt);
+		verify_tool_class(to_srv, f, m->sys, m->sys_cnt, libp0f_context);
 
 		// ...and check for inconsistencies in server behavior.
 		if (!to_srv && ref && ref->matched) {
@@ -797,27 +797,27 @@ header_check:
 		}
 	}
 
-	add_nat_score(to_srv, f, reason, score);
+	add_nat_score(to_srv, f, reason, score, libp0f_context);
 }
 
 // Look up HTTP signature, create an observation.
-static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
+static void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	struct http_sig_record *m;
 	const char *lang = nullptr;
 
 	http_find_match(to_srv, &f->http_tmp, 0);
 
-	start_observation(to_srv ? "http request" : "http response", 4, to_srv, f);
+	libp0f_context->start_observation(to_srv ? "http request" : "http response", 4, to_srv, f);
 
 	if ((m = f->http_tmp.matched)) {
 
-		observf((m->class_id < 0) ? "app" : "os", "%s%s%s",
+		observf(libp0f_context, (m->class_id < 0) ? "app" : "os", "%s%s%s",
 				fp_os_names[m->name_id], m->flavor ? " " : "",
 				m->flavor ? m->flavor : "");
 
 	} else
-		add_observation_field("app", nullptr);
+		libp0f_context->observation_field("app", nullptr);
 
 	if (f->http_tmp.lang && isalpha(f->http_tmp.lang[0]) &&
 		isalpha(f->http_tmp.lang[1]) && !isalpha(f->http_tmp.lang[2])) {
@@ -832,19 +832,19 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 		}
 
 		if (!languages[lh][pos])
-			add_observation_field("lang", nullptr);
+			libp0f_context->observation_field("lang", nullptr);
 		else
-			add_observation_field("lang",
-								  (lang = languages[lh][pos + 1]));
+			libp0f_context->observation_field("lang",
+											  (lang = languages[lh][pos + 1]));
 
 	} else
-		add_observation_field("lang", "none");
+		libp0f_context->observation_field("lang", "none");
 
-	add_observation_field("params", dump_flags(&f->http_tmp, m));
+	libp0f_context->observation_field("params", dump_flags(&f->http_tmp, m));
 
-	add_observation_field("raw_sig", dump_sig(to_srv, &f->http_tmp));
+	libp0f_context->observation_field("raw_sig", dump_sig(to_srv, &f->http_tmp));
 
-	score_nat(to_srv, f);
+	score_nat(to_srv, f, libp0f_context);
 
 	// Save observations needed to score future responses.
 	if (!to_srv) {
@@ -919,12 +919,12 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f) {
 
 // Free up any allocated strings in http_sig.
 void free_sig_hdrs(struct http_sig *h) {
+	for (uint32_t i = 0; i < h->hdr_cnt; i++) {
+		if (h->hdr[i].name)
+			free(h->hdr[i].name);
 
-	uint32_t i;
-
-	for (i = 0; i < h->hdr_cnt; i++) {
-		if (h->hdr[i].name) free(h->hdr[i].name);
-		if (h->hdr[i].value) free(h->hdr[i].value);
+		if (h->hdr[i].value)
+			free(h->hdr[i].value);
 	}
 }
 
@@ -941,7 +941,7 @@ static time_t parse_date(const char *str) {
 }
 
 // Parse name=value pairs into a signature.
-static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_get_more) {
+static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_get_more, libp0f_context_t *libp0f_context) {
 
 	uint32_t plen = to_srv ? f->req_len : f->resp_len;
 
@@ -960,7 +960,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 
 			f->http_tmp.recv_date = get_unix_time();
 
-			fingerprint_http(to_srv, f);
+			fingerprint_http(to_srv, f, libp0f_context);
 
 			/* If this is a request, flush the collected signature and prepare
 			 * for parsing the response. If it's a response, just shut down HTTP
@@ -1123,7 +1123,7 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 
 /* Examine request or response; returns 1 if more data needed and plausibly
  * can be read. Note that the buffer is always NUL-terminated. */
-uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
+uint8_t process_http(uint8_t to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	// Already decided this flow is not worth tracking?
 	if (f->in_http < 0)
@@ -1205,7 +1205,7 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			DEBUG("[#] HTTP detected.\n");
 		}
 
-		return parse_pairs(1, f, can_get_more);
+		return parse_pairs(1, f, can_get_more, libp0f_context);
 
 	} else {
 
@@ -1269,6 +1269,6 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			DEBUG("[#] HTTP response starts correctly.\n");
 		}
 
-		return parse_pairs(0, f, can_get_more);
+		return parse_pairs(0, f, can_get_more, libp0f_context);
 	}
 }

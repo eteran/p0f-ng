@@ -76,6 +76,14 @@ int32_t link_type;                          // PCAP link type
 
 namespace {
 
+void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const struct packet_flow *f);
+void add_observation_field(const char *key, const char *value);
+
+libp0f_context_t libp0f_context = {
+	start_observation,
+	add_observation_field,
+};
+
 struct p0f_context_t {
 	char *use_iface   = nullptr; // Interface to listen on
 	char *orig_rule   = nullptr; // Original filter rule
@@ -583,13 +591,13 @@ uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 void live_event_loop() {
 
 	/* The huge problem with winpcap on cygwin is that you can't get a file
-	 descriptor suitable for poll() / select() out of it:
-
-	 http://www.winpcap.org/pipermail/winpcap-users/2009-April/003179.html
-
-	 The only alternatives seem to be additional processes / threads, a
-	 nasty busy loop, or a ton of Windows-specific code. If you need APi
-	 queries on Windows, you are welcome to fix this :-) */
+	 * descriptor suitable for poll() / select() out of it:
+	 *
+	 * http://www.winpcap.org/pipermail/winpcap-users/2009-April/003179.html
+	 *
+	 * The only alternatives seem to be additional processes / threads, a
+	 * nasty busy loop, or a ton of Windows-specific code. If you need API
+	 * queries on Windows, you are welcome to fix this :-) */
 
 	// We need room for pcap, and possibly p0f_context.api_fd + api_clients.
 	auto pfds   = static_cast<struct pollfd *>(calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct pollfd)));
@@ -603,17 +611,17 @@ void live_event_loop() {
 	while (!p0f_context.stop_soon) {
 
 		/* We had a 250 ms timeout to keep Ctrl-C responsive without resortng
-	   to silly sigaction hackery or unsafe signal handler code. Unfortunately,
-	   if poll() timeout is much longer than pcap timeout, we end up with
-	   dropped packets on VMs. Seems like a kernel bug, but for now, this
-	   loop is a bit busier than it needs to be... */
+		 * to silly sigaction hackery or unsafe signal handler code.
+		 * Unfortunately, if poll() timeout is much longer than pcap timeout,
+		 * we end up with dropped packets on VMs. Seems like a kernel bug, but
+		 * for now, this loop is a bit busier than it needs to be... */
 
 	poll_again:
 
 		int32_t pret = poll(pfds, pfd_count, 10);
-
 		if (pret < 0) {
-			if (errno == EINTR) break;
+			if (errno == EINTR)
+				break;
 			PFATAL("poll() failed.");
 		}
 
@@ -625,7 +633,8 @@ void live_event_loop() {
 
 		// Examine pfds...
 		for (uint32_t cur = 0; cur < pfd_count; cur++) {
-			if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
+			if (pfds[cur].revents & (POLLERR | POLLHUP)) {
+				switch (cur) {
 				case 0:
 					FATAL("Packet capture interface is down.");
 				case 1:
@@ -640,8 +649,9 @@ void live_event_loop() {
 					pfd_count = regen_pfds(pfds, ctable);
 					goto poll_again;
 				}
+			}
 
-			if (pfds[cur].revents & POLLOUT)
+			if (pfds[cur].revents & POLLOUT) {
 				switch (cur) {
 				case 0:
 				case 1:
@@ -666,12 +676,13 @@ void live_event_loop() {
 					}
 				}
 				}
+			}
 
-			if (pfds[cur].revents & POLLIN)
+			if (pfds[cur].revents & POLLIN) {
 				switch (cur) {
 				case 0:
 					// Process traffic on the capture interface.
-					if (pcap_dispatch(p0f_context.pt, -1, parse_packet, 0) < 0)
+					if (pcap_dispatch(p0f_context.pt, -1, parse_packet, reinterpret_cast<u_char *>(&libp0f_context)) < 0)
 						FATAL("Packet capture interface is down.");
 					break;
 				case 1:
@@ -733,9 +744,12 @@ void live_event_loop() {
 					}
 				}
 				}
+			}
 
 			// Processed all reported updates already? If so, bail out early.
-			if (pfds[cur].revents && !--pret) break;
+			if (pfds[cur].revents && !--pret) {
+				break;
+			}
 		}
 	}
 
@@ -752,14 +766,12 @@ void offline_event_loop() {
 		SAYF("[+] Processing capture data.\n\n");
 
 	while (!p0f_context.stop_soon) {
-		if (pcap_dispatch(p0f_context.pt, -1, parse_packet, nullptr) <= 0) {
+		if (pcap_dispatch(p0f_context.pt, -1, parse_packet, reinterpret_cast<u_char *>(&libp0f_context)) <= 0) {
 			return;
 		}
 	}
 
 	WARN("User-initiated shutdown.");
-}
-
 }
 
 // Open log entry.
@@ -817,6 +829,8 @@ void add_observation_field(const char *key, const char *value) {
 		if (p0f_context.log_file)
 			LOGF("\n");
 	}
+}
+
 }
 
 // Main entry point
@@ -956,17 +970,22 @@ int main(int argc, char **argv) {
 	prepare_pcap();
 	prepare_bpf();
 
-	if (p0f_context.log_file) open_log();
-	if (p0f_context.api_sock) open_api();
+	if (p0f_context.log_file)
+		open_log();
+
+	if (p0f_context.api_sock)
+		open_api();
 
 	if (daemon_mode) {
 		p0f_context.null_fd = open("/dev/null", O_RDONLY);
 		if (p0f_context.null_fd < 0) PFATAL("Cannot open '/dev/null'.");
 	}
 
-	if (p0f_context.switch_user) drop_privs();
+	if (p0f_context.switch_user)
+		drop_privs();
 
-	if (daemon_mode) fork_off();
+	if (daemon_mode)
+		fork_off();
 
 	signal(SIGHUP, daemon_mode ? SIG_IGN : abort_handler);
 	signal(SIGINT, abort_handler);

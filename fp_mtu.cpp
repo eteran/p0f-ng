@@ -62,13 +62,13 @@ void mtu_register_sig(char *name, char *val, uint32_t line_no) {
 	mtu_context.sig_cnt[bucket]++;
 }
 
-void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f) {
+void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	uint32_t bucket, i, mtu;
 
 	if (!pk->mss || f->sendsyn) return;
 
-	start_observation("mtu", 2, to_srv, f);
+	libp0f_context->start_observation("mtu", 2, to_srv, f);
 
 	if (pk->ip_ver == IP_VER4)
 		mtu = pk->mss + MIN_TCP4;
@@ -81,10 +81,10 @@ void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow 
 		if (mtu_context.sigs[bucket][i].mtu == mtu) break;
 
 	if (i == mtu_context.sig_cnt[bucket])
-		add_observation_field("link", nullptr);
+		libp0f_context->observation_field("link", nullptr);
 	else {
 
-		add_observation_field("link", mtu_context.sigs[bucket][i].name);
+		libp0f_context->observation_field("link", mtu_context.sigs[bucket][i].name);
 
 		if (to_srv)
 			f->client->link_type = mtu_context.sigs[bucket][i].name;
@@ -92,5 +92,5 @@ void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow 
 			f->server->link_type = mtu_context.sigs[bucket][i].name;
 	}
 
-	observf("raw_mtu", "%u", mtu);
+	observf(libp0f_context, "raw_mtu", "%u", mtu);
 }

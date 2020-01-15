@@ -27,7 +27,16 @@ inline uint32_t RD32p(const void *ptr) {
 	return _ret;
 }
 
-#define RD16(_val) RD16p(&_val)
-#define RD32(_val) RD32p(&_val)
+template <class T>
+uint16_t RD16(const T &val) {
+	static_assert(sizeof(T) >= sizeof(uint16_t), "");
+	return RD16p(&val);
+}
+
+template <class T>
+uint32_t RD32(const T &val) {
+	static_assert(sizeof(T) >= sizeof(uint32_t), "");
+	return RD32p(&val);
+}
 
 #endif

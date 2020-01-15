@@ -68,7 +68,7 @@ process_context_t process_context;
 
 uint64_t packet_cnt; // Total number of packets processed
 
-static void flow_dispatch(struct packet_data *pk);
+static void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context);
 static void nuke_flows(uint8_t silent);
 static void expire_cache();
 
@@ -192,6 +192,8 @@ char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *data) {
 
 	(void)junk;
+
+	auto libp0f_context = reinterpret_cast<libp0f_context_t *>(junk);
 
 	const struct tcp_hdr *tcp = nullptr;
 	struct packet_data pk     = {};
@@ -676,7 +678,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		pk.quirks |= QUIRK_OPT_BAD;
 	}
 
-	flow_dispatch(&pk);
+	flow_dispatch(&pk, libp0f_context);
 }
 
 /* Calculate hash bucket for packet_flow. Keep the hash symmetrical: switching
@@ -1058,7 +1060,7 @@ static void expire_cache() {
 }
 
 // Insert data from a packet into a flow, call handlers as appropriate.
-static void flow_dispatch(struct packet_data *pk) {
+static void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 
 	struct tcp_sig *tsig;
 	uint8_t to_srv    = 0;
@@ -1085,25 +1087,23 @@ static void flow_dispatch(struct packet_data *pk) {
 
 		f = create_flow_from_syn(pk);
 
-		tsig = fingerprint_tcp(1, pk, f);
+		tsig = fingerprint_tcp(1, pk, f, libp0f_context);
 
 		/* We don't want to do any further processing on generic non-OS
          signatures (e.g. NMap). The easiest way to guarantee that is to 
          kill the flow. */
 
 		if (!tsig && !f->sendsyn) {
-
 			destroy_flow(f);
 			return;
 		}
 
-		fingerprint_mtu(1, pk, f);
-		check_ts_tcp(1, pk, f);
+		fingerprint_mtu(1, pk, f, libp0f_context);
+		check_ts_tcp(1, pk, f, libp0f_context);
 
 		if (tsig) {
-
 			/* This can't be done in fingerprint_tcp because check_ts_tcp()
-           depends on having original SYN / SYN+ACK data. */
+			 * depends on having original SYN / SYN+ACK data. */
 
 			free(f->client->last_syn);
 			f->client->last_syn = tsig;
@@ -1112,9 +1112,7 @@ static void flow_dispatch(struct packet_data *pk) {
 		break;
 
 	case TCP_SYN | TCP_ACK:
-
 		if (!f) {
-
 			DEBUG("[#] Stray SYN+ACK with no flow.\n");
 			return;
 		}
@@ -1122,7 +1120,7 @@ static void flow_dispatch(struct packet_data *pk) {
 		// This is about as far as we want to go with p0f-sendsyn.
 		if (f->sendsyn) {
 
-			fingerprint_tcp(0, pk, f);
+			fingerprint_tcp(0, pk, f, libp0f_context);
 			destroy_flow(f);
 			return;
 		}
@@ -1144,7 +1142,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 		f->acked = 1;
 
-		tsig = fingerprint_tcp(0, pk, f);
+		tsig = fingerprint_tcp(0, pk, f, libp0f_context);
 
 		// SYN from real OS, SYN+ACK from a client stack. Weird, but whatever.
 		if (!tsig) {
@@ -1152,8 +1150,8 @@ static void flow_dispatch(struct packet_data *pk) {
 			return;
 		}
 
-		fingerprint_mtu(0, pk, f);
-		check_ts_tcp(0, pk, f);
+		fingerprint_mtu(0, pk, f, libp0f_context);
+		check_ts_tcp(0, pk, f, libp0f_context);
 
 		free(f->server->last_synack);
 		f->server->last_synack = tsig;
@@ -1169,7 +1167,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 		if (f) {
 
-			check_ts_tcp(to_srv, pk, f);
+			check_ts_tcp(to_srv, pk, f, libp0f_context);
 			destroy_flow(f);
 		}
 
@@ -1216,7 +1214,7 @@ static void flow_dispatch(struct packet_data *pk) {
 				f->req_len += read_amt;
 			}
 
-			check_ts_tcp(1, pk, f);
+			check_ts_tcp(1, pk, f, libp0f_context);
 
 			f->next_cli_seq += pk->pay_len;
 
@@ -1242,14 +1240,14 @@ static void flow_dispatch(struct packet_data *pk) {
 				f->resp_len += read_amt;
 			}
 
-			check_ts_tcp(0, pk, f);
+			check_ts_tcp(0, pk, f, libp0f_context);
 
 			f->next_srv_seq += pk->pay_len;
 		}
 
 		if (!pk->pay_len) return;
 
-		need_more |= process_http(to_srv, f);
+		need_more |= process_http(to_srv, f, libp0f_context);
 
 		if (!need_more) {
 
@@ -1271,7 +1269,7 @@ static void flow_dispatch(struct packet_data *pk) {
 }
 
 // Add NAT score, check if alarm due.
-void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score) {
+void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context) {
 
 	struct host_data *hd = nullptr;
 	uint8_t *scores      = nullptr;
@@ -1319,7 +1317,7 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 
 	if (over_5 > 2 || over_2 > 4 || over_1 > 6 || over_0 > 8) {
 
-		start_observation("ip sharing", 2, to_srv, f);
+		libp0f_context->start_observation("ip sharing", 2, to_srv, f);
 
 		reason = hd->nat_reasons;
 
@@ -1334,7 +1332,7 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 		if (score == 1)
 			return;
 
-		start_observation("host change", 2, to_srv, f);
+		libp0f_context->start_observation("host change", 2, to_srv, f);
 
 		hd->last_chg = get_unix_time();
 	}
@@ -1356,13 +1354,13 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 
 	std::string rea = ss.str();
 
-	add_observation_field("reason", !rea.empty() ? (rea.c_str() + 1) : nullptr);
+	libp0f_context->observation_field("reason", !rea.empty() ? (rea.c_str() + 1) : nullptr);
 
-	observf("raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
+	observf(libp0f_context, "raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
 }
 
 // Verify if tool class (called from modules).
-void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt) {
+void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt, libp0f_context_t *libp0f_context) {
 
 	struct host_data *hd = nullptr;
 	if (to_srv)
@@ -1389,10 +1387,10 @@ void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sy
 	// Oops, a mismatch.
 	if (i == sys_cnt) {
 		DEBUG("[#] Detected app not supposed to run on host OS.\n");
-		add_nat_score(to_srv, f, NAT_APP_SIG, 4);
+		add_nat_score(to_srv, f, NAT_APP_SIG, 4, libp0f_context);
 	} else {
 		DEBUG("[#] Detected app supported on host OS.\n");
-		add_nat_score(to_srv, f, 0, 0);
+		add_nat_score(to_srv, f, 0, 0, libp0f_context);
 	}
 }
 
