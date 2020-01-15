@@ -1,46 +1,17 @@
 cmake_minimum_required(VERSION 3.0)
 
-add_library(p0f-engine
-    fp_http.cpp
-    fp_tcp.cpp
-    fp_mtu.cpp
-    process.cpp
-    include/p0f/api_client.h
-    include/p0f/tcp.h
-    include/p0f/p0f.h
-    include/p0f/config.h
-    include/p0f/debug.h
-    include/p0f/alloc-inl.h
-    include/p0f/types.h
-    include/p0f/process.h
-    include/p0f/fp_http.h
-    include/p0f/fp_tcp.h
-    include/p0f/languages.h
-    include/p0f/readfp.h
-    include/p0f/fp_mtu.h
-    include/p0f/util.h
-    include/p0f/hash.h
-    include/p0f/api.h
-    readfp.cpp
+add_executable(p0f
+	p0f.cpp
 )
 
-target_compile_definitions(p0f-engine 
+target_compile_definitions(p0f 
 PUBLIC
 	-DVERSION=\"3.09b\"
     -DDEBUG_BUILD
 )
 
-target_include_directories(p0f-engine 
-PUBLIC 
-	${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-target_link_libraries(p0f-engine
+target_compile_options(p0f
 PUBLIC
-)
-
-target_compile_options(p0f-engine
-PRIVATE
     -Wall
     -W
     -Wattributes
@@ -99,7 +70,18 @@ PRIVATE
     -Wwrite-strings
 )
 
-set_property(TARGET p0f-engine PROPERTY CXX_STANDARD 14)
-set_property(TARGET p0f-engine PROPERTY CXX_EXTENSIONS OFF)
-set_property(TARGET p0f-engine PROPERTY LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
-set_property(TARGET p0f-engine PROPERTY ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+target_include_directories(p0f
+PUBLIC
+	${PCAP_INCLUDE_DIR}
+)
+
+target_link_libraries(p0f
+PUBLIC
+	${PCAP_LIBRARIES}
+    p0f-engine
+)
+
+
+set_property(TARGET p0f PROPERTY CXX_EXTENSIONS OFF)
+set_property(TARGET p0f PROPERTY CXX_STANDARD 14)
+set_property(TARGET p0f PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})

@@ -8,7 +8,6 @@
 
  */
 
-//#define _GNU_SOURCE
 #define _FROM_P0F
 
 #include <cerrno>

@@ -10,8 +10,6 @@
 
  */
 
-//#define _GNU_SOURCE
-
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>

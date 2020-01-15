@@ -9,7 +9,6 @@
  */
 
 #define _FROM_FP_HTTP
-//#define _GNU_SOURCE
 
 #include <cctype>
 #include <cstdio>
@@ -389,9 +388,9 @@ void score_nat(uint8_t to_srv, const struct packet_flow *f, libp0f_context_t *li
 	struct host_data *hd;
 	struct http_sig *ref;
 
-	uint8_t score = 0;
+	uint8_t score        = 0;
 	uint8_t diff_already = 0;
-	uint16_t reason = 0;
+	uint16_t reason      = 0;
 
 	if (to_srv) {
 		hd  = f->client;
