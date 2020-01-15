@@ -115,8 +115,8 @@ void tcp_find_match(bool to_srv, struct tcp_sig *ts, uint8_t dupe_det, uint16_t 
 
 	for (size_t i = 0; i < tcp_context.sigs[to_srv][bucket].size(); i++) {
 
-		struct tcp_sig_record *ref = &tcp_context.sigs[to_srv][bucket][i];
-		struct tcp_sig *refs       = ref->sig;
+		struct tcp_sig_record *ref            = &tcp_context.sigs[to_srv][bucket][i];
+		std::unique_ptr<struct tcp_sig> &refs = ref->sig;
 
 		uint8_t fuzzy       = 0;
 		uint32_t ref_quirks = refs->quirks;
@@ -647,8 +647,6 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 
 	char *nxt;
 
-	struct tcp_sig *tsig;
-
 	// IP version
 	switch (*val) {
 	case '4':
@@ -983,25 +981,22 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		FATAL("Malformed payload class in line %u.", line_no);
 
 	// Phew, okay, we're done. Now, create tcp_sig...
-	tsig = static_cast<struct tcp_sig *>(calloc(sizeof(struct tcp_sig), 1));
+	auto tsig = std::make_unique<struct tcp_sig>();
 
 	tsig->opt_hash    = opt_hash;
 	tsig->opt_eol_pad = opt_eol_pad;
-
-	tsig->quirks = quirks;
-
-	tsig->ip_opt_len = olen;
-	tsig->ip_ver     = ver;
-	tsig->ttl        = ittl;
-
-	tsig->mss       = mss;
-	tsig->win       = win;
-	tsig->win_type  = win_type;
-	tsig->wscale    = scale;
-	tsig->pay_class = pay_class;
+	tsig->quirks      = quirks;
+	tsig->ip_opt_len  = olen;
+	tsig->ip_ver      = ver;
+	tsig->ttl         = ittl;
+	tsig->mss         = mss;
+	tsig->win         = win;
+	tsig->win_type    = win_type;
+	tsig->wscale      = scale;
+	tsig->pay_class   = pay_class;
 
 	// No need to set ts1, recv_ms, match, fuzzy, dist
-	tcp_find_match(to_srv, tsig, 1, 0);
+	tcp_find_match(to_srv, tsig.get(), 1, 0);
 
 	if (tsig->matched)
 		FATAL("Signature in line %u is already covered by line %u.",
@@ -1019,9 +1014,9 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 	trec.sys      = sys;
 	trec.sys_cnt  = sys_cnt;
 	trec.line_no  = line_no;
-	trec.sig      = tsig;
+	trec.sig      = std::move(tsig);
 	trec.bad_ttl  = bad_ttl;
-	tcp_context.sigs[to_srv][bucket].push_back(trec);
+	tcp_context.sigs[to_srv][bucket].push_back(std::move(trec));
 
 	// All done, phew.
 }

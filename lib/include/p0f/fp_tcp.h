@@ -12,6 +12,7 @@
 #define HAVE_FP_TCP_H_
 
 #include <cstdint>
+#include <memory>
 
 // Simplified data for signature matching and NAT detection:
 struct tcp_sig {
@@ -68,7 +69,7 @@ struct tcp_sig_record {
 
 	uint8_t bad_ttl = 0; // TTL is generated randomly
 
-	struct tcp_sig *sig = nullptr; // Actual signature data
+	std::unique_ptr<struct tcp_sig> sig; // Actual signature data
 };
 
 #include "process.h"

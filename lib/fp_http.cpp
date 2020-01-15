@@ -108,13 +108,13 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 
 	struct http_sig_record *gmatch = nullptr;
 	struct http_sig_record *ref    = &http_context.sigs[to_srv][0];
-	uint32_t cnt                   = http_context.sigs[to_srv].size();
+	size_t cnt                     = http_context.sigs[to_srv].size();
 
 	while (cnt--) {
 
-		struct http_sig *rs = ref->sig;
-		uint32_t ts_hdr     = 0;
-		uint32_t rs_hdr     = 0;
+		std::unique_ptr<struct http_sig> &rs = ref->sig;
+		uint32_t ts_hdr                      = 0;
+		uint32_t rs_hdr                      = 0;
 
 		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver)
 			goto next_sig;
@@ -213,8 +213,9 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 	// A generic signature is the best we could find.
 	if (!dupe_det && gmatch) {
 		ts->matched = gmatch;
-		if (gmatch->sig->sw && ts->sw && !strstr(ts->sw, gmatch->sig->sw))
+		if (gmatch->sig->sw && ts->sw && !strstr(ts->sw, gmatch->sig->sw)) {
 			ts->dishonest = 1;
+		}
 	}
 }
 
@@ -685,8 +686,7 @@ uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, li
 				f->http_pos      = 0;
 
 				free_sig_hdrs(&f->http_tmp);
-				memset(&f->http_tmp, 0, sizeof(struct http_sig));
-
+				f->http_tmp = {};
 				return 1;
 			} else {
 				f->in_http = -1;
@@ -900,7 +900,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 
 	char *nxt;
 
-	auto hsig = static_cast<struct http_sig *>(calloc(sizeof(struct http_sig), 1));
+	auto hsig = std::make_unique<struct http_sig>();
 
 	if (val[1] != ':')
 		FATAL("Malformed signature in line %u.", line_no);
@@ -1020,7 +1020,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 		hsig->sw = ck_strdup(val);
 	}
 
-	http_find_match(to_srv, hsig, 1);
+	http_find_match(to_srv, hsig.get(), 1);
 
 	if (hsig->matched)
 		FATAL("Signature in line %u is already covered by line %u.",
@@ -1035,9 +1035,9 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 	hrec.sys_cnt  = sys_cnt;
 	hrec.line_no  = line_no;
 	hrec.generic  = generic;
-	hrec.sig      = hsig;
+	hrec.sig      = std::move(hsig);
 
-	http_context.sigs[to_srv].push_back(hrec);
+	http_context.sigs[to_srv].push_back(std::move(hrec));
 }
 
 // Register new HTTP signature.

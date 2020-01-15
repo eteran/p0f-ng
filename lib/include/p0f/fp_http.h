@@ -14,6 +14,7 @@
 #include "config.h"
 #include <cstdint>
 #include <ctime>
+#include <memory>
 
 // A structure used for looking up various headers internally in fp_http.c:
 struct http_id {
@@ -38,27 +39,27 @@ struct http_hdr {
 // Request / response signature collected from the wire:
 struct http_sig {
 
-	int8_t http_ver; // HTTP version (-1 = any)
+	int8_t http_ver = 0; // HTTP version (-1 = any)
 
-	struct http_hdr hdr[HTTP_MAX_HDRS]; // Mandatory / discovered headers
-	uint32_t hdr_cnt;
+	struct http_hdr hdr[HTTP_MAX_HDRS] = {}; // Mandatory / discovered headers
+	uint32_t hdr_cnt                   = 0;
 
-	uint64_t hdr_bloom4; // Bloom filter for headers
+	uint64_t hdr_bloom4 = 0; // Bloom filter for headers
 
-	int32_t miss[HTTP_MAX_HDRS]; // Missing headers
-	uint32_t miss_cnt;
+	int32_t miss[HTTP_MAX_HDRS] = {}; // Missing headers
+	uint32_t miss_cnt           = 0;
 
-	char *sw;   // Software string (U-A or Server)
-	char *lang; // Accept-Language
-	char *via;  // Via or X-Forwarded-For
+	char *sw   = nullptr; // Software string (U-A or Server)
+	char *lang = nullptr; // Accept-Language
+	char *via  = nullptr; // Via or X-Forwarded-For
 
-	time_t date;      // Parsed 'Date'
-	time_t recv_date; // Actual receipt date
+	time_t date      = 0; // Parsed 'Date'
+	time_t recv_date = 0; // Actual receipt date
 
 	// Information used for matching with p0f.fp:
 
-	struct http_sig_record *matched; // nullptr = no match
-	uint8_t dishonest;               // "sw" looks forged?
+	struct http_sig_record *matched = nullptr; // nullptr = no match
+	uint8_t dishonest               = 0;       // "sw" looks forged?
 };
 
 // Record for a HTTP signature read from p0f.fp:
@@ -77,7 +78,7 @@ struct http_sig_record {
 
 	uint8_t generic; // Generic signature?
 
-	struct http_sig *sig; // Actual signature data
+	std::unique_ptr<struct http_sig> sig; // Actual signature data
 };
 
 struct packet_flow;
