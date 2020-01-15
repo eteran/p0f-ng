@@ -858,7 +858,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
 
-	auto nh = new struct host_data();
+	auto nh = new struct host_data;
 
 	/* Insert into the bucketed linked list. */
 	if (process_context.host_b[bucket]) {

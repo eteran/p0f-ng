@@ -84,59 +84,59 @@ struct packet_data {
 
 struct host_data {
 
-	struct host_data *prev, *next; /* Linked lists                       */
-	struct host_data *older, *newer;
-	uint32_t use_cnt; /* Number of packet_flows attached    */
+	struct host_data *prev  = nullptr;
+	struct host_data *next  = nullptr; /* Linked lists                       */
+	struct host_data *older = nullptr;
+	struct host_data *newer = nullptr;
+	uint32_t use_cnt        = 0; /* Number of packet_flows attached    */
 
-	uint32_t first_seen; /* Record created (unix time)         */
-	uint32_t last_seen;  /* Host last seen (unix time)         */
-	uint32_t total_conn; /* Total number of connections ever   */
+	uint32_t first_seen = 0; /* Record created (unix time)         */
+	uint32_t last_seen  = 0; /* Host last seen (unix time)         */
+	uint32_t total_conn = 0; /* Total number of connections ever   */
 
-	uint8_t ip_ver;   /* Address type                       */
-	uint8_t addr[16]; /* Host address data                  */
+	uint8_t ip_ver   = 0;  /* Address type                       */
+	uint8_t addr[16] = {}; /* Host address data                  */
 
-	struct tcp_sig *last_syn;    /* Sig of the most recent SYN         */
-	struct tcp_sig *last_synack; /* Sig of the most recent SYN+ACK     */
+	struct tcp_sig *last_syn    = nullptr; /* Sig of the most recent SYN         */
+	struct tcp_sig *last_synack = nullptr; /* Sig of the most recent SYN+ACK     */
 
-	int32_t last_class_id; /* OS class ID (-1 = not found)       */
-	int32_t last_name_id;  /* OS name ID (-1 = not found)        */
-	char *last_flavor;     /* Last OS flavor                     */
+	int32_t last_class_id = 0;       /* OS class ID (-1 = not found)       */
+	int32_t last_name_id  = 0;       /* OS name ID (-1 = not found)        */
+	char *last_flavor     = nullptr; /* Last OS flavor                     */
 
-	uint8_t last_quality; /* Generic or fuzzy match?            */
+	uint8_t last_quality = 0; /* Generic or fuzzy match?            */
 
-	char *link_type; /* MTU-derived link type              */
+	char *link_type = nullptr; /* MTU-derived link type              */
 
-	uint8_t cli_scores[NAT_SCORES]; /* Scoreboard for client NAT          */
-	uint8_t srv_scores[NAT_SCORES]; /* Scoreboard for server NAT          */
-	uint16_t nat_reasons;           /* NAT complaints                     */
+	uint8_t cli_scores[NAT_SCORES] = {}; /* Scoreboard for client NAT          */
+	uint8_t srv_scores[NAT_SCORES] = {}; /* Scoreboard for server NAT          */
+	uint16_t nat_reasons           = 0;  /* NAT complaints                     */
 
-	uint32_t last_nat; /* Last NAT detection time            */
-	uint32_t last_chg; /* Last OS change detection time      */
+	uint32_t last_nat = 0; /* Last NAT detection time            */
+	uint32_t last_chg = 0; /* Last OS change detection time      */
 
-	uint16_t last_port; /* Source port on last SYN            */
+	uint16_t last_port = 0; /* Source port on last SYN            */
 
-	uint8_t distance; /* Last measured distance             */
+	uint8_t distance = 0; /* Last measured distance             */
 
-	int32_t last_up_min;  /* Last computed uptime (-1 = none)   */
-	uint32_t up_mod_days; /* Uptime modulo (days)               */
+	int32_t last_up_min  = 0; /* Last computed uptime (-1 = none)   */
+	uint32_t up_mod_days = 0; /* Uptime modulo (days)               */
 
 	/* HTTP business: */
+	struct http_sig *http_req_os = nullptr; /* Last request, if class != -1       */
+	struct http_sig *http_resp   = nullptr; /* Last response                      */
 
-	struct http_sig *http_req_os; /* Last request, if class != -1       */
-	struct http_sig *http_resp;   /* Last response                      */
+	int32_t http_name_id = 0;       /* Client name ID (-1 = not found)    */
+	char *http_flavor    = nullptr; /* Client flavor                      */
 
-	int32_t http_name_id; /* Client name ID (-1 = not found)    */
-	char *http_flavor;    /* Client flavor                      */
+	const char *language = nullptr; /* Detected language                  */
 
-	const char *language; /* Detected language                  */
+	uint8_t bad_sw = 0; /* Used dishonest U-A or Server?      */
 
-	uint8_t bad_sw; /* Used dishonest U-A or Server?      */
-
-	uint16_t http_resp_port; /* Port on which response seen        */
+	uint16_t http_resp_port = 0; /* Port on which response seen        */
 };
 
 /* Reasons for NAT detection: */
-
 #define NAT_APP_SIG 0x0001  /* App signature <-> OS mismatch      */
 #define NAT_OS_SIG 0x0002   /* OS detection mismatch              */
 #define NAT_UNK_DIFF 0x0004 /* Current sig unknown, but different */
@@ -153,7 +153,6 @@ struct host_data {
 #define NAT_APP_UA 0x1000   /* User-Agent OS inconsistency        */
 
 /* TCP flow record, maintained until all fingerprinting modules are happy: */
-
 struct packet_flow {
 	struct packet_flow *prev  = nullptr;
 	struct packet_flow *next  = nullptr; /* Linked lists                       */
