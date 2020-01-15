@@ -10,6 +10,7 @@ option(ENABLE_ASAN          "Enable address santiziers")
 option(ENABLE_USAN          "Enable undefined santiziers")
 option(ENABLE_MSAN          "Enable memory santiziers")
 option(ENABLE_TSAN          "Enable thread santiziers")
+option(P0F_BUILD_TOOLS      "Build example tools")
 
 if(ENABLE_ASAN)
 	set(CMAKE_CXX_FLAGS        "${CMAKE_CXX_FLAGS}        -fsanitize=address") # -fsanitize-address-use-after-scope
@@ -32,6 +33,9 @@ if(ENABLE_MSAN)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=memory")
 endif()
 
-add_subdirectory(tools)
 add_subdirectory(lib)
 add_subdirectory(src)
+
+if(P0F_BUILD_TOOLS)
+	add_subdirectory(tools)
+endif()
