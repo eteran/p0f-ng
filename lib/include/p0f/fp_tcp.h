@@ -16,32 +16,32 @@
 // Simplified data for signature matching and NAT detection:
 struct tcp_sig {
 
-	uint32_t opt_hash; // Hash of opt_layout & opt_cnt
-	uint32_t quirks;   // Quirks
+	uint32_t opt_hash = 0; // Hash of opt_layout & opt_cnt
+	uint32_t quirks   = 0; // Quirks
 
-	uint8_t opt_eol_pad; // Amount of padding past EOL
-	uint8_t ip_opt_len;  // Length of IP options
+	uint8_t opt_eol_pad = 0; // Amount of padding past EOL
+	uint8_t ip_opt_len  = 0; // Length of IP options
 
-	int8_t ip_ver; // -1 = any, IP_VER4, IP_VER6
+	int8_t ip_ver = 0; // -1 = any, IP_VER4, IP_VER6
 
-	uint8_t ttl; // Actual TTL
+	uint8_t ttl = 0; // Actual TTL
 
-	int32_t mss;      // Maximum segment size (-1 = any)
-	uint16_t win;     // Window size
-	uint8_t win_type; // WIN_TYPE_*
-	int16_t wscale;   // Window scale (-1 = any)
+	int32_t mss      = 0; // Maximum segment size (-1 = any)
+	uint16_t win     = 0; // Window size
+	uint8_t win_type = 0; // WIN_TYPE_*
+	int16_t wscale   = 0; // Window scale (-1 = any)
 
-	int8_t pay_class; // -1 = any, 0 = zero, 1 = non-zero
+	int8_t pay_class = 0; // -1 = any, 0 = zero, 1 = non-zero
 
-	uint16_t tot_hdr; // Total header length
-	uint32_t ts1;     // Own timestamp
-	uint64_t recv_ms; // Packet recv unix time (ms)
+	uint16_t tot_hdr = 0; // Total header length
+	uint32_t ts1     = 0; // Own timestamp
+	uint64_t recv_ms = 0; // Packet recv unix time (ms)
 
 	// Information used for matching with p0f.fp:
 
-	struct tcp_sig_record *matched; // nullptr = no match
-	uint8_t fuzzy;                  // Approximate match?
-	uint8_t dist;                   // Distance
+	struct tcp_sig_record *matched = nullptr; // nullptr = no match
+	uint8_t fuzzy                  = 0;       // Approximate match?
+	uint8_t dist                   = 0;       // Distance
 };
 
 // Methods for matching window size in tcp_sig:

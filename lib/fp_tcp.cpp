@@ -14,6 +14,7 @@
 #include <ostream>
 #include <sstream>
 #include <unistd.h>
+#include <vector>
 
 #include <netinet/in.h>
 #include <sys/types.h>
@@ -33,8 +34,7 @@ namespace {
 
 struct tcp_context_t {
 	// TCP signature buckets:
-	struct tcp_sig_record *sigs[2][SIG_BUCKETS];
-	uint32_t sig_cnt[2][SIG_BUCKETS];
+	std::vector<struct tcp_sig_record> sigs[2][SIG_BUCKETS];
 };
 
 tcp_context_t tcp_context;
@@ -109,14 +109,13 @@ void tcp_find_match(bool to_srv, struct tcp_sig *ts, uint8_t dupe_det, uint16_t 
 	struct tcp_sig_record *gmatch = nullptr;
 
 	uint32_t bucket = ts->opt_hash % SIG_BUCKETS;
-	uint32_t i;
 
 	bool use_mtu      = false;
 	int16_t win_multi = detect_win_multi(ts, &use_mtu, syn_mss);
 
-	for (i = 0; i < tcp_context.sig_cnt[to_srv][bucket]; i++) {
+	for (size_t i = 0; i < tcp_context.sigs[to_srv][bucket].size(); i++) {
 
-		struct tcp_sig_record *ref = tcp_context.sigs[to_srv][bucket] + i;
+		struct tcp_sig_record *ref = &tcp_context.sigs[to_srv][bucket][i];
 		struct tcp_sig *refs       = ref->sig;
 
 		uint8_t fuzzy       = 0;
@@ -649,7 +648,6 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 	char *nxt;
 
 	struct tcp_sig *tsig;
-	struct tcp_sig_record *trec;
 
 	// IP version
 	switch (*val) {
@@ -1012,22 +1010,18 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 	// Everything checks out, so let's register it.
 	bucket = opt_hash % SIG_BUCKETS;
 
-	tcp_context.sigs[to_srv][bucket] = static_cast<struct tcp_sig_record *>(realloc(tcp_context.sigs[to_srv][bucket], (tcp_context.sig_cnt[to_srv][bucket] + 1) * sizeof(struct tcp_sig_record)));
-
-	trec = tcp_context.sigs[to_srv][bucket] + tcp_context.sig_cnt[to_srv][bucket];
-
-	tcp_context.sig_cnt[to_srv][bucket]++;
-
-	trec->generic  = generic;
-	trec->class_id = sig_class;
-	trec->name_id  = sig_name;
-	trec->flavor   = sig_flavor;
-	trec->label_id = label_id;
-	trec->sys      = sys;
-	trec->sys_cnt  = sys_cnt;
-	trec->line_no  = line_no;
-	trec->sig      = tsig;
-	trec->bad_ttl  = bad_ttl;
+	struct tcp_sig_record trec;
+	trec.generic  = generic;
+	trec.class_id = sig_class;
+	trec.name_id  = sig_name;
+	trec.flavor   = sig_flavor;
+	trec.label_id = label_id;
+	trec.sys      = sys;
+	trec.sys_cnt  = sys_cnt;
+	trec.line_no  = line_no;
+	trec.sig      = tsig;
+	trec.bad_ttl  = bad_ttl;
+	tcp_context.sigs[to_srv][bucket].push_back(trec);
 
 	// All done, phew.
 }
