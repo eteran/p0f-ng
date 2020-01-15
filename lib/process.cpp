@@ -79,34 +79,30 @@ uint32_t get_flow_bucket(struct packet_data *pk) {
 	return bucket % FLOW_BUCKETS;
 }
 
+bool compare_ips(uint8_t lhs[16], uint8_t rhs[16], uint8_t ip_ver) {
+	return memcmp(lhs, rhs, (ip_ver == IP_VER4) ? 4 : 16) == 0;
+}
+
 // Look up an existing flow.
-struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) {
+struct packet_flow *lookup_flow(struct packet_data *pk, bool *to_srv) {
 
-	uint32_t bucket       = get_flow_bucket(pk);
-	struct packet_flow *f = process_context.flow_b[bucket];
+	uint32_t bucket = get_flow_bucket(pk);
 
-	while (f) {
+	for (struct packet_flow *f = process_context.flow_b[bucket]; f; f = f->next) {
 
-		if (pk->ip_ver != f->client->ip_ver) goto lookup_next;
+		if (pk->ip_ver != f->client->ip_ver) {
+			continue;
+		}
 
-		if (pk->sport == f->cli_port && pk->dport == f->srv_port &&
-			!memcmp(pk->src, f->client->addr, (pk->ip_ver == IP_VER4) ? 4 : 16) &&
-			!memcmp(pk->dst, f->server->addr, (pk->ip_ver == IP_VER4) ? 4 : 16)) {
-
-			*to_srv = 1;
+		if (pk->sport == f->cli_port && pk->dport == f->srv_port && compare_ips(pk->src, f->client->addr, pk->ip_ver) && compare_ips(pk->dst, f->server->addr, pk->ip_ver)) {
+			*to_srv = true;
 			return f;
 		}
 
-		if (pk->dport == f->cli_port && pk->sport == f->srv_port &&
-			!memcmp(pk->dst, f->client->addr, (pk->ip_ver == IP_VER4) ? 4 : 16) &&
-			!memcmp(pk->src, f->server->addr, (pk->ip_ver == IP_VER4) ? 4 : 16)) {
-
-			*to_srv = 0;
+		if (pk->dport == f->cli_port && pk->sport == f->srv_port && compare_ips(pk->dst, f->client->addr, pk->ip_ver) && compare_ips(pk->src, f->server->addr, pk->ip_ver)) {
+			*to_srv = false;
 			return f;
 		}
-
-	lookup_next:
-		f = f->next;
 	}
 
 	return nullptr;
@@ -116,10 +112,12 @@ struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) {
 void destroy_flow(struct packet_flow *f) {
 
 	DEBUG("[#] Destroying flow: %s/%u -> ",
-		  addr_to_str(f->client->addr, f->client->ip_ver), f->cli_port);
+		  addr_to_str(f->client->addr, f->client->ip_ver),
+		  f->cli_port);
 
 	DEBUG("%s/%u (bucket %u)\n",
-		  addr_to_str(f->server->addr, f->server->ip_ver), f->srv_port,
+		  addr_to_str(f->server->addr, f->server->ip_ver),
+		  f->srv_port,
 		  f->bucket);
 
 	// Remove it from the bucketed linked list.
@@ -394,15 +392,18 @@ struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_
 // Insert data from a packet into a flow, call handlers as appropriate.
 void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 
-	struct tcp_sig *tsig;
-	uint8_t to_srv    = 0;
-	uint8_t need_more = 0;
+	struct tcp_sig *tsig = nullptr;
+	bool to_srv          = false;
+	uint8_t need_more    = 0;
 
 	DEBUG("[#] Received TCP packet: %s/%u -> ",
-		  addr_to_str(pk->src, pk->ip_ver), pk->sport);
+		  addr_to_str(pk->src, pk->ip_ver),
+		  pk->sport);
 
 	DEBUG("%s/%u (type 0x%02x, pay_len = %u)\n",
-		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, pk->tcp_type,
+		  addr_to_str(pk->dst, pk->ip_ver),
+		  pk->dport,
+		  pk->tcp_type,
 		  pk->pay_len);
 
 	struct packet_flow *f = lookup_flow(pk, &to_srv);
@@ -630,8 +631,6 @@ void expire_cache(libp0f_context_t *libp0f_context) {
 // Find link-specific offset (pcap knows, but won't tell).
 void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0f_context) {
 
-	uint8_t i;
-
 	// Check hardcoded values for some of the most common options.
 	switch (libp0f_context->link_type) {
 	case DLT_RAW:
@@ -668,7 +667,7 @@ void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0
 	 * first packet we see is maliciously crafted, and somehow gets past the
 	 * configured BPF filter, we will configure the wrong offset. But that
 	 * seems fairly unlikely. */
-
+	uint8_t i;
 	for (i = 0; i < 40; i += 2, total_len -= 2) {
 		if (total_len < MIN_TCP4) {
 			break;
@@ -677,7 +676,6 @@ void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0
 		/* Perhaps this is IPv6? We check three things: IP version (first 4 bits);
 		 * total length sufficient to accommodate IPv6 and TCP headers; and the
 		 * "next protocol" field equal to PROTO_TCP. */
-
 		if (total_len >= MIN_TCP6 && (data[i] >> 4) == IP_VER6) {
 			auto hdr = reinterpret_cast<const struct ipv6_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
@@ -700,9 +698,8 @@ void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0
 		}
 	}
 
-	/* If we found something, adjust for VLAN tags (ETH_P_8021Q == 0x8100). Else,
-	 complain once and try again soon. */
-
+	/* If we found something, adjust for VLAN tags (ETH_P_8021Q == 0x8100).
+	 * Else, complain once and try again soon. */
 	if (process_context.link_off >= 4 && data[i - 4] == 0x81 && data[i - 3] == 0x00) {
 		DEBUG("[#] Adjusting offset due to VLAN tagging.\n");
 		process_context.link_off -= 4;
@@ -747,8 +744,6 @@ char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 /* Parse PCAP input, with plenty of sanity checking. Store interesting details
  * in a protocol-agnostic buffer that will be then examined upstream. */
 void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *data) {
-
-	(void)junk;
 
 	auto libp0f_context = reinterpret_cast<libp0f_context_t *>(junk);
 
@@ -1257,7 +1252,7 @@ struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 }
 
 // Add NAT score, check if alarm due.
-void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context) {
+void add_nat_score(bool to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context) {
 
 	struct host_data *hd = nullptr;
 	uint8_t *scores      = nullptr;
@@ -1348,7 +1343,7 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 }
 
 // Verify if tool class (called from modules).
-void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt, libp0f_context_t *libp0f_context) {
+void verify_tool_class(bool to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt, libp0f_context_t *libp0f_context) {
 
 	struct host_data *hd = nullptr;
 	if (to_srv)

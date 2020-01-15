@@ -15,12 +15,14 @@
 #include <cstdint>
 
 struct libp0f_context_t {
-	using observation_begin_t = void (*)(const char *, uint8_t, uint8_t to_srv, const packet_flow *);
+	using observation_begin_t = void (*)(const char *, uint8_t, bool, const packet_flow *);
 	using observation_field_t = void (*)(const char *, const char *);
 
-	observation_begin_t start_observation = nullptr;
-	observation_field_t observation_field = nullptr;
+	// Observation hooks
+	observation_begin_t start_observation = [](const char *, uint8_t, bool, const packet_flow *) {};
+	observation_field_t observation_field = [](const char *, const char *) {};
 
+	// Fill in by the one driving things
 	char *read_file          = nullptr;         // File to read pcap data from
 	uint32_t max_conn        = MAX_CONN;        // Connection entry count limit
 	uint32_t max_hosts       = MAX_HOSTS;       // Host cache entry count limit
@@ -28,9 +30,9 @@ struct libp0f_context_t {
 	uint32_t host_idle_limit = HOST_IDLE_LIMIT; // Host cache idle timeout
 	int32_t link_type        = 0;               // PCAP link type
 
+	// Results
 	uint64_t packet_cnt = 0; // Total number of packets processed
-
-	char **fp_os_names = nullptr;
+	char **fp_os_names  = nullptr;
 };
 
 #endif

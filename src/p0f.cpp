@@ -67,7 +67,7 @@
 
 namespace {
 
-void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const struct packet_flow *f);
+void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const struct packet_flow *f);
 void add_observation_field(const char *key, const char *value);
 
 libp0f_context_t libp0f_context = {
@@ -848,7 +848,7 @@ void offline_event_loop() {
 }
 
 // Open log entry.
-void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const struct packet_flow *f) {
+void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const struct packet_flow *f) {
 
 	if (p0f_context.obs_fields)
 		FATAL("Premature end of observation.");

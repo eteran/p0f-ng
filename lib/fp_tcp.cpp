@@ -49,7 +49,7 @@ uint8_t guess_dist(uint8_t ttl) {
 
 /* Figure out if window size is a multiplier of MSS or MTU. We don't take window
  * scaling into account, because neither do TCP stack developers. */
-int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t syn_mss) {
+int16_t detect_win_multi(const struct tcp_sig *ts, bool *use_mtu, uint16_t syn_mss) {
 
 	uint16_t win = ts->win;
 	int32_t mss = ts->mss, mss12 = mss - 12;
@@ -66,34 +66,35 @@ int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t sy
 		}                                                                                                                 \
 	} while (0)
 
-	RET_IF_DIV(mss, 0, "MSS");
+	RET_IF_DIV(mss, false, "MSS");
 
 	// Some systems will sometimes subtract 12 bytes when timestamps are in use.
-	if (ts->ts1) RET_IF_DIV(mss12, 0, "MSS - 12");
+	if (ts->ts1) RET_IF_DIV(mss12, false, "MSS - 12");
 
 	/* Some systems use MTU on the wrong interface, so let's check for the most
 	 common case. */
 
-	RET_IF_DIV(1500 - MIN_TCP4, 0, "MSS (MTU = 1500, IPv4)");
-	RET_IF_DIV(1500 - MIN_TCP4 - 12, 0, "MSS (MTU = 1500, IPv4 - 12)");
+	RET_IF_DIV(1500 - MIN_TCP4, false, "MSS (MTU = 1500, IPv4)");
+	RET_IF_DIV(1500 - MIN_TCP4 - 12, false, "MSS (MTU = 1500, IPv4 - 12)");
 
 	if (ts->ip_ver == IP_VER6) {
 
-		RET_IF_DIV(1500 - MIN_TCP6, 0, "MSS (MTU = 1500, IPv6)");
-		RET_IF_DIV(1500 - MIN_TCP6 - 12, 0, "MSS (MTU = 1500, IPv6 - 12)");
+		RET_IF_DIV(1500 - MIN_TCP6, false, "MSS (MTU = 1500, IPv6)");
+		RET_IF_DIV(1500 - MIN_TCP6 - 12, false, "MSS (MTU = 1500, IPv6 - 12)");
 	}
 
 	// Some systems use MTU instead of MSS:
-	RET_IF_DIV(mss + MIN_TCP4, 1, "MTU (IPv4)");
-	RET_IF_DIV(mss + ts->tot_hdr, 1, "MTU (actual size)");
-	if (ts->ip_ver == IP_VER6) RET_IF_DIV(mss + MIN_TCP6, 1, "MTU (IPv6)");
-	RET_IF_DIV(1500, 1, "MTU (1500)");
+	RET_IF_DIV(mss + MIN_TCP4, true, "MTU (IPv4)");
+	RET_IF_DIV(mss + ts->tot_hdr, true, "MTU (actual size)");
+	if (ts->ip_ver == IP_VER6) {
+		RET_IF_DIV(mss + MIN_TCP6, true, "MTU (IPv6)");
+	}
+	RET_IF_DIV(1500, true, "MTU (1500)");
 
 	// On SYN+ACKs, some systems use of the peer:
 	if (syn_mss) {
-
-		RET_IF_DIV(syn_mss, 0, "peer MSS");
-		RET_IF_DIV(syn_mss - 12, 0, "peer MSS - 12");
+		RET_IF_DIV(syn_mss, false, "peer MSS");
+		RET_IF_DIV(syn_mss - 12, false, "peer MSS - 12");
 	}
 
 #undef RET_IF_DIV
@@ -102,8 +103,7 @@ int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t sy
 }
 
 // See if any of the p0f.fp signatures matches the collected data.
-void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
-					uint16_t syn_mss) {
+void tcp_find_match(bool to_srv, struct tcp_sig *ts, uint8_t dupe_det, uint16_t syn_mss) {
 
 	struct tcp_sig_record *fmatch = nullptr;
 	struct tcp_sig_record *gmatch = nullptr;
@@ -111,7 +111,7 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 	uint32_t bucket = ts->opt_hash % SIG_BUCKETS;
 	uint32_t i;
 
-	uint8_t use_mtu   = 0;
+	bool use_mtu      = false;
 	int16_t win_multi = detect_win_multi(ts, &use_mtu, syn_mss);
 
 	for (i = 0; i < tcp_context.sig_cnt[to_srv][bucket]; i++) {
@@ -269,11 +269,11 @@ void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
 }
 
 // Dump unknown signature.
-const char *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uint16_t syn_mss) {
+std::string dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uint16_t syn_mss) {
 
 	std::ostringstream ss;
 
-	uint8_t win_mtu;
+	bool win_mtu;
 	int16_t win_m;
 	uint32_t i;
 	uint8_t dist = guess_dist(pk->ttl);
@@ -380,13 +380,11 @@ const char *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uin
 	else
 		append_format(ss, ":0");
 
-	static std::string ret;
-	ret = ss.str();
-	return ret.c_str();
+	return ss.str();
 }
 
 // Dump signature-related flags.
-const char *dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
+std::string dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
 
 	std::ostringstream ss;
 
@@ -402,23 +400,23 @@ const char *dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
 	if (ts->dist > MAX_DIST) append_format(ss, " excess_dist");
 	if (pk->tos) append_format(ss, " tos:0x%02x", pk->tos);
 
-	static std::string ret;
-	ret = ss.str();
+	std::string ret = ss.str();
 
 	if (!ret.empty())
-		return ret.c_str() + 1;
+		return ret.substr(1);
 	else
 		return "none";
 }
 
 /* Compare current signature with historical data, draw conclusions. This
    is called only for OS sigs. */
-void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void score_nat(bool to_srv, struct tcp_sig *sig, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	struct host_data *hd;
 	struct tcp_sig *ref;
-	uint8_t score = 0, diff_already = 0;
-	uint16_t reason = 0;
+	uint8_t score        = 0;
+	uint8_t diff_already = 0;
+	uint16_t reason      = 0;
 	int32_t ttl_diff;
 
 	if (to_srv) {
@@ -599,7 +597,9 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f, libp0
 
 				DEBUG("[#] Dodgy timestamp progression across signatures (%d "
 					  "in %lu ms).\n",
-					  ts_diff, ms_diff);
+					  ts_diff,
+					  ms_diff);
+
 				score += 4;
 				reason |= NAT_TS;
 
@@ -607,7 +607,9 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f, libp0
 
 				DEBUG("[#] Timestamp consistent across signatures (%d in %lu ms), "
 					  "reducing score.\n",
-					  ts_diff, ms_diff);
+					  ts_diff,
+					  ms_diff);
+
 				score /= 2;
 			}
 
@@ -622,13 +624,10 @@ log_and_update:
 
 	// Update some of the essential records.
 	if (sig->matched) {
-
 		hd->last_class_id = sig->matched->class_id;
 		hd->last_name_id  = sig->matched->name_id;
 		hd->last_flavor   = sig->matched->flavor;
-
-		hd->last_quality = (sig->fuzzy * P0F_MATCH_FUZZY) |
-						   (sig->matched->generic * P0F_MATCH_GENERIC);
+		hd->last_quality  = (sig->fuzzy * P0F_MATCH_FUZZY) | (sig->matched->generic * P0F_MATCH_GENERIC);
 	}
 
 	hd->last_port = f->cli_port;
@@ -638,7 +637,7 @@ log_and_update:
 
 /* Parse TCP-specific bits and register a signature read from p0f.fp.
  * This function is too long. */
-void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
+void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
 
 	int8_t ver, win_type, pay_class;
 	uint8_t opt_layout[MAX_TCP_OPT];
@@ -1034,7 +1033,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 }
 
 // Fingerprint SYN or SYN+ACK.
-struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+struct tcp_sig *fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	auto sig = static_cast<struct tcp_sig *>(calloc(sizeof(struct tcp_sig), 1));
 	packet_to_sig(pk, sig);
@@ -1073,9 +1072,9 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk, struct p
 		observf(libp0f_context, "dist", "%u", sig->dist);
 	}
 
-	libp0f_context->observation_field("params", dump_flags(pk, sig));
+	libp0f_context->observation_field("params", dump_flags(pk, sig).c_str());
 
-	libp0f_context->observation_field("raw_sig", dump_sig(pk, sig, f->syn_mss));
+	libp0f_context->observation_field("raw_sig", dump_sig(pk, sig, f->syn_mss).c_str());
 
 	if (pk->tcp_type == TCP_SYN)
 		f->syn_mss = pk->mss;
@@ -1098,13 +1097,14 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk, struct p
 
 /* Perform uptime detection. This is the only FP function that gets called not
    only on SYN or SYN+ACK, but also on ACK traffic. */
-void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void check_ts_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	uint32_t ts_diff;
 	uint64_t ms_diff;
 
 	uint32_t freq;
-	uint32_t up_min, up_mod_days;
+	uint32_t up_min;
+	uint32_t up_mod_days;
 
 	double ffreq;
 

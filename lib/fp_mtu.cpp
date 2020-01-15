@@ -64,11 +64,14 @@ void mtu_register_sig(char *name, char *val, uint32_t line_no) {
 	mtu_context.sig_cnt[bucket]++;
 }
 
-void fingerprint_mtu(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void fingerprint_mtu(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
-	uint32_t bucket, i, mtu;
+	uint32_t bucket;
+	uint32_t i;
+	uint32_t mtu;
 
-	if (!pk->mss || f->sendsyn) return;
+	if (!pk->mss || f->sendsyn)
+		return;
 
 	libp0f_context->start_observation("mtu", 2, to_srv, f);
 

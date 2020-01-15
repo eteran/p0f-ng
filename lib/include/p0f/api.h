@@ -13,20 +13,20 @@
 
 #include <cstdint>
 
-#define P0F_QUERY_MAGIC 0x50304601
-#define P0F_RESP_MAGIC 0x50304602
+constexpr uint32_t P0F_QUERY_MAGIC = 0x50304601;
+constexpr uint32_t P0F_RESP_MAGIC  = 0x50304602;
 
-#define P0F_STATUS_BADQUERY 0x00
-#define P0F_STATUS_OK 0x10
-#define P0F_STATUS_NOMATCH 0x20
+constexpr uint8_t P0F_STATUS_BADQUERY = 0x00;
+constexpr uint8_t P0F_STATUS_OK       = 0x10;
+constexpr uint8_t P0F_STATUS_NOMATCH  = 0x20;
 
-#define P0F_ADDR_IPV4 0x04
-#define P0F_ADDR_IPV6 0x06
+constexpr uint8_t P0F_ADDR_IPV4 = 0x04;
+constexpr uint8_t P0F_ADDR_IPV6 = 0x06;
 
-#define P0F_STR_MAX 31
+constexpr int P0F_STR_MAX = 31;
 
-#define P0F_MATCH_FUZZY 0x01
-#define P0F_MATCH_GENERIC 0x02
+constexpr uint8_t P0F_MATCH_FUZZY   = 0x01;
+constexpr uint8_t P0F_MATCH_GENERIC = 0x02;
 
 // Keep these structures aligned to avoid architecture-specific padding.
 struct p0f_api_query {

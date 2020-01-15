@@ -117,7 +117,7 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 }
 
 // Find match for a signature.
-void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_det) {
+void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 
 	struct http_sig_record *gmatch = nullptr;
 	struct http_sig_record *ref    = http_context.sigs[to_srv];
@@ -231,7 +231,7 @@ void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_det) {
 }
 
 // Dump a HTTP signature.
-const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
+std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
 	uint32_t i;
 	uint8_t had_prev = 0;
@@ -355,14 +355,11 @@ const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 		if (tpos) append_format(ss, "%s", tmp);
 	}
 
-	static std::string ret;
-	ret = ss.str();
-
-	return ret.c_str();
+	return ss.str();
 }
 
 // Dump signature flags.
-const char *dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
+std::string dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
 
 	std::stringstream ss;
 
@@ -370,11 +367,10 @@ const char *dump_flags(const struct http_sig *hsig, const struct http_sig_record
 	if (!hsig->sw) append_format(ss, " anonymous");
 	if (m && m->generic) append_format(ss, " generic");
 
-	static std::string ret;
-	ret = ss.str();
+	std::string ret = ss.str();
 
 	if (!ret.empty()) {
-		return ret.c_str() + 1;
+		return ret.substr(1);
 	} else {
 		return "none";
 	}
@@ -382,7 +378,7 @@ const char *dump_flags(const struct http_sig *hsig, const struct http_sig_record
 
 /* Score signature differences. For unknown signatures, the presumption is that
  * they identify apps, so the logic is quite different from TCP. */
-void score_nat(uint8_t to_srv, const struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	struct http_sig_record *m = f->http_tmp.matched;
 	struct host_data *hd;
@@ -550,7 +546,7 @@ time_t parse_date(const char *str) {
 }
 
 // Look up HTTP signature, create an observation.
-void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	struct http_sig_record *m;
 	const char *lang = nullptr;
@@ -580,18 +576,19 @@ void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_context_t *l
 			pos += 2;
 		}
 
-		if (!languages[lh][pos])
+		if (!languages[lh][pos]) {
 			libp0f_context->observation_field("lang", nullptr);
-		else
-			libp0f_context->observation_field("lang",
-											  (lang = languages[lh][pos + 1]));
+		} else {
+			lang = languages[lh][pos + 1];
+			libp0f_context->observation_field("lang", lang);
+		}
 
-	} else
+	} else {
 		libp0f_context->observation_field("lang", "none");
+	}
 
-	libp0f_context->observation_field("params", dump_flags(&f->http_tmp, m));
-
-	libp0f_context->observation_field("raw_sig", dump_sig(to_srv, &f->http_tmp));
+	libp0f_context->observation_field("params", dump_flags(&f->http_tmp, m).c_str());
+	libp0f_context->observation_field("raw_sig", dump_sig(to_srv, &f->http_tmp).c_str());
 
 	score_nat(to_srv, f, libp0f_context);
 
@@ -667,7 +664,7 @@ void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_context_t *l
 }
 
 // Parse name=value pairs into a signature.
-uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_get_more, libp0f_context_t *libp0f_context) {
+uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, libp0f_context_t *libp0f_context) {
 
 	uint32_t plen = to_srv ? f->req_len : f->resp_len;
 
@@ -907,7 +904,7 @@ void http_init() {
 }
 
 // Register new HTTP signature.
-void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
 
 	char *nxt;
 
@@ -1123,7 +1120,7 @@ void free_sig_hdrs(struct http_sig *h) {
 
 /* Examine request or response; returns 1 if more data needed and plausibly
  * can be read. Note that the buffer is always NUL-terminated. */
-uint8_t process_http(uint8_t to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	// Already decided this flow is not worth tracking?
 	if (f->in_http < 0)

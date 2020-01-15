@@ -15,8 +15,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "config.h"
-
 inline char *ck_strdup(const char *str) {
 	if (!str)
 		return nullptr;
