@@ -25,12 +25,16 @@
 #include "tcp.h"
 #include "util.h"
 
+namespace {
+
 struct mtu_context_t {
 	struct mtu_sig_record *sigs[SIG_BUCKETS];
 	uint32_t sig_cnt[SIG_BUCKETS];
 };
 
-static mtu_context_t mtu_context;
+mtu_context_t mtu_context;
+
+}
 
 // Register a new MTU signature.
 void mtu_register_sig(char *name, char *val, uint32_t line_no) {

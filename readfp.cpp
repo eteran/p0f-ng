@@ -216,7 +216,7 @@ void config_parse_sys(char *val, libp0f_context_t *libp0f_context) {
 }
 
 // Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
-static void config_parse_line(char *line, libp0f_context_t *libp0f_context) {
+void config_parse_line(char *line, libp0f_context_t *libp0f_context) {
 
 	char *val = nullptr;
 	char *eon = nullptr;

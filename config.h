@@ -197,7 +197,7 @@ static constexpr struct http_id req_common_init[] = {
 	{"Keep-Alive", 0},
 	{0, 0}};
 
-static const struct http_id resp_common_init[] = {
+static constexpr struct http_id resp_common_init[] = {
 	{"Content-Type", 0},
 	{"Connection", 0},
 	{"Keep-Alive", 0},

@@ -117,67 +117,8 @@ constexpr int HDR_VIA = 3;
 constexpr int HDR_XFF = 4;
 constexpr int HDR_DAT = 5;
 
-}
-
-// Pre-register essential headers.
-void http_init() {
-
-	memcpy(&http_context.req_optional, &req_optional_init, sizeof(http_context.req_optional));
-	memcpy(&http_context.resp_optional, &resp_optional_init, sizeof(http_context.resp_optional));
-	memcpy(&http_context.req_common, &req_common_init, sizeof(http_context.req_common));
-	memcpy(&http_context.resp_common, &resp_common_init, sizeof(http_context.resp_common));
-	memcpy(&http_context.req_skipval, &req_skipval_init, sizeof(http_context.req_skipval));
-	memcpy(&http_context.resp_skipval, &resp_skipval_init, sizeof(http_context.resp_skipval));
-
-	uint32_t i;
-
-	// Do not change - other code depends on the ordering of first 6 entries.
-	lookup_hdr(SLOF("User-Agent"), 1);      // 0
-	lookup_hdr(SLOF("Server"), 1);          // 1
-	lookup_hdr(SLOF("Accept-Language"), 1); // 2
-	lookup_hdr(SLOF("Via"), 1);             // 3
-	lookup_hdr(SLOF("X-Forwarded-For"), 1); // 4
-	lookup_hdr(SLOF("Date"), 1);            // 5
-
-	i = 0;
-	while (http_context.req_optional[i].name) {
-		http_context.req_optional[i].id = lookup_hdr(SLOF(http_context.req_optional[i].name), 1);
-		i++;
-	}
-
-	i = 0;
-	while (http_context.resp_optional[i].name) {
-		http_context.resp_optional[i].id = lookup_hdr(SLOF(http_context.resp_optional[i].name), 1);
-		i++;
-	}
-
-	i = 0;
-	while (http_context.req_skipval[i].name) {
-		http_context.req_skipval[i].id = lookup_hdr(SLOF(http_context.req_skipval[i].name), 1);
-		i++;
-	}
-
-	i = 0;
-	while (http_context.resp_skipval[i].name) {
-		http_context.resp_skipval[i].id = lookup_hdr(SLOF(http_context.resp_skipval[i].name), 1);
-		i++;
-	}
-
-	i = 0;
-	while (http_context.req_common[i].name) {
-		http_context.req_common[i].id = lookup_hdr(SLOF(http_context.req_common[i].name), 1);
-		i++;
-	}
-
-	i = 0;
-	while (http_context.resp_common[i].name) {
-		http_context.resp_common[i].id = lookup_hdr(SLOF(http_context.resp_common[i].name), 1);
-		i++;
-	}
-}
-
 // Find match for a signature.
-static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_det) {
+void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_det) {
 
 	struct http_sig_record *gmatch = nullptr;
 	struct http_sig_record *ref    = http_context.sigs[to_srv];
@@ -290,212 +231,8 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 	}
 }
 
-// Register new HTTP signature.
-void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
-
-	char *nxt;
-
-	auto hsig = static_cast<struct http_sig *>(calloc(sizeof(struct http_sig), 1));
-
-	http_context.sigs[to_srv] = static_cast<struct http_sig_record *>(realloc(http_context.sigs[to_srv], sizeof(struct http_sig_record) * (http_context.sig_cnt[to_srv] + 1)));
-
-	struct http_sig_record *hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
-
-	if (val[1] != ':')
-		FATAL("Malformed signature in line %u.", line_no);
-
-	// http_ver
-	switch (*val) {
-	case '0':
-		break;
-	case '1':
-		hsig->http_ver = 1;
-		break;
-	case '*':
-		hsig->http_ver = -1;
-		break;
-	default:
-		FATAL("Bad HTTP version in line %u.", line_no);
-	}
-
-	val += 2;
-
-	// horder
-	while (*val != ':') {
-
-		uint8_t optional = 0;
-
-		if (hsig->hdr_cnt >= HTTP_MAX_HDRS)
-			FATAL("Too many headers listed in line %u.", line_no);
-
-		nxt = val;
-
-		if (*nxt == '?') {
-			optional = 1;
-			val++;
-			nxt++;
-		}
-
-		while (isalnum(*nxt) || *nxt == '-' || *nxt == '_')
-			nxt++;
-
-		if (val == nxt)
-			FATAL("Malformed header name in line %u.", line_no);
-
-		uint32_t id = lookup_hdr(val, nxt - val, 1);
-
-		hsig->hdr[hsig->hdr_cnt].id       = id;
-		hsig->hdr[hsig->hdr_cnt].optional = optional;
-
-		if (!optional)
-			hsig->hdr_bloom4 |= bloom4_64(id);
-
-		val = nxt;
-
-		if (*val == '=') {
-
-			if (val[1] != '[')
-				FATAL("Missing '[' after '=' in line %u.", line_no);
-
-			val += 2;
-			nxt = val;
-
-			while (*nxt && *nxt != ']')
-				nxt++;
-
-			if (val == nxt || !*nxt)
-				FATAL("Malformed signature in line %u.", line_no);
-
-			hsig->hdr[hsig->hdr_cnt].value = ck_memdup_str(val, nxt - val);
-
-			val = nxt + 1;
-		}
-
-		hsig->hdr_cnt++;
-
-		if (*val == ',')
-			val++;
-		else if (*val != ':')
-			FATAL("Malformed signature in line %u.", line_no);
-	}
-
-	val++;
-
-	// habsent
-	while (*val != ':') {
-
-		if (hsig->miss_cnt >= HTTP_MAX_HDRS)
-			FATAL("Too many headers listed in line %u.", line_no);
-
-		nxt = val;
-		while (isalnum(*nxt) || *nxt == '-' || *nxt == '_')
-			nxt++;
-
-		if (val == nxt)
-			FATAL("Malformed header name in line %u.", line_no);
-
-		uint32_t id = lookup_hdr(val, nxt - val, 1);
-
-		hsig->miss[hsig->miss_cnt] = id;
-
-		val = nxt;
-
-		hsig->miss_cnt++;
-
-		if (*val == ',')
-			val++;
-		else if (*val != ':')
-			FATAL("Malformed signature in line %u.", line_no);
-	}
-
-	val++;
-
-	// exp_sw
-	if (*val) {
-
-		if (strchr(val, ':'))
-			FATAL("Malformed signature in line %u.", line_no);
-
-		hsig->sw = ck_strdup(val);
-	}
-
-	http_find_match(to_srv, hsig, 1);
-
-	if (hsig->matched)
-		FATAL("Signature in line %u is already covered by line %u.",
-			  line_no, hsig->matched->line_no);
-
-	hrec->class_id = sig_class;
-	hrec->name_id  = sig_name;
-	hrec->flavor   = sig_flavor;
-	hrec->label_id = label_id;
-	hrec->sys      = sys;
-	hrec->sys_cnt  = sys_cnt;
-	hrec->line_no  = line_no;
-	hrec->generic  = generic;
-
-	hrec->sig = hsig;
-
-	http_context.sig_cnt[to_srv]++;
-}
-
-// Register new HTTP signature.
-void http_parse_ua(char *val, uint32_t line_no, libp0f_context_t *libp0f_context) {
-
-	char *nxt;
-
-	while (*val) {
-
-		uint32_t id;
-		char *name = nullptr;
-
-		nxt = val;
-		while (*nxt && (isalnum(*nxt) || strchr(NAME_CHARS, *nxt)))
-			nxt++;
-
-		if (val == nxt)
-			FATAL("Malformed system name in line %u.", line_no);
-
-		id = lookup_name_id(val, nxt - val, libp0f_context);
-
-		val = nxt;
-
-		if (*val == '=') {
-
-			if (val[1] != '[')
-				FATAL("Missing '[' after '=' in line %u.", line_no);
-
-			val += 2;
-			nxt = val;
-
-			while (*nxt && *nxt != ']')
-				nxt++;
-
-			if (val == nxt || !*nxt)
-				FATAL("Malformed signature in line %u.", line_no);
-
-			name = ck_memdup_str(val, nxt - val);
-
-			val = nxt + 1;
-		}
-
-		http_context.ua_map = static_cast<struct ua_map_record *>(realloc(http_context.ua_map, (http_context.ua_map_cnt + 1) * sizeof(struct ua_map_record)));
-
-		http_context.ua_map[http_context.ua_map_cnt].id = id;
-
-		if (!name)
-			http_context.ua_map[http_context.ua_map_cnt].name = libp0f_context->fp_os_names[id];
-		else
-			http_context.ua_map[http_context.ua_map_cnt].name = name;
-
-		http_context.ua_map_cnt++;
-
-		if (*val == ',') val++;
-	}
-}
-
 // Dump a HTTP signature.
-static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
+const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 
 	uint32_t i;
 	uint8_t had_prev = 0;
@@ -626,7 +363,7 @@ static const char *dump_sig(uint8_t to_srv, const struct http_sig *hsig) {
 }
 
 // Dump signature flags.
-static const char *dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
+const char *dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
 
 	std::stringstream ss;
 
@@ -646,7 +383,7 @@ static const char *dump_flags(const struct http_sig *hsig, const struct http_sig
 
 /* Score signature differences. For unknown signatures, the presumption is that
  * they identify apps, so the logic is quite different from TCP. */
-static void score_nat(uint8_t to_srv, const struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void score_nat(uint8_t to_srv, const struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	struct http_sig_record *m = f->http_tmp.matched;
 	struct host_data *hd;
@@ -915,19 +652,8 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_conte
 	}
 }
 
-// Free up any allocated strings in http_sig.
-void free_sig_hdrs(struct http_sig *h) {
-	for (uint32_t i = 0; i < h->hdr_cnt; i++) {
-		if (h->hdr[i].name)
-			free(h->hdr[i].name);
-
-		if (h->hdr[i].value)
-			free(h->hdr[i].value);
-	}
-}
-
 // Parse HTTP date field.
-static time_t parse_date(const char *str) {
+time_t parse_date(const char *str) {
 	struct tm t;
 
 	if (!strptime(str, "%a, %d %b %Y %H:%M:%S %Z", &t)) {
@@ -1117,6 +843,280 @@ static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_ge
 	}
 
 	return can_get_more;
+}
+
+}
+
+// Pre-register essential headers.
+void http_init() {
+
+	memcpy(&http_context.req_optional, &req_optional_init, sizeof(http_context.req_optional));
+	memcpy(&http_context.resp_optional, &resp_optional_init, sizeof(http_context.resp_optional));
+	memcpy(&http_context.req_common, &req_common_init, sizeof(http_context.req_common));
+	memcpy(&http_context.resp_common, &resp_common_init, sizeof(http_context.resp_common));
+	memcpy(&http_context.req_skipval, &req_skipval_init, sizeof(http_context.req_skipval));
+	memcpy(&http_context.resp_skipval, &resp_skipval_init, sizeof(http_context.resp_skipval));
+
+	uint32_t i;
+
+	// Do not change - other code depends on the ordering of first 6 entries.
+	lookup_hdr(SLOF("User-Agent"), 1);      // 0
+	lookup_hdr(SLOF("Server"), 1);          // 1
+	lookup_hdr(SLOF("Accept-Language"), 1); // 2
+	lookup_hdr(SLOF("Via"), 1);             // 3
+	lookup_hdr(SLOF("X-Forwarded-For"), 1); // 4
+	lookup_hdr(SLOF("Date"), 1);            // 5
+
+	i = 0;
+	while (http_context.req_optional[i].name) {
+		http_context.req_optional[i].id = lookup_hdr(SLOF(http_context.req_optional[i].name), 1);
+		i++;
+	}
+
+	i = 0;
+	while (http_context.resp_optional[i].name) {
+		http_context.resp_optional[i].id = lookup_hdr(SLOF(http_context.resp_optional[i].name), 1);
+		i++;
+	}
+
+	i = 0;
+	while (http_context.req_skipval[i].name) {
+		http_context.req_skipval[i].id = lookup_hdr(SLOF(http_context.req_skipval[i].name), 1);
+		i++;
+	}
+
+	i = 0;
+	while (http_context.resp_skipval[i].name) {
+		http_context.resp_skipval[i].id = lookup_hdr(SLOF(http_context.resp_skipval[i].name), 1);
+		i++;
+	}
+
+	i = 0;
+	while (http_context.req_common[i].name) {
+		http_context.req_common[i].id = lookup_hdr(SLOF(http_context.req_common[i].name), 1);
+		i++;
+	}
+
+	i = 0;
+	while (http_context.resp_common[i].name) {
+		http_context.resp_common[i].id = lookup_hdr(SLOF(http_context.resp_common[i].name), 1);
+		i++;
+	}
+}
+
+// Register new HTTP signature.
+void http_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
+
+	char *nxt;
+
+	auto hsig = static_cast<struct http_sig *>(calloc(sizeof(struct http_sig), 1));
+
+	http_context.sigs[to_srv] = static_cast<struct http_sig_record *>(realloc(http_context.sigs[to_srv], sizeof(struct http_sig_record) * (http_context.sig_cnt[to_srv] + 1)));
+
+	struct http_sig_record *hrec = &http_context.sigs[to_srv][http_context.sig_cnt[to_srv]];
+
+	if (val[1] != ':')
+		FATAL("Malformed signature in line %u.", line_no);
+
+	// http_ver
+	switch (*val) {
+	case '0':
+		break;
+	case '1':
+		hsig->http_ver = 1;
+		break;
+	case '*':
+		hsig->http_ver = -1;
+		break;
+	default:
+		FATAL("Bad HTTP version in line %u.", line_no);
+	}
+
+	val += 2;
+
+	// horder
+	while (*val != ':') {
+
+		uint8_t optional = 0;
+
+		if (hsig->hdr_cnt >= HTTP_MAX_HDRS)
+			FATAL("Too many headers listed in line %u.", line_no);
+
+		nxt = val;
+
+		if (*nxt == '?') {
+			optional = 1;
+			val++;
+			nxt++;
+		}
+
+		while (isalnum(*nxt) || *nxt == '-' || *nxt == '_')
+			nxt++;
+
+		if (val == nxt)
+			FATAL("Malformed header name in line %u.", line_no);
+
+		uint32_t id = lookup_hdr(val, nxt - val, 1);
+
+		hsig->hdr[hsig->hdr_cnt].id       = id;
+		hsig->hdr[hsig->hdr_cnt].optional = optional;
+
+		if (!optional)
+			hsig->hdr_bloom4 |= bloom4_64(id);
+
+		val = nxt;
+
+		if (*val == '=') {
+
+			if (val[1] != '[')
+				FATAL("Missing '[' after '=' in line %u.", line_no);
+
+			val += 2;
+			nxt = val;
+
+			while (*nxt && *nxt != ']')
+				nxt++;
+
+			if (val == nxt || !*nxt)
+				FATAL("Malformed signature in line %u.", line_no);
+
+			hsig->hdr[hsig->hdr_cnt].value = ck_memdup_str(val, nxt - val);
+
+			val = nxt + 1;
+		}
+
+		hsig->hdr_cnt++;
+
+		if (*val == ',')
+			val++;
+		else if (*val != ':')
+			FATAL("Malformed signature in line %u.", line_no);
+	}
+
+	val++;
+
+	// habsent
+	while (*val != ':') {
+
+		if (hsig->miss_cnt >= HTTP_MAX_HDRS)
+			FATAL("Too many headers listed in line %u.", line_no);
+
+		nxt = val;
+		while (isalnum(*nxt) || *nxt == '-' || *nxt == '_')
+			nxt++;
+
+		if (val == nxt)
+			FATAL("Malformed header name in line %u.", line_no);
+
+		uint32_t id = lookup_hdr(val, nxt - val, 1);
+
+		hsig->miss[hsig->miss_cnt] = id;
+
+		val = nxt;
+
+		hsig->miss_cnt++;
+
+		if (*val == ',')
+			val++;
+		else if (*val != ':')
+			FATAL("Malformed signature in line %u.", line_no);
+	}
+
+	val++;
+
+	// exp_sw
+	if (*val) {
+
+		if (strchr(val, ':'))
+			FATAL("Malformed signature in line %u.", line_no);
+
+		hsig->sw = ck_strdup(val);
+	}
+
+	http_find_match(to_srv, hsig, 1);
+
+	if (hsig->matched)
+		FATAL("Signature in line %u is already covered by line %u.",
+			  line_no, hsig->matched->line_no);
+
+	hrec->class_id = sig_class;
+	hrec->name_id  = sig_name;
+	hrec->flavor   = sig_flavor;
+	hrec->label_id = label_id;
+	hrec->sys      = sys;
+	hrec->sys_cnt  = sys_cnt;
+	hrec->line_no  = line_no;
+	hrec->generic  = generic;
+
+	hrec->sig = hsig;
+
+	http_context.sig_cnt[to_srv]++;
+}
+
+// Register new HTTP signature.
+void http_parse_ua(char *val, uint32_t line_no, libp0f_context_t *libp0f_context) {
+
+	char *nxt;
+
+	while (*val) {
+
+		uint32_t id;
+		char *name = nullptr;
+
+		nxt = val;
+		while (*nxt && (isalnum(*nxt) || strchr(NAME_CHARS, *nxt)))
+			nxt++;
+
+		if (val == nxt)
+			FATAL("Malformed system name in line %u.", line_no);
+
+		id = lookup_name_id(val, nxt - val, libp0f_context);
+
+		val = nxt;
+
+		if (*val == '=') {
+
+			if (val[1] != '[')
+				FATAL("Missing '[' after '=' in line %u.", line_no);
+
+			val += 2;
+			nxt = val;
+
+			while (*nxt && *nxt != ']')
+				nxt++;
+
+			if (val == nxt || !*nxt)
+				FATAL("Malformed signature in line %u.", line_no);
+
+			name = ck_memdup_str(val, nxt - val);
+
+			val = nxt + 1;
+		}
+
+		http_context.ua_map = static_cast<struct ua_map_record *>(realloc(http_context.ua_map, (http_context.ua_map_cnt + 1) * sizeof(struct ua_map_record)));
+
+		http_context.ua_map[http_context.ua_map_cnt].id = id;
+
+		if (!name)
+			http_context.ua_map[http_context.ua_map_cnt].name = libp0f_context->fp_os_names[id];
+		else
+			http_context.ua_map[http_context.ua_map_cnt].name = name;
+
+		http_context.ua_map_cnt++;
+
+		if (*val == ',') val++;
+	}
+}
+
+// Free up any allocated strings in http_sig.
+void free_sig_hdrs(struct http_sig *h) {
+	for (uint32_t i = 0; i < h->hdr_cnt; i++) {
+		if (h->hdr[i].name)
+			free(h->hdr[i].name);
+
+		if (h->hdr[i].value)
+			free(h->hdr[i].value);
+	}
 }
 
 /* Examine request or response; returns 1 if more data needed and plausibly

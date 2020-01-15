@@ -62,24 +62,573 @@ struct process_context_t {
 
 process_context_t process_context;
 
+/* Calculate hash bucket for packet_flow. Keep the hash symmetrical: switching
+ * source and dest should have no effect. */
+uint32_t get_flow_bucket(struct packet_data *pk) {
+
+	uint32_t bucket;
+
+	if (pk->ip_ver == IP_VER4) {
+		bucket = hash32(pk->src, 4) ^ hash32(pk->dst, 4);
+	} else {
+		bucket = hash32(pk->src, 16) ^ hash32(pk->dst, 16);
+	}
+
+	bucket ^= hash32(&pk->sport, 2) ^ hash32(&pk->dport, 2);
+
+	return bucket % FLOW_BUCKETS;
 }
 
-static void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context);
-static void nuke_flows(uint8_t silent, libp0f_context_t *libp0f_context);
-static void expire_cache(libp0f_context_t *libp0f_context);
+// Look up an existing flow.
+struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) {
 
-// Get unix time in milliseconds.
-uint64_t get_unix_time_ms() {
-	return (process_context.cur_time->tv_sec) * 1000 + (process_context.cur_time->tv_usec / 1000);
+	uint32_t bucket       = get_flow_bucket(pk);
+	struct packet_flow *f = process_context.flow_b[bucket];
+
+	while (f) {
+
+		if (pk->ip_ver != f->client->ip_ver) goto lookup_next;
+
+		if (pk->sport == f->cli_port && pk->dport == f->srv_port &&
+			!memcmp(pk->src, f->client->addr, (pk->ip_ver == IP_VER4) ? 4 : 16) &&
+			!memcmp(pk->dst, f->server->addr, (pk->ip_ver == IP_VER4) ? 4 : 16)) {
+
+			*to_srv = 1;
+			return f;
+		}
+
+		if (pk->dport == f->cli_port && pk->sport == f->srv_port &&
+			!memcmp(pk->dst, f->client->addr, (pk->ip_ver == IP_VER4) ? 4 : 16) &&
+			!memcmp(pk->src, f->server->addr, (pk->ip_ver == IP_VER4) ? 4 : 16)) {
+
+			*to_srv = 0;
+			return f;
+		}
+
+	lookup_next:
+		f = f->next;
+	}
+
+	return nullptr;
 }
 
-// Get unix time in seconds.
-time_t get_unix_time() {
-	return process_context.cur_time->tv_sec;
+// Destroy a flow.
+void destroy_flow(struct packet_flow *f) {
+
+	DEBUG("[#] Destroying flow: %s/%u -> ",
+		  addr_to_str(f->client->addr, f->client->ip_ver), f->cli_port);
+
+	DEBUG("%s/%u (bucket %u)\n",
+		  addr_to_str(f->server->addr, f->server->ip_ver), f->srv_port,
+		  f->bucket);
+
+	// Remove it from the bucketed linked list.
+	if (f->next) {
+		f->next->prev = f->prev;
+	}
+
+	if (f->prev) {
+		f->prev->next = f->next;
+	} else {
+		process_context.flow_b[f->bucket] = f->next;
+	}
+
+	// Remove from the by-age linked list.
+	if (f->newer)
+		f->newer->older = f->older;
+	else {
+		process_context.newest_flow = f->older;
+	}
+
+	if (f->older) {
+		f->older->newer = f->newer;
+	} else {
+		process_context.flow_by_age = f->newer;
+	}
+
+	// Free memory, etc.
+	f->client->use_cnt--;
+	f->server->use_cnt--;
+
+	free_sig_hdrs(&f->http_tmp);
+
+	free(f->request);
+	free(f->response);
+	delete f;
+
+	process_context.flow_cnt--;
+}
+
+// Touch host data to make it more recent.
+void touch_host(struct host_data *h) {
+
+	DEBUG("[#] Refreshing host data: %s\n", addr_to_str(h->addr, h->ip_ver));
+
+	if (h != process_context.newest_host) {
+
+		// Remove from the the by-age linked list.
+		h->newer->older = h->older;
+
+		if (h->older)
+			h->older->newer = h->newer;
+		else
+			process_context.host_by_age = h->newer;
+
+		// Re-insert in front.
+		process_context.newest_host->newer = h;
+		h->older                           = process_context.newest_host;
+		h->newer                           = nullptr;
+
+		process_context.newest_host = h;
+
+		/* This wasn't the only entry on the list, so there is no
+	   need to update the tail (process_context.host_by_age). */
+	}
+
+	// Update last seen time.
+	h->last_seen = get_unix_time();
+}
+
+// Indiscriminately kill some of the oldest flows.
+void nuke_flows(uint8_t silent, libp0f_context_t *libp0f_context) {
+
+	uint32_t kcnt = 1 + (process_context.flow_cnt * KILL_PERCENT / 100);
+
+	if (silent) {
+		DEBUG("[#] Pruning connections - trying to delete %u...\n", kcnt);
+	} else if (!libp0f_context->read_file) {
+		WARN("Too many tracked connections, deleting %u. "
+			 "Use -m to adjust.",
+			 kcnt);
+	}
+
+	while (kcnt-- && process_context.flow_by_age) {
+		destroy_flow(process_context.flow_by_age);
+	}
+}
+
+// Calculate hash bucket for host_data.
+uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
+	uint32_t bucket = hash32(addr, (ip_ver == IP_VER4) ? 4 : 16);
+	return bucket % HOST_BUCKETS;
+}
+
+// Destroy host data.
+void destroy_host(struct host_data *h) {
+
+	uint32_t bucket;
+
+	bucket = get_host_bucket(h->addr, h->ip_ver);
+
+	if (h->use_cnt) FATAL("Attempt to destroy used host data.");
+
+	DEBUG("[#] Destroying host data: %s (bucket %d)\n",
+		  addr_to_str(h->addr, h->ip_ver), bucket);
+
+	// Remove it from the bucketed linked list.
+	if (h->next) h->next->prev = h->prev;
+
+	if (h->prev)
+		h->prev->next = h->next;
+	else
+		process_context.host_b[bucket] = h->next;
+
+	// Remove from the by-age linked list.
+	if (h->newer)
+		h->newer->older = h->older;
+	else
+		process_context.newest_host = h->older;
+
+	if (h->older)
+		h->older->newer = h->newer;
+	else
+		process_context.host_by_age = h->newer;
+
+	// Free memory.
+	free(h->last_syn);
+	free(h->last_synack);
+
+	free(h->http_resp);
+	free(h->http_req_os);
+
+	delete h;
+
+	process_context.host_cnt--;
+}
+
+// Indiscriminately kill some of the older hosts.
+void nuke_hosts(libp0f_context_t *libp0f_context) {
+
+	uint32_t kcnt            = 1 + (process_context.host_cnt * KILL_PERCENT / 100);
+	struct host_data *target = process_context.host_by_age;
+
+	if (!libp0f_context->read_file)
+		WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
+
+	nuke_flows(1, libp0f_context);
+
+	while (kcnt && target) {
+		struct host_data *next = target->older;
+		if (!target->use_cnt) {
+			kcnt--;
+			destroy_host(target);
+		}
+		target = next;
+	}
+}
+
+// Create a minimal host data.
+struct host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *libp0f_context) {
+
+	uint32_t bucket = get_host_bucket(addr, ip_ver);
+
+	if (process_context.host_cnt > libp0f_context->max_hosts)
+		nuke_hosts(libp0f_context);
+
+	DEBUG("[#] Creating host data: %s (bucket %u)\n",
+		  addr_to_str(addr, ip_ver), bucket);
+
+	auto nh = new struct host_data;
+
+	// Insert into the bucketed linked list.
+	if (process_context.host_b[bucket]) {
+		process_context.host_b[bucket]->prev = nh;
+		nh->next                             = process_context.host_b[bucket];
+	}
+
+	process_context.host_b[bucket] = nh;
+
+	// Insert into the by-age linked list.
+	if (process_context.newest_host) {
+		process_context.newest_host->newer = nh;
+		nh->older                          = process_context.newest_host;
+	} else {
+		process_context.host_by_age = nh;
+	}
+
+	process_context.newest_host = nh;
+
+	// Populate other data.
+	nh->ip_ver = ip_ver;
+	memcpy(nh->addr, addr, (ip_ver == IP_VER4) ? 4 : 16);
+
+	nh->last_seen = nh->first_seen = get_unix_time();
+
+	nh->last_up_min   = -1;
+	nh->last_class_id = -1;
+	nh->last_name_id  = -1;
+	nh->http_name_id  = -1;
+	nh->distance      = -1;
+
+	process_context.host_cnt++;
+
+	return nh;
+}
+
+// Create flow, and host data if necessary. If counts exceeded, prune old.
+struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_t *libp0f_context) {
+
+	uint32_t bucket = get_flow_bucket(pk);
+
+	if (process_context.flow_cnt > libp0f_context->max_conn) {
+		nuke_flows(0, libp0f_context);
+	}
+
+	DEBUG("[#] Creating flow from SYN: %s/%u -> ",
+		  addr_to_str(pk->src, pk->ip_ver), pk->sport);
+
+	DEBUG("%s/%u (bucket %u)\n",
+		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, bucket);
+
+	auto nf = new struct packet_flow;
+
+	nf->client = lookup_host(pk->src, pk->ip_ver);
+
+	if (nf->client)
+		touch_host(nf->client);
+	else
+		nf->client = create_host(pk->src, pk->ip_ver, libp0f_context);
+
+	nf->server = lookup_host(pk->dst, pk->ip_ver);
+
+	if (nf->server)
+		touch_host(nf->server);
+	else
+		nf->server = create_host(pk->dst, pk->ip_ver, libp0f_context);
+
+	nf->client->use_cnt++;
+	nf->server->use_cnt++;
+
+	nf->client->total_conn++;
+	nf->server->total_conn++;
+
+	// Insert into the bucketed linked list.
+	if (process_context.flow_b[bucket]) {
+		process_context.flow_b[bucket]->prev = nf;
+		nf->next                             = process_context.flow_b[bucket];
+	}
+
+	process_context.flow_b[bucket] = nf;
+
+	// Insert into the by-age linked list
+	if (process_context.newest_flow) {
+		process_context.newest_flow->newer = nf;
+		nf->older                          = process_context.newest_flow;
+	} else
+		process_context.flow_by_age = nf;
+
+	process_context.newest_flow = nf;
+
+	// Populate other data
+	nf->cli_port = pk->sport;
+	nf->srv_port = pk->dport;
+	nf->bucket   = bucket;
+	nf->created  = get_unix_time();
+
+	nf->next_cli_seq = pk->seq + 1;
+
+	process_context.flow_cnt++;
+	return nf;
+}
+
+// Insert data from a packet into a flow, call handlers as appropriate.
+void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
+
+	struct tcp_sig *tsig;
+	uint8_t to_srv    = 0;
+	uint8_t need_more = 0;
+
+	DEBUG("[#] Received TCP packet: %s/%u -> ",
+		  addr_to_str(pk->src, pk->ip_ver), pk->sport);
+
+	DEBUG("%s/%u (type 0x%02x, pay_len = %u)\n",
+		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, pk->tcp_type,
+		  pk->pay_len);
+
+	struct packet_flow *f = lookup_flow(pk, &to_srv);
+
+	switch (pk->tcp_type) {
+	case TCP_SYN:
+		if (f) {
+			// Perhaps just a simple dupe?
+			if (to_srv && f->next_cli_seq - 1 == pk->seq) return;
+
+			DEBUG("[#] New SYN for an existing flow, resetting.\n");
+			destroy_flow(f);
+		}
+
+		f = create_flow_from_syn(pk, libp0f_context);
+
+		tsig = fingerprint_tcp(1, pk, f, libp0f_context);
+
+		/* We don't want to do any further processing on generic non-OS
+		 signatures (e.g. NMap). The easiest way to guarantee that is to
+		 kill the flow. */
+
+		if (!tsig && !f->sendsyn) {
+			destroy_flow(f);
+			return;
+		}
+
+		fingerprint_mtu(1, pk, f, libp0f_context);
+		check_ts_tcp(1, pk, f, libp0f_context);
+
+		if (tsig) {
+			/* This can't be done in fingerprint_tcp because check_ts_tcp()
+			 * depends on having original SYN / SYN+ACK data. */
+
+			free(f->client->last_syn);
+			f->client->last_syn = tsig;
+		}
+
+		break;
+
+	case TCP_SYN | TCP_ACK:
+		if (!f) {
+			DEBUG("[#] Stray SYN+ACK with no flow.\n");
+			return;
+		}
+
+		// This is about as far as we want to go with p0f-sendsyn.
+		if (f->sendsyn) {
+
+			fingerprint_tcp(0, pk, f, libp0f_context);
+			destroy_flow(f);
+			return;
+		}
+
+		if (to_srv) {
+
+			DEBUG("[#] SYN+ACK from client to server, trippy.\n");
+			return;
+		}
+
+		if (f->acked) {
+
+			if (f->next_srv_seq - 1 != pk->seq)
+				DEBUG("[#] Repeated but non-identical SYN+ACK (0x%08x != 0x%08x).\n",
+					  f->next_srv_seq - 1, pk->seq);
+
+			return;
+		}
+
+		f->acked = 1;
+
+		tsig = fingerprint_tcp(0, pk, f, libp0f_context);
+
+		// SYN from real OS, SYN+ACK from a client stack. Weird, but whatever.
+		if (!tsig) {
+			destroy_flow(f);
+			return;
+		}
+
+		fingerprint_mtu(0, pk, f, libp0f_context);
+		check_ts_tcp(0, pk, f, libp0f_context);
+
+		free(f->server->last_synack);
+		f->server->last_synack = tsig;
+
+		f->next_srv_seq = pk->seq + 1;
+
+		break;
+
+	case TCP_RST | TCP_ACK:
+	case TCP_RST:
+	case TCP_FIN | TCP_ACK:
+	case TCP_FIN:
+
+		if (f) {
+
+			check_ts_tcp(to_srv, pk, f, libp0f_context);
+			destroy_flow(f);
+		}
+
+		break;
+
+	case TCP_ACK:
+
+		if (!f) return;
+
+		// Stop there, you criminal scum!
+		if (f->sendsyn) {
+			destroy_flow(f);
+			return;
+		}
+
+		if (!f->acked) {
+
+			DEBUG("[#] Never received SYN+ACK to complete handshake, huh.\n");
+			destroy_flow(f);
+			return;
+		}
+
+		if (to_srv) {
+
+			/* We don't do stream reassembly, so if something arrives out of order,
+		   we won't catch it. Oh well. */
+
+			if (f->next_cli_seq != pk->seq) {
+
+				// Not a simple dupe?
+				if (f->next_cli_seq - pk->pay_len != pk->seq)
+					DEBUG("[#] Expected client seq 0x%08x, got 0x%08x.\n", f->next_cli_seq, pk->seq);
+
+				return;
+			}
+
+			// Append data
+			if (f->req_len < MAX_FLOW_DATA && pk->pay_len) {
+
+				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->req_len);
+
+				f->request = static_cast<char *>(realloc(f->request, f->req_len + read_amt + 1));
+				memcpy(f->request + f->req_len, pk->payload, read_amt);
+				f->req_len += read_amt;
+			}
+
+			check_ts_tcp(1, pk, f, libp0f_context);
+
+			f->next_cli_seq += pk->pay_len;
+
+		} else {
+
+			if (f->next_srv_seq != pk->seq) {
+
+				// Not a simple dupe?
+				if (f->next_srv_seq - pk->pay_len != pk->seq)
+					DEBUG("[#] Expected server seq 0x%08x, got 0x%08x.\n",
+						  f->next_cli_seq, pk->seq);
+
+				return;
+			}
+
+			// Append data
+			if (f->resp_len < MAX_FLOW_DATA && pk->pay_len) {
+
+				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
+
+				f->response = static_cast<char *>(realloc(f->response, f->resp_len + read_amt + 1));
+				memcpy(f->response + f->resp_len, pk->payload, read_amt);
+				f->resp_len += read_amt;
+			}
+
+			check_ts_tcp(0, pk, f, libp0f_context);
+
+			f->next_srv_seq += pk->pay_len;
+		}
+
+		if (!pk->pay_len) return;
+
+		need_more |= process_http(to_srv, f, libp0f_context);
+
+		if (!need_more) {
+
+			DEBUG("[#] All modules done, no need to keep tracking flow.\n");
+			destroy_flow(f);
+
+		} else if (f->req_len >= MAX_FLOW_DATA && f->resp_len >= MAX_FLOW_DATA) {
+
+			DEBUG("[#] Per-flow capture size limit exceeded.\n");
+			destroy_flow(f);
+		}
+
+		break;
+
+	default:
+
+		WARN("Huh. Unexpected packet type 0x%02x in flow_dispatch().", pk->tcp_type);
+	}
+}
+
+// Go through host and flow cache, expire outdated items.
+void expire_cache(libp0f_context_t *libp0f_context) {
+	struct host_data *target;
+	static time_t pt;
+
+	const time_t ct = get_unix_time();
+
+	if (ct == pt)
+		return;
+	pt = ct;
+
+	DEBUG("[#] Cache expiration kicks in...\n");
+
+	while (process_context.flow_by_age && ct - process_context.flow_by_age->created > libp0f_context->conn_max_age)
+		destroy_flow(process_context.flow_by_age);
+
+	target = process_context.host_by_age;
+
+	while (target && ct - target->last_seen > libp0f_context->host_idle_limit * 60) {
+		struct host_data *newer = target->newer;
+		if (!target->use_cnt) {
+			destroy_host(target);
+		}
+		target = newer;
+	}
 }
 
 // Find link-specific offset (pcap knows, but won't tell).
-static void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0f_context) {
+void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0f_context) {
 
 	uint8_t i;
 
@@ -152,7 +701,7 @@ static void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t
 	}
 
 	/* If we found something, adjust for VLAN tags (ETH_P_8021Q == 0x8100). Else,
-     complain once and try again soon. */
+	 complain once and try again soon. */
 
 	if (process_context.link_off >= 4 && data[i - 4] == 0x81 && data[i - 3] == 0x00) {
 		DEBUG("[#] Adjusting offset due to VLAN tagging.\n");
@@ -161,6 +710,18 @@ static void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t
 		process_context.link_off = -2;
 		WARN("Unable to find link-specific packet offset. This is bad.");
 	}
+}
+
+}
+
+// Get unix time in milliseconds.
+uint64_t get_unix_time_ms() {
+	return (process_context.cur_time->tv_sec) * 1000 + (process_context.cur_time->tv_usec / 1000);
+}
+
+// Get unix time in seconds.
+time_t get_unix_time() {
+	return process_context.cur_time->tv_sec;
 }
 
 // Convert IPv4 or IPv6 address to a human-readable form.
@@ -194,7 +755,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	const struct tcp_hdr *tcp = nullptr;
 	struct packet_data pk     = {};
 
-	int32_t packet_len;
 	uint32_t tcp_doff;
 
 	const uint8_t *opt_end;
@@ -207,8 +767,9 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		expire_cache(libp0f_context);
 
 	// Be paranoid about how much data we actually have off the wire.
-	packet_len = std::min(hdr->len, hdr->caplen);
-	if (packet_len > SNAPLEN) packet_len = SNAPLEN;
+	int32_t packet_len = std::min(hdr->len, hdr->caplen);
+	if (packet_len > SNAPLEN)
+		packet_len = SNAPLEN;
 
 	// DEBUG("[#] Received packet: len = %d, caplen = %d, limit = %d\n",
 	//    hdr->len, hdr->caplen, SNAPLEN);
@@ -225,7 +786,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	/* If there is no way we could have received a complete TCP packet,
 	 * bail out early. */
-
 	if (packet_len < MIN_TCP4) {
 		DEBUG("[#] Packet too short for any IPv4 + TCP headers, giving up!\n");
 		return;
@@ -678,34 +1238,6 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	flow_dispatch(&pk, libp0f_context);
 }
 
-/* Calculate hash bucket for packet_flow. Keep the hash symmetrical: switching
-   source and dest should have no effect. */
-
-static uint32_t get_flow_bucket(struct packet_data *pk) {
-
-	uint32_t bucket;
-
-	if (pk->ip_ver == IP_VER4) {
-		bucket = hash32(pk->src, 4) ^ hash32(pk->dst, 4);
-	} else {
-		bucket = hash32(pk->src, 16) ^ hash32(pk->dst, 16);
-	}
-
-	bucket ^= hash32(&pk->sport, 2) ^ hash32(&pk->dport, 2);
-
-	return bucket % FLOW_BUCKETS;
-}
-
-// Calculate hash bucket for host_data.
-static uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
-
-	uint32_t bucket;
-
-	bucket = hash32(addr, (ip_ver == IP_VER4) ? 4 : 16);
-
-	return bucket % HOST_BUCKETS;
-}
-
 // Look up host data.
 struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 
@@ -724,547 +1256,7 @@ struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 	return nullptr;
 }
 
-// Destroy host data.
-static void destroy_host(struct host_data *h) {
 
-	uint32_t bucket;
-
-	bucket = get_host_bucket(h->addr, h->ip_ver);
-
-	if (h->use_cnt) FATAL("Attempt to destroy used host data.");
-
-	DEBUG("[#] Destroying host data: %s (bucket %d)\n",
-		  addr_to_str(h->addr, h->ip_ver), bucket);
-
-	// Remove it from the bucketed linked list.
-	if (h->next) h->next->prev = h->prev;
-
-	if (h->prev)
-		h->prev->next = h->next;
-	else
-		process_context.host_b[bucket] = h->next;
-
-	// Remove from the by-age linked list.
-	if (h->newer)
-		h->newer->older = h->older;
-	else
-		process_context.newest_host = h->older;
-
-	if (h->older)
-		h->older->newer = h->newer;
-	else
-		process_context.host_by_age = h->newer;
-
-	// Free memory.
-	free(h->last_syn);
-	free(h->last_synack);
-
-	free(h->http_resp);
-	free(h->http_req_os);
-
-	delete h;
-
-	process_context.host_cnt--;
-}
-
-// Indiscriminately kill some of the older hosts.
-static void nuke_hosts(libp0f_context_t *libp0f_context) {
-
-	uint32_t kcnt            = 1 + (process_context.host_cnt * KILL_PERCENT / 100);
-	struct host_data *target = process_context.host_by_age;
-
-	if (!libp0f_context->read_file)
-		WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
-
-	nuke_flows(1, libp0f_context);
-
-	while (kcnt && target) {
-		struct host_data *next = target->older;
-		if (!target->use_cnt) {
-			kcnt--;
-			destroy_host(target);
-		}
-		target = next;
-	}
-}
-
-// Create a minimal host data.
-static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *libp0f_context) {
-
-	uint32_t bucket = get_host_bucket(addr, ip_ver);
-
-	if (process_context.host_cnt > libp0f_context->max_hosts)
-		nuke_hosts(libp0f_context);
-
-	DEBUG("[#] Creating host data: %s (bucket %u)\n",
-		  addr_to_str(addr, ip_ver), bucket);
-
-	auto nh = new struct host_data;
-
-	// Insert into the bucketed linked list.
-	if (process_context.host_b[bucket]) {
-		process_context.host_b[bucket]->prev = nh;
-		nh->next                             = process_context.host_b[bucket];
-	}
-
-	process_context.host_b[bucket] = nh;
-
-	// Insert into the by-age linked list.
-	if (process_context.newest_host) {
-		process_context.newest_host->newer = nh;
-		nh->older                          = process_context.newest_host;
-	} else {
-		process_context.host_by_age = nh;
-	}
-
-	process_context.newest_host = nh;
-
-	// Populate other data.
-	nh->ip_ver = ip_ver;
-	memcpy(nh->addr, addr, (ip_ver == IP_VER4) ? 4 : 16);
-
-	nh->last_seen = nh->first_seen = get_unix_time();
-
-	nh->last_up_min   = -1;
-	nh->last_class_id = -1;
-	nh->last_name_id  = -1;
-	nh->http_name_id  = -1;
-	nh->distance      = -1;
-
-	process_context.host_cnt++;
-
-	return nh;
-}
-
-// Touch host data to make it more recent.
-static void touch_host(struct host_data *h) {
-
-	DEBUG("[#] Refreshing host data: %s\n", addr_to_str(h->addr, h->ip_ver));
-
-	if (h != process_context.newest_host) {
-
-		// Remove from the the by-age linked list.
-		h->newer->older = h->older;
-
-		if (h->older)
-			h->older->newer = h->newer;
-		else
-			process_context.host_by_age = h->newer;
-
-		// Re-insert in front.
-		process_context.newest_host->newer = h;
-		h->older                           = process_context.newest_host;
-		h->newer                           = nullptr;
-
-		process_context.newest_host = h;
-
-		/* This wasn't the only entry on the list, so there is no
-	   need to update the tail (process_context.host_by_age). */
-	}
-
-	// Update last seen time.
-	h->last_seen = get_unix_time();
-}
-
-// Destroy a flow.
-static void destroy_flow(struct packet_flow *f) {
-
-	DEBUG("[#] Destroying flow: %s/%u -> ",
-		  addr_to_str(f->client->addr, f->client->ip_ver), f->cli_port);
-
-	DEBUG("%s/%u (bucket %u)\n",
-		  addr_to_str(f->server->addr, f->server->ip_ver), f->srv_port,
-		  f->bucket);
-
-	// Remove it from the bucketed linked list.
-	if (f->next) {
-		f->next->prev = f->prev;
-	}
-
-	if (f->prev) {
-		f->prev->next = f->next;
-	} else {
-		process_context.flow_b[f->bucket] = f->next;
-	}
-
-	// Remove from the by-age linked list.
-	if (f->newer)
-		f->newer->older = f->older;
-	else {
-		process_context.newest_flow = f->older;
-	}
-
-	if (f->older) {
-		f->older->newer = f->newer;
-	} else {
-		process_context.flow_by_age = f->newer;
-	}
-
-	// Free memory, etc.
-	f->client->use_cnt--;
-	f->server->use_cnt--;
-
-	free_sig_hdrs(&f->http_tmp);
-
-	free(f->request);
-	free(f->response);
-	delete f;
-
-	process_context.flow_cnt--;
-}
-
-// Indiscriminately kill some of the oldest flows.
-static void nuke_flows(uint8_t silent, libp0f_context_t *libp0f_context) {
-
-	uint32_t kcnt = 1 + (process_context.flow_cnt * KILL_PERCENT / 100);
-
-	if (silent) {
-		DEBUG("[#] Pruning connections - trying to delete %u...\n", kcnt);
-	} else if (!libp0f_context->read_file) {
-		WARN("Too many tracked connections, deleting %u. "
-			 "Use -m to adjust.",
-			 kcnt);
-	}
-
-	while (kcnt-- && process_context.flow_by_age) {
-		destroy_flow(process_context.flow_by_age);
-	}
-}
-
-// Create flow, and host data if necessary. If counts exceeded, prune old.
-static struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_t *libp0f_context) {
-
-	uint32_t bucket = get_flow_bucket(pk);
-
-	if (process_context.flow_cnt > libp0f_context->max_conn) {
-		nuke_flows(0, libp0f_context);
-	}
-
-	DEBUG("[#] Creating flow from SYN: %s/%u -> ",
-		  addr_to_str(pk->src, pk->ip_ver), pk->sport);
-
-	DEBUG("%s/%u (bucket %u)\n",
-		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, bucket);
-
-	auto nf = new struct packet_flow;
-
-	nf->client = lookup_host(pk->src, pk->ip_ver);
-
-	if (nf->client)
-		touch_host(nf->client);
-	else
-		nf->client = create_host(pk->src, pk->ip_ver, libp0f_context);
-
-	nf->server = lookup_host(pk->dst, pk->ip_ver);
-
-	if (nf->server)
-		touch_host(nf->server);
-	else
-		nf->server = create_host(pk->dst, pk->ip_ver, libp0f_context);
-
-	nf->client->use_cnt++;
-	nf->server->use_cnt++;
-
-	nf->client->total_conn++;
-	nf->server->total_conn++;
-
-	// Insert into the bucketed linked list.
-	if (process_context.flow_b[bucket]) {
-		process_context.flow_b[bucket]->prev = nf;
-		nf->next                             = process_context.flow_b[bucket];
-	}
-
-	process_context.flow_b[bucket] = nf;
-
-	// Insert into the by-age linked list
-	if (process_context.newest_flow) {
-		process_context.newest_flow->newer = nf;
-		nf->older                          = process_context.newest_flow;
-	} else
-		process_context.flow_by_age = nf;
-
-	process_context.newest_flow = nf;
-
-	// Populate other data
-	nf->cli_port = pk->sport;
-	nf->srv_port = pk->dport;
-	nf->bucket   = bucket;
-	nf->created  = get_unix_time();
-
-	nf->next_cli_seq = pk->seq + 1;
-
-	process_context.flow_cnt++;
-	return nf;
-}
-
-// Look up an existing flow.
-static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) {
-
-	uint32_t bucket       = get_flow_bucket(pk);
-	struct packet_flow *f = process_context.flow_b[bucket];
-
-	while (f) {
-
-		if (pk->ip_ver != f->client->ip_ver) goto lookup_next;
-
-		if (pk->sport == f->cli_port && pk->dport == f->srv_port &&
-			!memcmp(pk->src, f->client->addr, (pk->ip_ver == IP_VER4) ? 4 : 16) &&
-			!memcmp(pk->dst, f->server->addr, (pk->ip_ver == IP_VER4) ? 4 : 16)) {
-
-			*to_srv = 1;
-			return f;
-		}
-
-		if (pk->dport == f->cli_port && pk->sport == f->srv_port &&
-			!memcmp(pk->dst, f->client->addr, (pk->ip_ver == IP_VER4) ? 4 : 16) &&
-			!memcmp(pk->src, f->server->addr, (pk->ip_ver == IP_VER4) ? 4 : 16)) {
-
-			*to_srv = 0;
-			return f;
-		}
-
-	lookup_next:
-		f = f->next;
-	}
-
-	return nullptr;
-}
-
-// Go through host and flow cache, expire outdated items.
-static void expire_cache(libp0f_context_t *libp0f_context) {
-	struct host_data *target;
-	static time_t pt;
-
-	const time_t ct = get_unix_time();
-
-	if (ct == pt)
-		return;
-	pt = ct;
-
-	DEBUG("[#] Cache expiration kicks in...\n");
-
-	while (process_context.flow_by_age && ct - process_context.flow_by_age->created > libp0f_context->conn_max_age)
-		destroy_flow(process_context.flow_by_age);
-
-	target = process_context.host_by_age;
-
-	while (target && ct - target->last_seen > libp0f_context->host_idle_limit * 60) {
-		struct host_data *newer = target->newer;
-		if (!target->use_cnt) {
-			destroy_host(target);
-		}
-		target = newer;
-	}
-}
-
-// Insert data from a packet into a flow, call handlers as appropriate.
-static void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
-
-	struct tcp_sig *tsig;
-	uint8_t to_srv    = 0;
-	uint8_t need_more = 0;
-
-	DEBUG("[#] Received TCP packet: %s/%u -> ",
-		  addr_to_str(pk->src, pk->ip_ver), pk->sport);
-
-	DEBUG("%s/%u (type 0x%02x, pay_len = %u)\n",
-		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, pk->tcp_type,
-		  pk->pay_len);
-
-	struct packet_flow *f = lookup_flow(pk, &to_srv);
-
-	switch (pk->tcp_type) {
-	case TCP_SYN:
-		if (f) {
-			// Perhaps just a simple dupe?
-			if (to_srv && f->next_cli_seq - 1 == pk->seq) return;
-
-			DEBUG("[#] New SYN for an existing flow, resetting.\n");
-			destroy_flow(f);
-		}
-
-		f = create_flow_from_syn(pk, libp0f_context);
-
-		tsig = fingerprint_tcp(1, pk, f, libp0f_context);
-
-		/* We don't want to do any further processing on generic non-OS
-         signatures (e.g. NMap). The easiest way to guarantee that is to 
-         kill the flow. */
-
-		if (!tsig && !f->sendsyn) {
-			destroy_flow(f);
-			return;
-		}
-
-		fingerprint_mtu(1, pk, f, libp0f_context);
-		check_ts_tcp(1, pk, f, libp0f_context);
-
-		if (tsig) {
-			/* This can't be done in fingerprint_tcp because check_ts_tcp()
-			 * depends on having original SYN / SYN+ACK data. */
-
-			free(f->client->last_syn);
-			f->client->last_syn = tsig;
-		}
-
-		break;
-
-	case TCP_SYN | TCP_ACK:
-		if (!f) {
-			DEBUG("[#] Stray SYN+ACK with no flow.\n");
-			return;
-		}
-
-		// This is about as far as we want to go with p0f-sendsyn.
-		if (f->sendsyn) {
-
-			fingerprint_tcp(0, pk, f, libp0f_context);
-			destroy_flow(f);
-			return;
-		}
-
-		if (to_srv) {
-
-			DEBUG("[#] SYN+ACK from client to server, trippy.\n");
-			return;
-		}
-
-		if (f->acked) {
-
-			if (f->next_srv_seq - 1 != pk->seq)
-				DEBUG("[#] Repeated but non-identical SYN+ACK (0x%08x != 0x%08x).\n",
-					  f->next_srv_seq - 1, pk->seq);
-
-			return;
-		}
-
-		f->acked = 1;
-
-		tsig = fingerprint_tcp(0, pk, f, libp0f_context);
-
-		// SYN from real OS, SYN+ACK from a client stack. Weird, but whatever.
-		if (!tsig) {
-			destroy_flow(f);
-			return;
-		}
-
-		fingerprint_mtu(0, pk, f, libp0f_context);
-		check_ts_tcp(0, pk, f, libp0f_context);
-
-		free(f->server->last_synack);
-		f->server->last_synack = tsig;
-
-		f->next_srv_seq = pk->seq + 1;
-
-		break;
-
-	case TCP_RST | TCP_ACK:
-	case TCP_RST:
-	case TCP_FIN | TCP_ACK:
-	case TCP_FIN:
-
-		if (f) {
-
-			check_ts_tcp(to_srv, pk, f, libp0f_context);
-			destroy_flow(f);
-		}
-
-		break;
-
-	case TCP_ACK:
-
-		if (!f) return;
-
-		// Stop there, you criminal scum!
-		if (f->sendsyn) {
-			destroy_flow(f);
-			return;
-		}
-
-		if (!f->acked) {
-
-			DEBUG("[#] Never received SYN+ACK to complete handshake, huh.\n");
-			destroy_flow(f);
-			return;
-		}
-
-		if (to_srv) {
-
-			/* We don't do stream reassembly, so if something arrives out of order,
-           we won't catch it. Oh well. */
-
-			if (f->next_cli_seq != pk->seq) {
-
-				// Not a simple dupe?
-				if (f->next_cli_seq - pk->pay_len != pk->seq)
-					DEBUG("[#] Expected client seq 0x%08x, got 0x%08x.\n", f->next_cli_seq, pk->seq);
-
-				return;
-			}
-
-			// Append data
-			if (f->req_len < MAX_FLOW_DATA && pk->pay_len) {
-
-				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->req_len);
-
-				f->request = static_cast<char *>(realloc(f->request, f->req_len + read_amt + 1));
-				memcpy(f->request + f->req_len, pk->payload, read_amt);
-				f->req_len += read_amt;
-			}
-
-			check_ts_tcp(1, pk, f, libp0f_context);
-
-			f->next_cli_seq += pk->pay_len;
-
-		} else {
-
-			if (f->next_srv_seq != pk->seq) {
-
-				// Not a simple dupe?
-				if (f->next_srv_seq - pk->pay_len != pk->seq)
-					DEBUG("[#] Expected server seq 0x%08x, got 0x%08x.\n",
-						  f->next_cli_seq, pk->seq);
-
-				return;
-			}
-
-			// Append data
-			if (f->resp_len < MAX_FLOW_DATA && pk->pay_len) {
-
-				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->resp_len);
-
-				f->response = static_cast<char *>(realloc(f->response, f->resp_len + read_amt + 1));
-				memcpy(f->response + f->resp_len, pk->payload, read_amt);
-				f->resp_len += read_amt;
-			}
-
-			check_ts_tcp(0, pk, f, libp0f_context);
-
-			f->next_srv_seq += pk->pay_len;
-		}
-
-		if (!pk->pay_len) return;
-
-		need_more |= process_http(to_srv, f, libp0f_context);
-
-		if (!need_more) {
-
-			DEBUG("[#] All modules done, no need to keep tracking flow.\n");
-			destroy_flow(f);
-
-		} else if (f->req_len >= MAX_FLOW_DATA && f->resp_len >= MAX_FLOW_DATA) {
-
-			DEBUG("[#] Per-flow capture size limit exceeded.\n");
-			destroy_flow(f);
-		}
-
-		break;
-
-	default:
-
-		WARN("Huh. Unexpected packet type 0x%02x in flow_dispatch().", pk->tcp_type);
-	}
-}
 
 // Add NAT score, check if alarm due.
 void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context) {
