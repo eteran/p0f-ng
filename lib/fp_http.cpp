@@ -59,9 +59,7 @@ struct http_context_t {
 	struct http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
 	struct http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
 
-	struct header_name *hdr_names; // List of header names by ID
-	uint32_t hdr_cnt;              // Number of headers registered
-
+	std::vector<struct header_name> hdr_names; // List of header names by ID
 	std::vector<uint32_t> hdr_by_hash[SIG_BUCKETS]; // Hashed header names
 
 	/* Signatures aren't bucketed due to the complex matching used; but we use
@@ -102,15 +100,16 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 	if (!create)
 		return -1;
 
-	http_context.hdr_names = static_cast<struct header_name *>(realloc(http_context.hdr_names, (http_context.hdr_cnt + 1) * sizeof(struct header_name)));
+	size_t index = http_context.hdr_names.size();
 
-	http_context.hdr_names[http_context.hdr_cnt].name = ck_memdup_str(name, len);
-	http_context.hdr_names[http_context.hdr_cnt].size = len;
+	struct header_name hn;
+	hn.name = ck_memdup_str(name, len);
+	hn.size = len;
+	http_context.hdr_names.push_back(hn);
 
+	http_context.hdr_by_hash[bucket].push_back(index);
 
-	http_context.hdr_by_hash[bucket].push_back(http_context.hdr_cnt++);
-
-	return http_context.hdr_cnt - 1;
+	return index;
 }
 
 // Find match for a signature.
