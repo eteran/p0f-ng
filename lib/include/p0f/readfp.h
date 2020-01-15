@@ -28,7 +28,10 @@
 
 // Flag to distinguish OS class and name IDs
 #define SYS_CLASS_FLAG (1u << 31)
-#define SYS_NF(_x) ((_x) & ~SYS_CLASS_FLAG)
+
+constexpr int32_t SYS_NF(uint32_t x) {
+	return (x & ~SYS_CLASS_FLAG);
+}
 
 void read_config(const char *fname);
 
