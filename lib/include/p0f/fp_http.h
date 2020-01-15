@@ -18,13 +18,13 @@
 // A structure used for looking up various headers internally in fp_http.c:
 struct http_id {
 	const char *name;
-	uint32_t id;
+	int32_t id;
 };
 
 // Another internal structure for UA -> OS maps:
 struct ua_map_record {
 	const char *name;
-	uint32_t id;
+	int32_t id;
 };
 
 // HTTP header field:
@@ -45,7 +45,7 @@ struct http_sig {
 
 	uint64_t hdr_bloom4; // Bloom filter for headers
 
-	uint32_t miss[HTTP_MAX_HDRS]; // Missing headers
+	int32_t miss[HTTP_MAX_HDRS]; // Missing headers
 	uint32_t miss_cnt;
 
 	char *sw;   // Software string (U-A or Server)
@@ -68,7 +68,7 @@ struct http_sig_record {
 	int32_t name_id;  // OS name ID
 	char *flavor;     // Human-readable flavor string
 
-	uint32_t label_id; // Signature label ID
+	int32_t label_id; // Signature label ID
 
 	uint32_t *sys;    // OS class / name IDs for user apps
 	uint32_t sys_cnt; // Length of sys
