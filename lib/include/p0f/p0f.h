@@ -13,6 +13,7 @@
 
 #include "process.h"
 #include <cstdint>
+#include <vector>
 
 struct libp0f_context_t {
 	using observation_begin_t = void (*)(const char *, uint8_t, bool, const packet_flow *);
@@ -23,7 +24,7 @@ struct libp0f_context_t {
 	observation_field_t observation_field = [](const char *, const char *) {};
 
 	// Fill in by the one driving things
-	char *read_file          = nullptr;         // File to read pcap data from
+	const char *read_file    = nullptr;         // File to read pcap data from
 	uint32_t max_conn        = MAX_CONN;        // Connection entry count limit
 	uint32_t max_hosts       = MAX_HOSTS;       // Host cache entry count limit
 	uint32_t conn_max_age    = CONN_MAX_AGE;    // Maximum age of a connection entry
@@ -32,7 +33,6 @@ struct libp0f_context_t {
 
 	// Results
 	uint64_t packet_cnt = 0; // Total number of packets processed
-	char **fp_os_names  = nullptr;
 };
 
 #endif

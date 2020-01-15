@@ -593,7 +593,7 @@ void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
 	r->total_conn = h->total_conn;
 
 	if (h->last_name_id != -1) {
-		strncpy(r->os_name, libp0f_context.fp_os_names[h->last_name_id], P0F_STR_MAX + 1);
+		strncpy(r->os_name, fp_context.fp_os_names[h->last_name_id], P0F_STR_MAX + 1);
 		r->os_name[P0F_STR_MAX] = '\0';
 
 		if (h->last_flavor) {
@@ -603,7 +603,7 @@ void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
 	}
 
 	if (h->http_name_id != -1) {
-		strncpy(r->http_name, libp0f_context.fp_os_names[h->http_name_id], P0F_STR_MAX + 1);
+		strncpy(r->http_name, fp_context.fp_os_names[h->http_name_id], P0F_STR_MAX + 1);
 		r->http_name[P0F_STR_MAX] = '\0';
 
 		if (h->http_flavor) {
@@ -1020,7 +1020,7 @@ int main(int argc, char *argv[]) {
 
 	// Initialize the p0f library
 	http_init();
-	read_config(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE, &libp0f_context);
+	read_config(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE);
 
 	prepare_pcap();
 	prepare_bpf();

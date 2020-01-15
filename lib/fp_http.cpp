@@ -16,8 +16,8 @@
 #include <ctime>
 #include <ostream>
 #include <sstream>
-#include <vector>
 #include <unistd.h>
+#include <vector>
 
 #include <netinet/in.h>
 #include <sys/types.h>
@@ -558,7 +558,7 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 	if ((m = f->http_tmp.matched)) {
 
 		observf(libp0f_context, (m->class_id < 0) ? "app" : "os", "%s%s%s",
-				libp0f_context->fp_os_names[m->name_id], m->flavor ? " " : "",
+				fp_context.fp_os_names[m->name_id], m->flavor ? " " : "",
 				m->flavor ? m->flavor : "");
 
 	} else
@@ -1053,7 +1053,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 }
 
 // Register new HTTP signature.
-void http_parse_ua(char *val, uint32_t line_no, libp0f_context_t *libp0f_context) {
+void http_parse_ua(char *val, uint32_t line_no) {
 
 	char *nxt;
 
@@ -1068,7 +1068,7 @@ void http_parse_ua(char *val, uint32_t line_no, libp0f_context_t *libp0f_context
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
-		uint32_t id = lookup_name_id(val, nxt - val, libp0f_context);
+		uint32_t id = lookup_name_id(val, nxt - val);
 
 		val = nxt;
 
@@ -1093,8 +1093,8 @@ void http_parse_ua(char *val, uint32_t line_no, libp0f_context_t *libp0f_context
 		}
 
 		struct ua_map_record record;
-		record.id = id;
-		record.name = (!name) ? libp0f_context->fp_os_names[id] : name;
+		record.id   = id;
+		record.name = (!name) ? fp_context.fp_os_names[id] : name;
 		http_context.ua_map.push_back(record);
 
 		if (*val == ',') val++;

@@ -32,32 +32,9 @@
 #include "p0f/p0f.h"
 #include "p0f/readfp.h"
 
-namespace {
-
-struct fp_context_t {
-	uint32_t sig_cnt = 0; // Total number of p0f.fp sigs
-
-	uint8_t state      = CF_NEED_SECT; // Parser state (CF_NEED_*)
-	uint8_t mod_type   = 0;            // Current module (CF_MOD_*)
-	uint8_t mod_to_srv = 0;            // Traffic direction
-	uint8_t generic    = 0;            // Generic signature?
-
-	int32_t sig_class = 0;       // Signature class ID (-1 = userland)
-	uint32_t sig_name = 0;       // Signature name
-	char *sig_flavor  = nullptr; // Signature flavor
-
-	uint32_t *cur_sys    = nullptr; // Current 'sys' values
-	uint32_t cur_sys_cnt = 0;       // Number of 'sys' entries
-
-	uint32_t name_cnt = 0;
-	uint32_t label_id = 0; // Current label ID
-	uint32_t line_no  = 0; // Current line number
-
-	// Map of OS classes
-	std::vector<std::string> fp_os_classes;
-};
-
 fp_context_t fp_context;
+
+namespace {
 
 // Parse 'classes' parameter by populating fp_context.fp_os_classes.
 void config_parse_classes(char *val) {
@@ -83,7 +60,7 @@ void config_parse_classes(char *val) {
 }
 
 // Parse 'label' parameter by looking up ID and recording name / flavor.
-void config_parse_label(char *val, libp0f_context_t *libp0f_context) {
+void config_parse_label(char *val) {
 
 	char *nxt;
 
@@ -140,7 +117,7 @@ void config_parse_label(char *val, libp0f_context_t *libp0f_context) {
 	if (nxt == val || *nxt != ':')
 		FATAL("Malformed name in line %u.", fp_context.line_no);
 
-	fp_context.sig_name = lookup_name_id(val, nxt - val, libp0f_context);
+	fp_context.sig_name = lookup_name_id(val, nxt - val);
 
 	if (nxt[1])
 		fp_context.sig_flavor = ck_strdup(nxt + 1);
@@ -151,7 +128,7 @@ void config_parse_label(char *val, libp0f_context_t *libp0f_context) {
 }
 
 // Parse 'sys' parameter into fp_context.cur_sys[].
-void config_parse_sys(char *val, libp0f_context_t *libp0f_context) {
+void config_parse_sys(char *val) {
 
 	if (fp_context.cur_sys) {
 		fp_context.cur_sys     = nullptr;
@@ -198,12 +175,14 @@ void config_parse_sys(char *val, libp0f_context_t *libp0f_context) {
 
 		} else {
 
-			for (i = 0; i < fp_context.name_cnt; i++)
-				if (!strcasecmp(val, libp0f_context->fp_os_names[i])) break;
+			for (i = 0; i < fp_context.fp_os_names.size(); i++) {
+				if (!strcasecmp(val, fp_context.fp_os_names[i])) {
+					break;
+				}
+			}
 
-			if (i == fp_context.name_cnt) {
-				libp0f_context->fp_os_names                        = static_cast<char **>(realloc(libp0f_context->fp_os_names, (fp_context.name_cnt + 1) * sizeof(char *)));
-				libp0f_context->fp_os_names[fp_context.name_cnt++] = ck_memdup_str(val, nxt - val);
+			if (i == fp_context.fp_os_names.size()) {
+				fp_context.fp_os_names.push_back(ck_memdup_str(val, nxt - val));
 			}
 		}
 
@@ -216,7 +195,7 @@ void config_parse_sys(char *val, libp0f_context_t *libp0f_context) {
 }
 
 // Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
-void config_parse_line(char *line, libp0f_context_t *libp0f_context) {
+void config_parse_line(char *line) {
 
 	char *val = nullptr;
 	char *eon = nullptr;
@@ -304,7 +283,7 @@ void config_parse_line(char *line, libp0f_context_t *libp0f_context) {
 		if (fp_context.state != CF_NEED_LABEL || fp_context.mod_to_srv != 1 || fp_context.mod_type != CF_MOD_HTTP)
 			FATAL("misplaced 'us_os' in line %u.", fp_context.line_no);
 
-		http_parse_ua(val, fp_context.line_no, libp0f_context);
+		http_parse_ua(val, fp_context.line_no);
 
 	} else if (!strcmp(line, "label")) {
 
@@ -314,7 +293,7 @@ void config_parse_line(char *line, libp0f_context_t *libp0f_context) {
 		if (fp_context.state != CF_NEED_LABEL && fp_context.state != CF_NEED_SIG)
 			FATAL("misplaced 'label' in line %u.", fp_context.line_no);
 
-		config_parse_label(val, libp0f_context);
+		config_parse_label(val);
 
 		if (fp_context.mod_type != CF_MOD_MTU && fp_context.sig_class < 0)
 			fp_context.state = CF_NEED_SYS;
@@ -326,7 +305,7 @@ void config_parse_line(char *line, libp0f_context_t *libp0f_context) {
 		if (fp_context.state != CF_NEED_SYS)
 			FATAL("Misplaced 'sys' in line %u.", fp_context.line_no);
 
-		config_parse_sys(val, libp0f_context);
+		config_parse_sys(val);
 
 		fp_context.state = CF_NEED_SIG;
 
@@ -362,26 +341,23 @@ void config_parse_line(char *line, libp0f_context_t *libp0f_context) {
 }
 
 // Look up or create OS or application id.
-uint32_t lookup_name_id(const char *name, uint8_t len, libp0f_context_t *libp0f_context) {
+uint32_t lookup_name_id(const char *name, uint8_t len) {
 
 	uint32_t i;
 
-	for (i = 0; i < fp_context.name_cnt; i++)
-		if (!strncasecmp(name, libp0f_context->fp_os_names[i], len) && !libp0f_context->fp_os_names[i][len]) break;
+	for (i = 0; i < fp_context.fp_os_names.size(); i++)
+		if (!strncasecmp(name, fp_context.fp_os_names[i], len) && !fp_context.fp_os_names[i][len]) break;
 
-	if (i == fp_context.name_cnt) {
-
-		fp_context.sig_name = fp_context.name_cnt;
-
-		libp0f_context->fp_os_names                        = static_cast<char **>(realloc(libp0f_context->fp_os_names, (fp_context.name_cnt + 1) * sizeof(char *)));
-		libp0f_context->fp_os_names[fp_context.name_cnt++] = ck_memdup_str(name, len);
+	if (i == fp_context.fp_os_names.size()) {
+		fp_context.sig_name = fp_context.fp_os_names.size();
+		fp_context.fp_os_names.push_back(ck_memdup_str(name, len));
 	}
 
 	return i;
 }
 
 // Top-level file parsing.
-void read_config(const char *fname, libp0f_context_t *libp0f_context) {
+void read_config(const char *fname) {
 
 	struct stat st;
 	char *data;
@@ -424,7 +400,7 @@ void read_config(const char *fname, libp0f_context_t *libp0f_context) {
 
 		if (*cur != ';' && cur != eol) {
 			char *line = ck_memdup_str(cur, eol - cur);
-			config_parse_line(line, libp0f_context);
+			config_parse_line(line);
 			free(line);
 		}
 

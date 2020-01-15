@@ -12,6 +12,8 @@
 #define HAVE_READFP_H_
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 // List of fingerprinting modules:
 #define CF_MOD_TCP 0x00  // fp_tcp.c
@@ -28,9 +30,33 @@
 #define SYS_CLASS_FLAG (1u << 31)
 #define SYS_NF(_x) ((_x) & ~SYS_CLASS_FLAG)
 
-struct libp0f_context_t;
-void read_config(const char *fname, libp0f_context_t *libp0f_context);
+void read_config(const char *fname);
 
-uint32_t lookup_name_id(const char *name, uint8_t len, libp0f_context_t *libp0f_context);
+uint32_t lookup_name_id(const char *name, uint8_t len);
+
+struct fp_context_t {
+	uint32_t sig_cnt = 0; // Total number of p0f.fp sigs
+
+	uint8_t state      = CF_NEED_SECT; // Parser state (CF_NEED_*)
+	uint8_t mod_type   = 0;            // Current module (CF_MOD_*)
+	uint8_t mod_to_srv = 0;            // Traffic direction
+	uint8_t generic    = 0;            // Generic signature?
+
+	int32_t sig_class = 0;       // Signature class ID (-1 = userland)
+	uint32_t sig_name = 0;       // Signature name
+	char *sig_flavor  = nullptr; // Signature flavor
+
+	uint32_t *cur_sys    = nullptr; // Current 'sys' values
+	uint32_t cur_sys_cnt = 0;       // Number of 'sys' entries
+
+	uint32_t label_id = 0; // Current label ID
+	uint32_t line_no  = 0; // Current line number
+
+	// Map of OS classes
+	std::vector<std::string> fp_os_classes;
+	std::vector<char *> fp_os_names;
+};
+
+extern fp_context_t fp_context;
 
 #endif
