@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(p0f CXX)
+project(p0f)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
 
@@ -78,4 +78,4 @@ target_link_libraries(p0f PUBLIC
 set_property(TARGET p0f PROPERTY CXX_EXTENSIONS OFF)
 set_property(TARGET p0f PROPERTY CXX_STANDARD 14)
 
-
+add_subdirectory(tools)

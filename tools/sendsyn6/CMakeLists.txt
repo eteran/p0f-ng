@@ -1,0 +1,14 @@
+cmake_minimum_required(VERSION 3.0)
+
+
+add_executable(p0f-sendsyn6 
+	p0f-sendsyn6.cpp
+)
+
+target_compile_options(p0f-sendsyn6 
+	PUBLIC -Wno-format -funsigned-char
+)
+
+target_include_directories(p0f-sendsyn6
+	PRIVATE ../../
+)
