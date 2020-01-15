@@ -54,7 +54,7 @@ struct http_context_t {
 	struct http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
 	struct http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
 
-	std::vector<std::string> hdr_names; // List of header names by ID
+	std::vector<std::string> hdr_names;             // List of header names by ID
 	std::vector<uint32_t> hdr_by_hash[SIG_BUCKETS]; // Hashed header names
 
 	/* Signatures aren't bucketed due to the complex matching used; but we use
@@ -114,8 +114,8 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 	while (cnt--) {
 
 		struct http_sig *rs = ref->sig;
-		uint32_t ts_hdr = 0;
-		uint32_t rs_hdr = 0;
+		uint32_t ts_hdr     = 0;
+		uint32_t rs_hdr     = 0;
 
 		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver)
 			goto next_sig;
@@ -1036,7 +1036,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 	hrec.sys_cnt  = sys_cnt;
 	hrec.line_no  = line_no;
 	hrec.generic  = generic;
-	hrec.sig = hsig;
+	hrec.sig      = hsig;
 
 	http_context.sigs[to_srv].push_back(hrec);
 }
@@ -1111,8 +1111,8 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 
 	if (to_srv) {
 
-		char *pay            = f->request;
-		uint8_t can_get_more = (f->req_len < MAX_FLOW_DATA);
+		const char *const pay = f->request;
+		bool can_get_more     = (f->req_len < MAX_FLOW_DATA);
 
 		// Request done, but pending response?
 		if (f->http_req_done)
@@ -1121,7 +1121,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 		if (!f->in_http) {
 
 			uint8_t chr;
-			char *sig_at;
+			const char *sig_at;
 
 			// Ooh, new flow!
 			if (f->req_len < 15)
@@ -1189,8 +1189,8 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 
 	} else {
 
-		char *pay            = f->response;
-		uint8_t can_get_more = (f->resp_len < MAX_FLOW_DATA);
+		const char *const pay = f->response;
+		bool can_get_more     = (f->resp_len < MAX_FLOW_DATA);
 
 		// Response before request? Bail out.
 		if (!f->in_http || !f->http_req_done) {

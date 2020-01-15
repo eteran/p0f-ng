@@ -28,8 +28,7 @@
 namespace {
 
 struct mtu_context_t {
-	struct mtu_sig_record *sigs[SIG_BUCKETS];
-	uint32_t sig_cnt[SIG_BUCKETS];
+	std::vector<struct mtu_sig_record> sigs[SIG_BUCKETS];
 };
 
 mtu_context_t mtu_context;
@@ -56,12 +55,11 @@ void mtu_register_sig(char *name, char *val, uint32_t line_no) {
 
 	bucket = mtu % SIG_BUCKETS;
 
-	mtu_context.sigs[bucket] = static_cast<struct mtu_sig_record *>(realloc(mtu_context.sigs[bucket], (mtu_context.sig_cnt[bucket] + 1) * sizeof(struct mtu_sig_record)));
+	struct mtu_sig_record sig;
+	sig.mtu  = mtu;
+	sig.name = name;
 
-	mtu_context.sigs[bucket][mtu_context.sig_cnt[bucket]].mtu  = mtu;
-	mtu_context.sigs[bucket][mtu_context.sig_cnt[bucket]].name = name;
-
-	mtu_context.sig_cnt[bucket]++;
+	mtu_context.sigs[bucket].push_back(sig);
 }
 
 void fingerprint_mtu(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
@@ -82,10 +80,11 @@ void fingerprint_mtu(bool to_srv, struct packet_data *pk, struct packet_flow *f,
 
 	bucket = (mtu) % SIG_BUCKETS;
 
-	for (i = 0; i < mtu_context.sig_cnt[bucket]; i++)
-		if (mtu_context.sigs[bucket][i].mtu == mtu) break;
+	for (i = 0; i < mtu_context.sigs[bucket].size(); i++)
+		if (mtu_context.sigs[bucket][i].mtu == mtu)
+			break;
 
-	if (i == mtu_context.sig_cnt[bucket])
+	if (i == mtu_context.sigs[bucket].size())
 		libp0f_context->observation_field("link", nullptr);
 	else {
 
