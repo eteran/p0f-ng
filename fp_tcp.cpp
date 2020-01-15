@@ -533,10 +533,8 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 	}
 
 	/* Unless the signatures are already known to differ radically, mismatch
-	 between host data and current sig is of additional note. */
-
-	if (!diff_already && sig->matched && hd->last_class_id != -1 &&
-		hd->last_name_id != sig->matched->name_id) {
+	 * between host data and current sig is of additional note. */
+	if (!diff_already && sig->matched && hd->last_class_id != -1 && hd->last_name_id != sig->matched->name_id) {
 
 		DEBUG("[#] New OS signature different OS type than host data.\n");
 		score += 8;
@@ -545,19 +543,15 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 	}
 
 	/* TTL differences in absence of major signature mismatches is also
-	 interesting, unless the signatures are tagged as "bad TTL", or unless
-	 the difference is barely 1 and the host is distant. */
-
-#define ABS(_x) ((_x) < 0 ? -(_x) : (_x))
-
+	 * interesting, unless the signatures are tagged as "bad TTL", or unless
+	 * the difference is barely 1 and the host is distant. */
 	ttl_diff = static_cast<int16_t>(sig->ttl) - ref->ttl;
 
-	if (!diff_already && ttl_diff && (!sig->matched || !sig->matched->bad_ttl) &&
-		(!ref->matched || !ref->matched->bad_ttl) && (sig->dist <= NEAR_TTL_LIMIT || ttl_diff > 1)) {
+	if (!diff_already && ttl_diff && (!sig->matched || !sig->matched->bad_ttl) && (!ref->matched || !ref->matched->bad_ttl) && (sig->dist <= NEAR_TTL_LIMIT || ttl_diff > 1)) {
 
 		DEBUG("[#] Signature TTL differs by %d (dist = %u).\n", ttl_diff, sig->dist);
 
-		if (sig->dist > LOCAL_TTL_LIMIT && ABS(ttl_diff) <= SMALL_TTL_CHG)
+		if (sig->dist > LOCAL_TTL_LIMIT && std::abs(ttl_diff) <= SMALL_TTL_CHG)
 			score += 1;
 		else
 			score += 4;
@@ -565,11 +559,10 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 		reason |= NAT_TTL;
 	}
 
-	/* Source port going back frequently is of some note, although it will happen
-	 spontaneously every now and then. Require the drop to be by at least
-	 few dozen, to account for simple case of several simultaneously opened
-	 connections arriving in odd order. */
-
+	/* Source port going back frequently is of some note, although it will
+	 * happen spontaneously every now and then. Require the drop to be by at
+	 * least few dozen, to account for simple case of several simultaneously
+	 * opened connections arriving in odd order. */
 	if (to_srv && hd->last_port && f->cli_port < hd->last_port &&
 		hd->last_port - f->cli_port >= MIN_PORT_DROP) {
 
@@ -589,15 +582,13 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 	}
 
 	/* Check timestamp progression to possibly adjust current score. Don't rate
-	 on TS alone, because some systems may be just randomizing that. */
-
+	 * on TS alone, because some systems may be just randomizing that. */
 	if (score && sig->ts1 && ref->ts1) {
 
 		uint64_t ms_diff = sig->recv_ms - ref->recv_ms;
 
-		/* Require a timestamp within the last day; if the apparent TS progression
-	   is much higher than 1 kHz, complain. */
-
+		/* Require a timestamp within the last day; if the apparent TS
+		 * progression is much higher than 1 kHz, complain. */
 		if (ms_diff < MAX_NAT_TS) {
 
 			uint64_t use_ms = (ms_diff < TSTAMP_GRACE) ? TSTAMP_GRACE : ms_diff;
@@ -646,12 +637,9 @@ log_and_update:
 
 }
 
-/* Parse TCP-specific bits and register a signature read from p0f.fp. This
-   function is too long. */
-
-void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name,
-					  char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt,
-					  char *val, uint32_t line_no) {
+/* Parse TCP-specific bits and register a signature read from p0f.fp.
+ * This function is too long. */
+void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
 
 	int8_t ver, win_type, pay_class;
 	uint8_t opt_layout[MAX_TCP_OPT];

@@ -765,10 +765,10 @@ void offline_event_loop() {
 // Open log entry.
 void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const struct packet_flow *f) {
 
-	if (p0f_context.obs_fields) FATAL("Premature end of observation.");
+	if (p0f_context.obs_fields)
+		FATAL("Premature end of observation.");
 
 	if (!daemon_mode) {
-
 		SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
 			 f->cli_port);
 		SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
@@ -780,7 +780,6 @@ void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, c
 	}
 
 	if (p0f_context.log_file) {
-
 		char tmp[64];
 
 		time_t ut     = get_unix_time();
@@ -800,20 +799,23 @@ void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, c
 // Add log item.
 void add_observation_field(const char *key, const char *value) {
 
-	if (!p0f_context.obs_fields) FATAL("Unexpected observation field ('%s').", key);
+	if (!p0f_context.obs_fields)
+		FATAL("Unexpected observation field ('%s').", key);
 
 	if (!daemon_mode)
 		SAYF("| %-8s = %s\n", key, value ? value : "???");
 
-	if (p0f_context.log_file) LOGF("|%s=%s", key, value ? value : "???");
+	if (p0f_context.log_file)
+		LOGF("|%s=%s", key, value ? value : "???");
 
 	p0f_context.obs_fields--;
 
 	if (!p0f_context.obs_fields) {
+		if (!daemon_mode)
+			SAYF("|\n`----\n\n");
 
-		if (!daemon_mode) SAYF("|\n`----\n\n");
-
-		if (p0f_context.log_file) LOGF("\n");
+		if (p0f_context.log_file)
+			LOGF("\n");
 	}
 }
 
@@ -856,7 +858,6 @@ int main(int argc, char **argv) {
 
 			p0f_context.fp_file = optarg;
 			break;
-
 		case 'i':
 			if (p0f_context.use_iface)
 				FATAL("Multiple -i options not supported (try '-i any').");
@@ -890,14 +891,12 @@ int main(int argc, char **argv) {
 				FATAL("Multiple -r options not supported.");
 			read_file = optarg;
 			break;
-
 		case 's':
 			if (p0f_context.api_sock)
 				FATAL("Multiple -s options not supported.");
 
 			p0f_context.api_sock = optarg;
 			break;
-
 		case 't':
 
 			if (conn_max_age != CONN_MAX_AGE || host_idle_limit != HOST_IDLE_LIMIT)
@@ -910,14 +909,11 @@ int main(int argc, char **argv) {
 
 			break;
 		case 'u':
-
 			if (p0f_context.switch_user)
 				FATAL("Split personality mode not supported.");
 
 			p0f_context.switch_user = optarg;
-
 			break;
-
 		default:
 			usage();
 		}

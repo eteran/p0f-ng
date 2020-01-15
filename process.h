@@ -108,7 +108,7 @@ struct host_data {
 	uint16_t nat_reasons           = 0;  // NAT complaints
 
 	uint32_t last_nat = 0; // Last NAT detection time
-	uint32_t last_chg = 0; // Last OS change detection time
+	time_t last_chg   = 0; // Last OS change detection time
 
 	uint16_t last_port = 0; // Source port on last SYN
 

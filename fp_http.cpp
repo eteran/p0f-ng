@@ -110,6 +110,13 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 	return http_context.hdr_cnt - 1;
 }
 
+constexpr int HDR_UA  = 0;
+constexpr int HDR_SRV = 1;
+constexpr int HDR_AL  = 2;
+constexpr int HDR_VIA = 3;
+constexpr int HDR_XFF = 4;
+constexpr int HDR_DAT = 5;
+
 }
 
 // Pre-register essential headers.
@@ -131,13 +138,6 @@ void http_init() {
 	lookup_hdr(SLOF("Via"), 1);             // 3
 	lookup_hdr(SLOF("X-Forwarded-For"), 1); // 4
 	lookup_hdr(SLOF("Date"), 1);            // 5
-
-#define HDR_UA 0
-#define HDR_SRV 1
-#define HDR_AL 2
-#define HDR_VIA 3
-#define HDR_XFF 4
-#define HDR_DAT 5
 
 	i = 0;
 	while (http_context.req_optional[i].name) {

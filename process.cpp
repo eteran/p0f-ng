@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <pcap/pcap.h>
+#include <sstream>
 #include <unistd.h>
 
 #include <arpa/inet.h>
@@ -1272,8 +1273,6 @@ static void flow_dispatch(struct packet_data *pk) {
 // Add NAT score, check if alarm due.
 void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score) {
 
-	static char rea[1024];
-
 	struct host_data *hd = nullptr;
 	uint8_t *scores      = nullptr;
 	uint32_t i           = 0;
@@ -1332,39 +1331,32 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 	} else {
 
 		// Wait for something more substantial.
-		if (score == 1) return;
+		if (score == 1)
+			return;
 
 		start_observation("host change", 2, to_srv, f);
 
 		hd->last_chg = get_unix_time();
 	}
 
-	char *rptr = rea;
-	*rptr      = '\0';
+	std::ostringstream ss;
+	if (reason & NAT_APP_SIG) ss << (" app_vs_os");
+	if (reason & NAT_OS_SIG) ss << (" os_diff");
+	if (reason & NAT_UNK_DIFF) ss << (" sig_diff");
+	if (reason & NAT_TO_UNK) ss << (" x_known");
+	if (reason & NAT_TS) ss << (" tstamp");
+	if (reason & NAT_TTL) ss << (" ttl");
+	if (reason & NAT_PORT) ss << (" port");
+	if (reason & NAT_MSS) ss << (" mtu");
+	if (reason & NAT_FUZZY) ss << (" fuzzy");
+	if (reason & NAT_APP_VIA) ss << (" via");
+	if (reason & NAT_APP_DATE) ss << (" date");
+	if (reason & NAT_APP_LB) ss << (" srv_sig_lb");
+	if (reason & NAT_APP_UA) ss << (" ua_vs_os");
 
-#define REAF(...)                           \
-	do {                                    \
-		rptr += sprintf(rptr, __VA_ARGS__); \
-	} while (0)
+	std::string rea = ss.str();
 
-	if (reason & NAT_APP_SIG) REAF(" app_vs_os");
-	if (reason & NAT_OS_SIG) REAF(" os_diff");
-	if (reason & NAT_UNK_DIFF) REAF(" sig_diff");
-	if (reason & NAT_TO_UNK) REAF(" x_known");
-	if (reason & NAT_TS) REAF(" tstamp");
-	if (reason & NAT_TTL) REAF(" ttl");
-	if (reason & NAT_PORT) REAF(" port");
-	if (reason & NAT_MSS) REAF(" mtu");
-	if (reason & NAT_FUZZY) REAF(" fuzzy");
-
-	if (reason & NAT_APP_VIA) REAF(" via");
-	if (reason & NAT_APP_DATE) REAF(" date");
-	if (reason & NAT_APP_LB) REAF(" srv_sig_lb");
-	if (reason & NAT_APP_UA) REAF(" ua_vs_os");
-
-#undef REAF
-
-	add_observation_field("reason", rea[0] ? (rea + 1) : nullptr);
+	add_observation_field("reason", !rea.empty() ? (rea.c_str() + 1) : nullptr);
 
 	observf("raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
 }
@@ -1373,38 +1365,32 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt) {
 
 	struct host_data *hd = nullptr;
-	uint32_t i           = 0;
-
 	if (to_srv)
 		hd = f->client;
 	else
 		hd = f->server;
 
 	/* No existing data; although there is perhaps some value in detecting
-     app-only conflicts in absence of other info, it's probably OK to just
-     wait until more data becomes available. */
+	 * app-only conflicts in absence of other info, it's probably OK to just
+	 * wait until more data becomes available. */
+	if (hd->last_class_id == -1)
+		return;
 
-	if (hd->last_class_id == -1) return;
-
+	uint32_t i = 0;
 	for (i = 0; i < sys_cnt; i++)
-
 		if ((sys[i] & SYS_CLASS_FLAG)) {
-
-			if (SYS_NF(sys[i]) == hd->last_class_id) break;
-
+			if (SYS_NF(sys[i]) == hd->last_class_id)
+				break;
 		} else {
-
-			if (SYS_NF(sys[i]) == hd->last_name_id) break;
+			if (SYS_NF(sys[i]) == hd->last_name_id)
+				break;
 		}
 
 	// Oops, a mismatch.
 	if (i == sys_cnt) {
-
 		DEBUG("[#] Detected app not supposed to run on host OS.\n");
 		add_nat_score(to_srv, f, NAT_APP_SIG, 4);
-
 	} else {
-
 		DEBUG("[#] Detected app supported on host OS.\n");
 		add_nat_score(to_srv, f, 0, 0);
 	}
@@ -1412,9 +1398,11 @@ void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sy
 
 // Clean up everything.
 void destroy_all_hosts() {
-
-	while (process_context.flow_by_age)
+	while (process_context.flow_by_age) {
 		destroy_flow(process_context.flow_by_age);
-	while (process_context.host_by_age)
+	}
+
+	while (process_context.host_by_age) {
 		destroy_host(process_context.host_by_age);
+	}
 }

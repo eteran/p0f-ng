@@ -8,8 +8,8 @@
 
  */
 
-#ifndef _HAVE_FP_MTU_H
-#define _HAVE_FP_MTU_H
+#ifndef HAVE_FP_MTU_H_
+#define HAVE_FP_MTU_H_
 
 #include "types.h"
 
