@@ -27,15 +27,15 @@
 
 #include "config.h"
 #include "debug.h"
+#include "fp_http.h"
+#include "fp_mtu.h"
+#include "fp_tcp.h"
 #include "hash.h"
 #include "p0f.h"
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
-
-#include "fp_http.h"
-#include "fp_mtu.h"
-#include "fp_tcp.h"
+#include "util.h"
 
 namespace {
 

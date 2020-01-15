@@ -26,14 +26,14 @@
 #include "api.h"
 #include "config.h"
 #include "debug.h"
+#include "fp_http.h"
 #include "hash.h"
+#include "languages.h"
 #include "p0f.h"
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
-
-#include "fp_http.h"
-#include "languages.h"
+#include "util.h"
 
 #define SLOF(_str) _str, strlen(_str)
 

@@ -27,6 +27,7 @@
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
+#include "util.h"
 
 namespace {
 

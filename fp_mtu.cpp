@@ -23,6 +23,7 @@
 #include "process.h"
 #include "readfp.h"
 #include "tcp.h"
+#include "util.h"
 
 struct mtu_context_t {
 	struct mtu_sig_record *sigs[SIG_BUCKETS];

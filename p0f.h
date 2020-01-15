@@ -12,7 +12,7 @@
 #define HAVE_P0F_H_
 
 #include "process.h"
-#include <ostream>
+#include <cstdint>
 
 struct libp0f_context_t {
 	using observation_begin_t = void (*)(const char *, uint8_t, uint8_t to_srv, const packet_flow *);
@@ -32,31 +32,5 @@ struct libp0f_context_t {
 
 	char **fp_os_names = nullptr;
 };
-
-template <class... T>
-void append_format(std::ostream &os, const char *fmt, T &&... args) {
-	char *ptr = nullptr;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
-#pragma GCC diagnostic ignored "-Wformat-security"
-	if (asprintf(&ptr, fmt, std::forward<T>(args)...) != -1) {
-#pragma GCC diagnostic pop
-		os << ptr;
-		free(ptr);
-	}
-}
-
-template <class... T>
-void observf(libp0f_context_t *libp0f_context, const char *key, const char *fmt, T &&... args) {
-	char *ptr = nullptr;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
-#pragma GCC diagnostic ignored "-Wformat-security"
-	if (asprintf(&ptr, fmt, std::forward<T>(args)...) != -1) {
-#pragma GCC diagnostic pop
-		libp0f_context->observation_field(key, ptr);
-		free(ptr);
-	}
-}
 
 #endif
