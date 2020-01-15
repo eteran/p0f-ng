@@ -204,9 +204,9 @@ static void http_find_match(uint8_t to_srv, struct http_sig *ts, uint8_t dupe_de
 
 			uint32_t orig_ts = ts_hdr;
 
-			while (rs->hdr[rs_hdr].id != ts->hdr[ts_hdr].id &&
-				   ts_hdr < ts->hdr_cnt)
+			while (ts_hdr < ts->hdr_cnt && rs->hdr[rs_hdr].id != ts->hdr[ts_hdr].id) {
 				ts_hdr++;
+			}
 
 			if (ts_hdr == ts->hdr_cnt) {
 
@@ -1186,17 +1186,17 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 	/* Already decided this flow is not worth tracking? */
 
-	if (f->in_http < 0) return 0;
+	if (f->in_http < 0)
+		return 0;
 
 	if (to_srv) {
 
 		char *pay            = f->request;
 		uint8_t can_get_more = (f->req_len < MAX_FLOW_DATA);
-		uint32_t off;
 
 		/* Request done, but pending response? */
-
-		if (f->http_req_done) return 1;
+		if (f->http_req_done)
+			return 1;
 
 		if (!f->in_http) {
 
@@ -1204,15 +1204,13 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			char *sig_at;
 
 			/* Ooh, new flow! */
-
-			if (f->req_len < 15) return can_get_more;
+			if (f->req_len < 15)
+				return can_get_more;
 
 			/* Scan until \n, or until binary data spotted. */
-
-			off = f->http_pos;
+			uint32_t off = f->http_pos;
 
 			/* We only care about GET and HEAD requests at this point. */
-
 			if (!off && strncmp(pay, "GET /", 5) &&
 				strncmp(pay, "HEAD /", 6)) {
 				DEBUG("[#] Does not seem like a GET / HEAD request.\n");
@@ -1220,13 +1218,9 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 				return 0;
 			}
 
-			while (off < f->req_len && off < HTTP_MAX_URL &&
-				   (chr = pay[off]) != '\n') {
-
+			while (off < f->req_len && off < HTTP_MAX_URL && (chr = pay[off]) != '\n') {
 				if (chr != '\r' && (chr < 0x20 || chr > 0x7f)) {
-
 					DEBUG("[#] Not HTTP - character 0x%02x encountered.\n", chr);
-
 					f->in_http = -1;
 					return 0;
 				}
@@ -1237,21 +1231,16 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			/* Newline too far or too close? */
 
 			if (off == HTTP_MAX_URL || off < 14) {
-
 				DEBUG("[#] Not HTTP - newline offset %u.\n", off);
-
 				f->in_http = -1;
 				return 0;
 			}
 
 			/* Not enough data yet? */
-
 			if (off == f->req_len) {
-
 				f->http_pos = off;
 
 				if (!can_get_more) {
-
 					DEBUG("[#] Not HTTP - no opening line found.\n");
 					f->in_http = -1;
 				}
@@ -1263,11 +1252,8 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			if (pay[off - 1] == '\r') sig_at--;
 
 			/* Bad HTTP/1.x signature? */
-
 			if (strncmp(sig_at, "HTTP/1.", 7)) {
-
 				DEBUG("[#] Not HTTP - bad signature.\n");
-
 				f->in_http = -1;
 				return 0;
 			}
@@ -1286,10 +1272,8 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 		char *pay            = f->response;
 		uint8_t can_get_more = (f->resp_len < MAX_FLOW_DATA);
-		uint32_t off;
 
 		/* Response before request? Bail out. */
-
 		if (!f->in_http || !f->http_req_done) {
 			f->in_http = -1;
 			return 0;
@@ -1299,10 +1283,11 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 
 			uint8_t chr;
 
-			if (f->resp_len < 13) return can_get_more;
+			if (f->resp_len < 13)
+				return can_get_more;
 
 			/* Scan until \n, or until binary data spotted. */
-			off = f->http_pos;
+			uint32_t off = f->http_pos;
 
 			while (off < f->resp_len && off < HTTP_MAX_URL && (chr = pay[off]) != '\n') {
 				if (chr != '\r' && (chr < 0x20 || chr > 0x7f)) {
@@ -1316,7 +1301,6 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			}
 
 			/* Newline too far or too close? */
-
 			if (off == HTTP_MAX_URL || off < 13) {
 				DEBUG("[#] Invalid HTTP response - newline offset %u.\n", off);
 				f->in_http = -1;
@@ -1324,7 +1308,6 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			}
 
 			/* Not enough data yet? */
-
 			if (off == f->resp_len) {
 				f->http_pos = off;
 				if (!can_get_more) {
@@ -1344,7 +1327,7 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f) {
 			}
 
 			f->http_tmp.http_ver = (pay[7] == '1');
-			f->http_pos = off + 1;
+			f->http_pos          = off + 1;
 			DEBUG("[#] HTTP response starts correctly.\n");
 		}
 

@@ -44,11 +44,13 @@ void mtu_register_sig(char *name, char *val, uint32_t line_no) {
 	while (isdigit(*nxt))
 		nxt++;
 
-	if (nxt == val || *nxt) FATAL("Malformed MTU value in line %u.", line_no);
+	if (nxt == val || *nxt)
+		FATAL("Malformed MTU value in line %u.", line_no);
 
 	mtu = atoi(val);
 
-	if (mtu <= 0 || mtu > 65535) FATAL("Malformed MTU value in line %u.", line_no);
+	if (mtu <= 0 || mtu > 65535)
+		FATAL("Malformed MTU value in line %u.", line_no);
 
 	bucket = mtu % SIG_BUCKETS;
 

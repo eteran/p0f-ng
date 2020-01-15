@@ -21,8 +21,8 @@ constexpr uint32_t hash32(const void *key, uint32_t len) {
 	uint32_t seed = 0;
 
 	uint32_t a = 0xdeadbeef + len + seed;
-	uint32_t b = 0xdeadbeef + len + seed;
-	uint32_t c = 0xdeadbeef + len + seed;
+	uint32_t b = a;
+	uint32_t c = a;
 
 	auto k = static_cast<const uint8_t *>(key);
 

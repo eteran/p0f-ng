@@ -89,13 +89,11 @@ void config_parse_classes(char *val) {
 void config_parse_label(char *val) {
 
 	char *nxt;
-	uint32_t i;
 
 	/* Simplified handling for [mtu] signatures. */
-
 	if (fp_context.mod_type == CF_MOD_MTU) {
-
-		if (!*val) FATAL("Empty MTU label in line %u.\n", fp_context.line_no);
+		if (!*val)
+			FATAL("Empty MTU label in line %u.\n", fp_context.line_no);
 
 		fp_context.sig_flavor = ck_strdup(val);
 		return;
@@ -108,7 +106,8 @@ void config_parse_label(char *val) {
 	else
 		FATAL("Malformed class entry in line %u.", fp_context.line_no);
 
-	if (val[1] != ':') FATAL("Malformed class entry in line %u.", fp_context.line_no);
+	if (val[1] != ':')
+		FATAL("Malformed class entry in line %u.", fp_context.line_no);
 
 	val += 2;
 
@@ -116,7 +115,8 @@ void config_parse_label(char *val) {
 	while (isalnum(*nxt) || *nxt == '!')
 		nxt++;
 
-	if (nxt == val || *nxt != ':') FATAL("Malformed class entry in line %u.", fp_context.line_no);
+	if (nxt == val || *nxt != ':')
+		FATAL("Malformed class entry in line %u.", fp_context.line_no);
 
 	if (*val == '!' && val[1] == ':') {
 
@@ -125,11 +125,13 @@ void config_parse_label(char *val) {
 	} else {
 
 		*nxt = 0;
-
+		uint32_t i;
 		for (i = 0; i < fp_context.class_cnt; i++)
-			if (!strcasecmp(val, fp_os_classes[i])) break;
+			if (!strcasecmp(val, fp_os_classes[i]))
+				break;
 
-		if (i == fp_context.class_cnt) FATAL("Unknown class '%s' in line %u.", val, fp_context.line_no);
+		if (i == fp_context.class_cnt)
+			FATAL("Unknown class '%s' in line %u.", val, fp_context.line_no);
 
 		fp_context.sig_class = i;
 	}
@@ -139,7 +141,8 @@ void config_parse_label(char *val) {
 	while (isalnum(*nxt) || (*nxt && strchr(NAME_CHARS, *nxt)))
 		nxt++;
 
-	if (nxt == val || *nxt != ':') FATAL("Malformed name in line %u.", fp_context.line_no);
+	if (nxt == val || *nxt != ':')
+		FATAL("Malformed name in line %u.", fp_context.line_no);
 
 	fp_context.sig_name = lookup_name_id(val, nxt - val);
 
@@ -238,7 +241,8 @@ static void config_parse_line(char *line) {
 
 		dir = strchr(line, ':');
 
-		if (!dir) FATAL("Malformed section identifier in line %u.", fp_context.line_no);
+		if (!dir)
+			FATAL("Malformed section identifier in line %u.", fp_context.line_no);
 
 		*dir = 0;
 		dir++;

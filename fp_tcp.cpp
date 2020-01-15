@@ -751,7 +751,8 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	nxt = val;
 	while (isdigit(*nxt))
 		nxt++;
-	if (*nxt != ':') FATAL("Malformed signature in line %u.", line_no);
+	if (*nxt != ':')
+		FATAL("Malformed signature in line %u.", line_no);
 
 	olen = atol(val);
 	if (olen < 0 || olen > 255)
@@ -762,30 +763,27 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	/* MSS */
 
 	if (*val == '*' && val[1] == ':') {
-
 		mss = -1;
 		val += 2;
-
 	} else {
-
 		nxt = val;
 		while (isdigit(*nxt))
 			nxt++;
-		if (*nxt != ':') FATAL("Malformed signature in line %u.", line_no);
+		if (*nxt != ':')
+			FATAL("Malformed signature in line %u.", line_no);
 
 		mss = atol(val);
-		if (mss < 0 || mss > 65535) FATAL("Bogus MSS in line %u.", line_no);
+		if (mss < 0 || mss > 65535)
+			FATAL("Bogus MSS in line %u.", line_no);
 		val = nxt + 1;
 	}
 
 	/* window size, followed by comma */
 
 	if (*val == '*' && val[1] == ',') {
-
 		win_type = WIN_TYPE_ANY;
 		win      = 0;
 		val += 2;
-
 	} else if (*val == '%') {
 
 		win_type = WIN_TYPE_MOD;
@@ -801,8 +799,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 		if (win < 2 || win > 65535) FATAL("Bogus '%%' value in line %u.", line_no);
 		val = nxt + 1;
 
-	} else if (!strncmp(val, "mss*", 4) ||
-			   !strncmp(val, "mtu*", 4)) {
+	} else if (!strncmp(val, "mss*", 4) || !strncmp(val, "mtu*", 4)) {
 
 		win_type = (val[1] == 's') ? WIN_TYPE_MSS : WIN_TYPE_MTU;
 
@@ -834,14 +831,10 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	}
 
 	/* Window scale */
-
 	if (*val == '*' && val[1] == ':') {
-
 		scale = -1;
 		val += 2;
-
 	} else {
-
 		nxt = val;
 		while (isdigit(*nxt))
 			nxt++;
@@ -855,7 +848,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	}
 
 	/* Option layout */
-
 	memset(opt_layout, 0, sizeof(opt_layout));
 
 	while (*val != ':') {
@@ -864,7 +856,6 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 			FATAL("Too many TCP options in line %u.", line_no);
 
 		if (!strncmp(val, "eol", 3)) {
-
 			opt_layout[opt_cnt++] = TCPOPT_EOL;
 			val += 3;
 
@@ -887,37 +878,24 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 				FATAL("Bogus EOL padding in line %u.", line_no);
 
 			val = nxt;
-
 		} else if (!strncmp(val, "nop", 3)) {
-
 			opt_layout[opt_cnt++] = TCPOPT_NOP;
 			val += 3;
-
 		} else if (!strncmp(val, "mss", 3)) {
-
 			opt_layout[opt_cnt++] = TCPOPT_MAXSEG;
 			val += 3;
-
 		} else if (!strncmp(val, "ws", 2)) {
-
 			opt_layout[opt_cnt++] = TCPOPT_WSCALE;
 			val += 2;
-
 		} else if (!strncmp(val, "sok", 3)) {
-
 			opt_layout[opt_cnt++] = TCPOPT_SACKOK;
 			val += 3;
-
 		} else if (!strncmp(val, "sack", 4)) {
-
 			opt_layout[opt_cnt++] = TCPOPT_SACK;
 			val += 4;
-
 		} else if (!strncmp(val, "ts", 2)) {
-
 			opt_layout[opt_cnt++] = TCPOPT_TSTAMP;
 			val += 2;
-
 		} else if (*val == '?') {
 
 			int32_t optno;
@@ -930,7 +908,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 			if (*nxt != ':' && *nxt != ',')
 				FATAL("Malformed '?' option in line %u.", line_no);
 
-			optno = atol(val);
+			optno = atoi(val);
 
 			if (optno < 0 || optno > 255)
 				FATAL("Bogus '?' option in line %u.", line_no);
@@ -944,7 +922,8 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 			FATAL("Unrecognized TCP option in line %u.", line_no);
 		}
 
-		if (*val == ':') break;
+		if (*val == ':')
+			break;
 
 		if (*val != ',')
 			FATAL("Malformed TCP options in line %u.", line_no);
@@ -957,115 +936,79 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	opt_hash = hash32(opt_layout, opt_cnt);
 
 	/* Quirks */
-
 	while (*val != ':') {
-
 		if (!strncmp(val, "df", 2)) {
-
 			if (ver == IP_VER6)
-				FATAL("'df' is not valid for IPv6 in line %d.", line_no);
+				FATAL("'df' is not valid for IPv6 in line %u.", line_no);
 
 			quirks |= QUIRK_DF;
 			val += 2;
-
 		} else if (!strncmp(val, "id+", 3)) {
-
 			if (ver == IP_VER6)
-				FATAL("'id+' is not valid for IPv6 in line %d.", line_no);
+				FATAL("'id+' is not valid for IPv6 in line %u.", line_no);
 
 			quirks |= QUIRK_NZ_ID;
 			val += 3;
-
 		} else if (!strncmp(val, "id-", 3)) {
-
 			if (ver == IP_VER6)
-				FATAL("'id-' is not valid for IPv6 in line %d.", line_no);
+				FATAL("'id-' is not valid for IPv6 in line %u.", line_no);
 
 			quirks |= QUIRK_ZERO_ID;
 			val += 3;
-
 		} else if (!strncmp(val, "ecn", 3)) {
-
 			quirks |= QUIRK_ECN;
 			val += 3;
-
 		} else if (!strncmp(val, "0+", 2)) {
-
 			if (ver == IP_VER6)
-				FATAL("'0+' is not valid for IPv6 in line %d.", line_no);
+				FATAL("'0+' is not valid for IPv6 in line %u.", line_no);
 
 			quirks |= QUIRK_NZ_MBZ;
 			val += 2;
-
 		} else if (!strncmp(val, "flow", 4)) {
-
 			if (ver == IP_VER4)
-				FATAL("'flow' is not valid for IPv4 in line %d.", line_no);
+				FATAL("'flow' is not valid for IPv4 in line %u.", line_no);
 
 			quirks |= QUIRK_FLOW;
 			val += 4;
-
 		} else if (!strncmp(val, "seq-", 4)) {
-
 			quirks |= QUIRK_ZERO_SEQ;
 			val += 4;
-
 		} else if (!strncmp(val, "ack+", 4)) {
-
 			quirks |= QUIRK_NZ_ACK;
 			val += 4;
-
 		} else if (!strncmp(val, "ack-", 4)) {
-
 			quirks |= QUIRK_ZERO_ACK;
 			val += 4;
-
 		} else if (!strncmp(val, "uptr+", 5)) {
-
 			quirks |= QUIRK_NZ_URG;
 			val += 5;
-
 		} else if (!strncmp(val, "urgf+", 5)) {
-
 			quirks |= QUIRK_URG;
 			val += 5;
-
 		} else if (!strncmp(val, "pushf+", 6)) {
-
 			quirks |= QUIRK_PUSH;
 			val += 6;
-
 		} else if (!strncmp(val, "ts1-", 4)) {
-
 			quirks |= QUIRK_OPT_ZERO_TS1;
 			val += 4;
-
 		} else if (!strncmp(val, "ts2+", 4)) {
-
 			quirks |= QUIRK_OPT_NZ_TS2;
 			val += 4;
-
 		} else if (!strncmp(val, "opt+", 4)) {
-
 			quirks |= QUIRK_OPT_EOL_NZ;
 			val += 4;
-
 		} else if (!strncmp(val, "exws", 4)) {
-
 			quirks |= QUIRK_OPT_EXWS;
 			val += 4;
-
 		} else if (!strncmp(val, "bad", 3)) {
-
 			quirks |= QUIRK_OPT_BAD;
 			val += 3;
-
 		} else {
-
 			FATAL("Unrecognized quirk in line %u.", line_no);
 		}
 
-		if (*val == ':') break;
+		if (*val == ':')
+			break;
 
 		if (*val != ',')
 			FATAL("Malformed quirks in line %u.", line_no);
@@ -1147,8 +1090,8 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk, struct p
 	packet_to_sig(pk, sig);
 
 	/* Detect packets generated by p0f-sendsyn; they require special
-     handling to provide the user with response fingerprints, but not
-     interfere with NAT scores and such. */
+	 handling to provide the user with response fingerprints, but not
+	 interfere with NAT scores and such. */
 
 	if (pk->tcp_type == TCP_SYN && pk->win == SPECIAL_WIN && pk->mss == SPECIAL_MSS)
 		f->sendsyn = 1;
@@ -1224,7 +1167,7 @@ void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f)
 	if (!pk->ts1 || f->sendsyn) return;
 
 	/* If we're getting SYNs very rapidly, last_syn may be changing too quickly
-     to be of any use. Perhaps lock into an older value? */
+	 to be of any use. Perhaps lock into an older value? */
 
 	if (to_srv) {
 
@@ -1244,9 +1187,9 @@ void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f)
 	}
 
 	/* Wait at least 25 ms, and not more than 10 minutes, for at least 5
-     timestamp ticks. Allow the timestamp to go back slightly within
-     a short window, too - we may be receiving packets a bit out of
-     order. */
+	 timestamp ticks. Allow the timestamp to go back slightly within
+	 a short window, too - we may be receiving packets a bit out of
+	 order. */
 
 	if (ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT) return;
 
@@ -1261,7 +1204,7 @@ void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f)
 	if (ffreq < MIN_TSCALE || ffreq > MAX_TSCALE) {
 
 		/* Allow bad reading on SYN, as this may be just an artifact of IP
-       sharing or OS change. */
+	   sharing or OS change. */
 
 		if (pk->tcp_type != TCP_SYN) {
 

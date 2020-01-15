@@ -34,7 +34,7 @@
 #define FATAL(...)                                      \
 	do {                                                \
 		ERRORF("[-] PROGRAM ABORT : " __VA_ARGS__);     \
-		ERRORF("\n         Location : %s(), %s:%u\n\n", \
+		ERRORF("\n         Location : %s(), %s:%d\n\n", \
 			   __func__, __FILE__, __LINE__);           \
 		exit(1);                                        \
 	} while (0)
@@ -42,7 +42,7 @@
 #define ABORT(...)                                      \
 	do {                                                \
 		ERRORF("[-] PROGRAM ABORT : " __VA_ARGS__);     \
-		ERRORF("\n         Location : %s(), %s:%u\n\n", \
+		ERRORF("\n         Location : %s(), %s:%d\n\n", \
 			   __func__, __FILE__, __LINE__);           \
 		abort();                                        \
 	} while (0)
@@ -50,7 +50,7 @@
 #define PFATAL(...)                                  \
 	do {                                             \
 		ERRORF("[-] SYSTEM ERROR : " __VA_ARGS__);   \
-		ERRORF("\n        Location : %s(), %s:%u\n", \
+		ERRORF("\n        Location : %s(), %s:%d\n", \
 			   __func__, __FILE__, __LINE__);        \
 		perror("      OS message ");                 \
 		ERRORF("\n");                                \

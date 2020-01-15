@@ -484,7 +484,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		/* A good proportion of RSTs tend to have "illegal" ACK numbers, so
 		 * ignore these. */
 
-		if (RD32(tcp->ack) & !(tcp->flags & TCP_RST)) {
+		if (RD32(tcp->ack) && !(tcp->flags & TCP_RST)) {
 			DEBUG("[#] Non-zero ACK on a non-ACK packet: 0x%08x.\n",
 				  ntohl(RD32(tcp->ack)));
 
@@ -511,6 +511,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		pk.payload = nullptr;
 		pk.pay_len = 0;
 	} else {
+
 		pk.payload = const_cast<uint8_t *>(data) + tcp_doff;
 		pk.pay_len = packet_len - tcp_doff;
 	}
