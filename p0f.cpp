@@ -40,7 +40,7 @@
 #include <net/bpf.h>
 #else
 #include <pcap-bpf.h>
-#endif /* !NET_BPF */
+#endif // !NET_BPF
 
 #include "alloc-inl.h"
 #include "api.h"
@@ -54,51 +54,51 @@
 
 #ifndef PF_INET6
 #define PF_INET6 10
-#endif /* !PF_INET6 */
+#endif // !PF_INET6
 
 #ifndef O_NOFOLLOW
 #define O_NOFOLLOW 0
-#endif /* !O_NOFOLLOW */
+#endif // !O_NOFOLLOW
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
-#endif /* !O_LARGEFILE */
+#endif // !O_LARGEFILE
 
-char *read_file;                            /* File to read pcap data from        */
-uint32_t max_conn        = MAX_CONN;        /* Connection entry count limit       */
-uint32_t max_hosts       = MAX_HOSTS;       /* Host cache entry count limit       */
-uint32_t conn_max_age    = CONN_MAX_AGE;    /* Maximum age of a connection entry  */
-uint32_t host_idle_limit = HOST_IDLE_LIMIT; /* Host cache idle timeout            */
-uint8_t daemon_mode;                        /* Running in daemon mode?            */
-int32_t link_type;                          /* PCAP link type                     */
+char *read_file;                            // File to read pcap data from
+uint32_t max_conn        = MAX_CONN;        // Connection entry count limit
+uint32_t max_hosts       = MAX_HOSTS;       // Host cache entry count limit
+uint32_t conn_max_age    = CONN_MAX_AGE;    // Maximum age of a connection entry
+uint32_t host_idle_limit = HOST_IDLE_LIMIT; // Host cache idle timeout
+uint8_t daemon_mode;                        // Running in daemon mode?
+int32_t link_type;                          // PCAP link type
 
 #define LOGF(...) fprintf(p0f_context.lf, __VA_ARGS__)
 
 namespace {
 
 struct p0f_context_t {
-	char *use_iface   = nullptr; /* Interface to listen on             */
-	char *orig_rule   = nullptr; /* Original filter rule               */
-	char *switch_user = nullptr; /* Target username                    */
-	char *log_file    = nullptr; /* Binary log file name               */
-	char *api_sock    = nullptr; /* API socket file name               */
-	char *fp_file     = nullptr; /* Location of p0f.fp                 */
+	char *use_iface   = nullptr; // Interface to listen on
+	char *orig_rule   = nullptr; // Original filter rule
+	char *switch_user = nullptr; // Target username
+	char *log_file    = nullptr; // Binary log file name
+	char *api_sock    = nullptr; // API socket file name
+	char *fp_file     = nullptr; // Location of p0f.fp
 
-	struct api_client *api_cl = nullptr; /* Array with API client state        */
-	FILE *lf                  = nullptr; /* Log file stream                    */
-	pcap_t *pt                = nullptr; /* PCAP capture thingy                */
+	struct api_client *api_cl = nullptr; // Array with API client state
+	FILE *lf                  = nullptr; // Log file stream
+	pcap_t *pt                = nullptr; // PCAP capture thingy
 
-	uint32_t api_max_conn = API_MAX_CONN; /* Maximum number of API connections  */
-	int32_t null_fd       = -1;           /* File descriptor of /dev/null       */
-	int32_t api_fd        = -1;           /* API socket descriptor              */
-	uint8_t stop_soon     = 0;            /* Ctrl-C or so pressed?              */
-	uint8_t set_promisc   = 0;            /* Use promiscuous mode?              */
-	uint8_t obs_fields    = 0;            /* No of pending observation fields   */
+	uint32_t api_max_conn = API_MAX_CONN; // Maximum number of API connections
+	int32_t null_fd       = -1;           // File descriptor of /dev/null
+	int32_t api_fd        = -1;           // API socket descriptor
+	uint8_t stop_soon     = 0;            // Ctrl-C or so pressed?
+	uint8_t set_promisc   = 0;            // Use promiscuous mode?
+	uint8_t obs_fields    = 0;            // No of pending observation fields
 };
 
 p0f_context_t p0f_context;
 
-/* Display usage information */
+// Display usage information
 [[noreturn]] void usage() {
 
 	constexpr char message[] =
@@ -142,7 +142,7 @@ p0f_context_t p0f_context;
 	exit(1);
 }
 
-/* Get rid of unnecessary file descriptors */
+// Get rid of unnecessary file descriptors
 void close_spare_fds() {
 
 	int32_t i, closed = 0;
@@ -152,7 +152,7 @@ void close_spare_fds() {
 	d = opendir("/proc/self/fd");
 
 	if (!d) {
-		/* Best we could do... */
+		// Best we could do...
 		for (i = 3; i < 256; i++)
 			if (!close(i)) closed++;
 		return;
@@ -169,7 +169,7 @@ void close_spare_fds() {
 		SAYF("[+] Closed %u file descriptor%s.\n", closed, closed == 1 ? "" : "s");
 }
 
-/* Create or open log file */
+// Create or open log file
 void open_log() {
 
 	struct stat st;
@@ -203,7 +203,7 @@ void open_log() {
 	SAYF("[+] Log file '%s' opened for writing.\n", p0f_context.log_file);
 }
 
-/* Create and start listening on API socket */
+// Create and start listening on API socket
 void open_api() {
 
 	int32_t old_umask;
@@ -257,7 +257,7 @@ void open_api() {
 		 p0f_context.api_max_conn);
 }
 
-/* Show PCAP interface list */
+// Show PCAP interface list
 void list_interfaces() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
@@ -288,7 +288,7 @@ void list_interfaces() {
 		SAYF("\n%3d: Name        : %s\n", i++, dev->name);
 		SAYF("     Description : %s\n", dev->description ? dev->description : "-");
 
-		/* Let's try to find something we can actually display. */
+		// Let's try to find something we can actually display.
 
 		while (a && a->addr->sa_family != PF_INET && a->addr->sa_family != PF_INET6)
 			a = a->next;
@@ -310,7 +310,7 @@ void list_interfaces() {
 	pcap_freealldevs(dev);
 }
 
-/* Initialize PCAP capture */
+// Initialize PCAP capture
 void prepare_pcap() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
@@ -369,7 +369,7 @@ void prepare_pcap() {
 	link_type = pcap_datalink(p0f_context.pt);
 }
 
-/* Initialize BPF filtering */
+// Initialize BPF filtering
 void prepare_bpf() {
 
 	struct bpf_program flt;
@@ -447,7 +447,7 @@ retry_no_vlan:
 	}
 }
 
-/* Drop privileges and chroot(), with some sanity checks */
+// Drop privileges and chroot(), with some sanity checks
 void drop_privs() {
 
 	struct passwd *pw = getpwnam(p0f_context.switch_user);
@@ -489,7 +489,7 @@ void drop_privs() {
 		 pw->pw_uid, pw->pw_gid, pw->pw_dir);
 }
 
-/* Enter daemon mode. */
+// Enter daemon mode.
 void fork_off() {
 
 	fflush(nullptr);
@@ -532,7 +532,7 @@ void fork_off() {
 	}
 }
 
-/* Handler for Ctrl-C and related signals */
+// Handler for Ctrl-C and related signals
 void abort_handler(int sig) {
 	(void)sig;
 
@@ -542,7 +542,7 @@ void abort_handler(int sig) {
 	p0f_context.stop_soon = 1;
 }
 
-/* Regenerate pollfd data for poll() */
+// Regenerate pollfd data for poll()
 uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 	uint32_t i;
 	uint32_t count = 2;
@@ -580,7 +580,7 @@ uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 	return count;
 }
 
-/* Event loop! Accepts and dispatches pcap data, API queries, etc. */
+// Event loop! Accepts and dispatches pcap data, API queries, etc.
 void live_event_loop() {
 
 	/* The huge problem with winpcap on cygwin is that you can't get a file
@@ -592,7 +592,7 @@ void live_event_loop() {
 	 nasty busy loop, or a ton of Windows-specific code. If you need APi
 	 queries on Windows, you are welcome to fix this :-) */
 
-	/* We need room for pcap, and possibly p0f_context.api_fd + api_clients. */
+	// We need room for pcap, and possibly p0f_context.api_fd + api_clients.
 	auto pfds   = static_cast<struct pollfd *>(calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct pollfd)));
 	auto ctable = static_cast<struct api_client **>(calloc((1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0)), sizeof(struct api_client *)));
 
@@ -624,7 +624,7 @@ void live_event_loop() {
 			continue;
 		}
 
-		/* Examine pfds... */
+		// Examine pfds...
 
 		for (uint32_t cur = 0; cur < pfd_count; cur++) {
 			if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
@@ -633,7 +633,7 @@ void live_event_loop() {
 				case 1:
 					FATAL("API socket is down.");
 				default:
-					/* Shut down API connection and free its state. */
+					// Shut down API connection and free its state.
 					DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
 
 					close(pfds[cur].fd);
@@ -650,7 +650,7 @@ void live_event_loop() {
 					FATAL("Unexpected POLLOUT on fd %d.\n", cur);
 				default: {
 
-					/* Write API response, restart state when complete. */
+					// Write API response, restart state when complete.
 
 					if (ctable[cur]->in_off < sizeof(struct p0f_api_query))
 						FATAL("Inconsistent p0f_api_response state.\n");
@@ -661,7 +661,7 @@ void live_event_loop() {
 
 					ctable[cur]->out_off += i;
 
-					/* All done? Back to square zero then! */
+					// All done? Back to square zero then!
 
 					if (ctable[cur]->out_off == sizeof(struct p0f_api_response)) {
 
@@ -674,12 +674,12 @@ void live_event_loop() {
 			if (pfds[cur].revents & POLLIN)
 				switch (cur) {
 				case 0:
-					/* Process traffic on the capture interface. */
+					// Process traffic on the capture interface.
 					if (pcap_dispatch(p0f_context.pt, -1, parse_packet, 0) < 0)
 						FATAL("Packet capture interface is down.");
 					break;
 				case 1:
-					/* Accept new API connection, limits permitting. */
+					// Accept new API connection, limits permitting.
 					if (!p0f_context.api_sock)
 						FATAL("Unexpected API connection.");
 
@@ -716,7 +716,7 @@ void live_event_loop() {
 					break;
 
 				default: {
-					/* Receive API query, dispatch when complete. */
+					// Receive API query, dispatch when complete.
 					if (ctable[cur]->in_off >= sizeof(struct p0f_api_query))
 						FATAL("Inconsistent p0f_api_query state.\n");
 
@@ -729,7 +729,7 @@ void live_event_loop() {
 
 					ctable[cur]->in_off += i;
 
-					/* Query in place? Compute response and prepare to send it back. */
+					// Query in place? Compute response and prepare to send it back.
 
 					if (ctable[cur]->in_off == sizeof(struct p0f_api_query)) {
 
@@ -739,7 +739,7 @@ void live_event_loop() {
 				}
 				}
 
-			/* Processed all reported updates already? If so, bail out early. */
+			// Processed all reported updates already? If so, bail out early.
 
 			if (pfds[cur].revents && !--pret) break;
 		}
@@ -751,7 +751,7 @@ void live_event_loop() {
 	WARN("User-initiated shutdown.");
 }
 
-/* Simple event loop for processing offline captures. */
+// Simple event loop for processing offline captures.
 void offline_event_loop() {
 
 	if (!daemon_mode)
@@ -768,7 +768,7 @@ void offline_event_loop() {
 
 }
 
-/* Open log entry. */
+// Open log entry.
 void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, const struct packet_flow *f) {
 
 	if (p0f_context.obs_fields) FATAL("Premature end of observation.");
@@ -803,7 +803,7 @@ void start_observation(const char *keyword, uint8_t field_cnt, uint8_t to_srv, c
 	p0f_context.obs_fields = field_cnt;
 }
 
-/* Add log item. */
+// Add log item.
 void add_observation_field(const char *key, const char *value) {
 
 	if (!p0f_context.obs_fields) FATAL("Unexpected observation field ('%s').", key);
@@ -823,7 +823,7 @@ void add_observation_field(const char *key, const char *value) {
 	}
 }
 
-/* Main entry point */
+// Main entry point
 int main(int argc, char **argv) {
 
 	int32_t r;
@@ -992,7 +992,7 @@ int main(int argc, char **argv) {
 
 #ifdef DEBUG_BUILD
 	destroy_all_hosts();
-#endif /* DEBUG_BUILD */
+#endif // DEBUG_BUILD
 
 	return 0;
 }

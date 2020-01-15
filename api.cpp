@@ -25,7 +25,7 @@
 
 void handle_query(struct p0f_api_query *q, struct p0f_api_response *r);
 
-/* Process API queries. */
+// Process API queries.
 void handle_query(struct p0f_api_query *q, struct p0f_api_response *r) {
 
 	struct host_data *h;

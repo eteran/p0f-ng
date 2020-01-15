@@ -56,13 +56,13 @@ void observf(const char *key, const char *fmt, T &&... args) {
 
 struct api_client {
 
-	int32_t fd; /* -1 if slot free                    */
+	int32_t fd; // -1 if slot free
 
-	struct p0f_api_query in_data; /* Query recv buffer                  */
-	uint32_t in_off;              /* Query buffer offset                */
+	struct p0f_api_query in_data; // Query recv buffer
+	uint32_t in_off;              // Query buffer offset
 
-	struct p0f_api_response out_data; /* Response transmit buffer           */
-	uint32_t out_off;                 /* Response buffer offset             */
+	struct p0f_api_response out_data; // Response transmit buffer
+	uint32_t out_off;                 // Response buffer offset
 };
 
-#endif /* !HAVE_P0F_H_ */
+#endif // !HAVE_P0F_H_

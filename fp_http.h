@@ -14,74 +14,74 @@
 #include "config.h"
 #include "types.h"
 
-/* A structure used for looking up various headers internally in fp_http.c: */
+// A structure used for looking up various headers internally in fp_http.c:
 
 struct http_id {
 	const char *name;
 	uint32_t id;
 };
 
-/* Another internal structure for UA -> OS maps: */
+// Another internal structure for UA -> OS maps:
 
 struct ua_map_record {
 	char *name;
 	uint32_t id;
 };
 
-/* HTTP header field: */
+// HTTP header field:
 
 struct http_hdr {
-	int32_t id;       /* Lookup ID (-1 = none)              */
-	char *name;       /* Text name (nullptr = use lookup ID)   */
-	char *value;      /* Value, if any                      */
-	uint8_t optional; /* Optional header?                   */
+	int32_t id;       // Lookup ID (-1 = none)
+	char *name;       // Text name (nullptr = use lookup ID)
+	char *value;      // Value, if any
+	uint8_t optional; // Optional header?
 };
 
-/* Request / response signature collected from the wire: */
+// Request / response signature collected from the wire:
 
 struct http_sig {
 
-	int8_t http_ver; /* HTTP version (-1 = any)            */
+	int8_t http_ver; // HTTP version (-1 = any)
 
-	struct http_hdr hdr[HTTP_MAX_HDRS]; /* Mandatory / discovered headers     */
+	struct http_hdr hdr[HTTP_MAX_HDRS]; // Mandatory / discovered headers
 	uint32_t hdr_cnt;
 
-	uint64_t hdr_bloom4; /* Bloom filter for headers           */
+	uint64_t hdr_bloom4; // Bloom filter for headers
 
-	uint32_t miss[HTTP_MAX_HDRS]; /* Missing headers                    */
+	uint32_t miss[HTTP_MAX_HDRS]; // Missing headers
 	uint32_t miss_cnt;
 
-	char *sw;   /* Software string (U-A or Server)    */
-	char *lang; /* Accept-Language                    */
-	char *via;  /* Via or X-Forwarded-For             */
+	char *sw;   // Software string (U-A or Server)
+	char *lang; // Accept-Language
+	char *via;  // Via or X-Forwarded-For
 
-	uint32_t date;      /* Parsed 'Date'                      */
-	uint32_t recv_date; /* Actual receipt date                */
+	uint32_t date;      // Parsed 'Date'
+	uint32_t recv_date; // Actual receipt date
 
-	/* Information used for matching with p0f.fp: */
+	// Information used for matching with p0f.fp:
 
-	struct http_sig_record *matched; /* nullptr = no match                    */
-	uint8_t dishonest;               /* "sw" looks forged?                 */
+	struct http_sig_record *matched; // nullptr = no match
+	uint8_t dishonest;               // "sw" looks forged?
 };
 
-/* Record for a HTTP signature read from p0f.fp: */
+// Record for a HTTP signature read from p0f.fp:
 
 struct http_sig_record {
 
-	int32_t class_id; /* OS class ID (-1 = user)            */
-	int32_t name_id;  /* OS name ID                         */
-	char *flavor;     /* Human-readable flavor string       */
+	int32_t class_id; // OS class ID (-1 = user)
+	int32_t name_id;  // OS name ID
+	char *flavor;     // Human-readable flavor string
 
-	uint32_t label_id; /* Signature label ID                 */
+	uint32_t label_id; // Signature label ID
 
-	uint32_t *sys;    /* OS class / name IDs for user apps  */
-	uint32_t sys_cnt; /* Length of sys                      */
+	uint32_t *sys;    // OS class / name IDs for user apps
+	uint32_t sys_cnt; // Length of sys
 
-	uint32_t line_no; /* Line number in p0f.fp              */
+	uint32_t line_no; // Line number in p0f.fp
 
-	uint8_t generic; /* Generic signature?                 */
+	uint8_t generic; // Generic signature?
 
-	struct http_sig *sig; /* Actual signature data              */
+	struct http_sig *sig; // Actual signature data
 };
 
 struct packet_flow;
@@ -91,4 +91,4 @@ uint8_t process_http(uint8_t to_srv, struct packet_flow *f);
 void free_sig_hdrs(struct http_sig *h);
 void http_init();
 
-#endif /* HAVE_FP_HTTP_H_ */
+#endif // HAVE_FP_HTTP_H_

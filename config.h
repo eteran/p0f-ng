@@ -17,71 +17,71 @@
  * Things you may reasonably want to change *
  ********************************************/
 
-/* Default location of p0f.fp: */
+// Default location of p0f.fp:
 
 #ifndef FP_FILE
 #define FP_FILE "p0f.fp"
-#endif /* !FP_FILE */
+#endif // !FP_FILE
 
-/* Initial permissions on log files: */
+// Initial permissions on log files:
 
 #ifndef LOG_MODE
 #define LOG_MODE 0600
-#endif /* !LOG_MODE */
+#endif // !LOG_MODE
 
-/* Initial permissions on API sockets: */
+// Initial permissions on API sockets:
 
 #ifndef API_MODE
 #define API_MODE 0666
-#endif /* !API_MODE */
+#endif // !API_MODE
 
-/* Default connection and host cache sizes (adjustable via -m): */
+// Default connection and host cache sizes (adjustable via -m):
 
 #ifndef MAX_HOSTS
 #define MAX_CONN 1000
 #define MAX_HOSTS 10000
-#endif /* !MAX_HOSTS */
+#endif // !MAX_HOSTS
 
-/* Default connection and host time limits (adjustable via -t): */
+// Default connection and host time limits (adjustable via -t):
 
 #ifndef HOST_IDLE_LIMIT
-#define CONN_MAX_AGE 30     /* seconds */
-#define HOST_IDLE_LIMIT 120 /* minutes */
-#endif                      /* !HOST_IDLE_LIMIT */
+#define CONN_MAX_AGE 30     // seconds
+#define HOST_IDLE_LIMIT 120 // minutes
+#endif                      // !HOST_IDLE_LIMIT
 
-/* Default number of API connections permitted (adjustable via -c): */
+// Default number of API connections permitted (adjustable via -c):
 
 #ifndef API_MAX_CONN
 #define API_MAX_CONN 20
-#endif /* !API_MAX_CONN */
+#endif // !API_MAX_CONN
 
-/* Maximum TTL distance for non-fuzzy signature matching: */
+// Maximum TTL distance for non-fuzzy signature matching:
 
 #ifndef MAX_DIST
 #define MAX_DIST 35
-#endif /* !MAX_DIST */
+#endif // !MAX_DIST
 
 /************************
  * Really obscure stuff *
  ************************/
 
-/* Maximum allocator request size (keep well under INT_MAX): */
+// Maximum allocator request size (keep well under INT_MAX):
 
 #define MAX_ALLOC 0x40000000
 
-/* Percentage of host entries / flows to prune when limits exceeded: */
+// Percentage of host entries / flows to prune when limits exceeded:
 
 #define KILL_PERCENT 10
 
-/* PCAP snapshot length: */
+// PCAP snapshot length:
 
 #define SNAPLEN 65535
 
-/* Maximum request, response size to keep per flow: */
+// Maximum request, response size to keep per flow:
 
 #define MAX_FLOW_DATA 8192
 
-/* Maximum number of TCP options we will process (< 256): */
+// Maximum number of TCP options we will process (< 256):
 
 #define MAX_TCP_OPT 24
 
@@ -105,11 +105,11 @@
 
 #define TSTAMP_GRACE 100
 
-/* Maximum interval between packets used for TS-based NAT checks (ms): */
+// Maximum interval between packets used for TS-based NAT checks (ms):
 
 #define MAX_NAT_TS (1000 * 60 * 60 * 24)
 
-/* Minimum port drop to serve as a NAT detection signal: */
+// Minimum port drop to serve as a NAT detection signal:
 
 #define MIN_PORT_DROP 64
 
@@ -128,23 +128,23 @@
 
 #define NEAR_TTL_LIMIT 9
 
-/* Number of packet scores to keep for NAT detection (< 256): */
+// Number of packet scores to keep for NAT detection (< 256):
 
 #define NAT_SCORES 32
 
-/* Number of hash buckets for p0f.fp signatures: */
+// Number of hash buckets for p0f.fp signatures:
 
 #define SIG_BUCKETS 64
 
-/* Number of hash buckets for active connections: */
+// Number of hash buckets for active connections:
 
 #define FLOW_BUCKETS 256
 
-/* Number of hash buckets for host data: */
+// Number of hash buckets for host data:
 
 #define HOST_BUCKETS 1024
 
-/* Cache expiration interval (every n packets received): */
+// Cache expiration interval (every n packets received):
 
 #define EXPIRE_INTERVAL 50
 
@@ -153,7 +153,7 @@
 
 #define NAME_CHARS " ./-_!?()"
 
-/* Special window size and MSS used by p0f-sendsyn, and detected by p0f: */
+// Special window size and MSS used by p0f-sendsyn, and detected by p0f:
 
 #define SPECIAL_MSS 1331
 #define SPECIAL_WIN 1337
@@ -163,23 +163,23 @@
 
 #define HTTP_MAX_URL 1024
 
-/* Maximum number of HTTP headers: */
+// Maximum number of HTTP headers:
 
 #define HTTP_MAX_HDRS 32
 
-/* Maximum length of a header name: */
+// Maximum length of a header name:
 
 #define HTTP_MAX_HDR_NAME 32
 
-/* Maximum length of a header value: */
+// Maximum length of a header value:
 
 #define HTTP_MAX_HDR_VAL 1024
 
-/* Maximum length of a header value for display purposes: */
+// Maximum length of a header value for display purposes:
 
 #define HTTP_MAX_SHOW 200
 
-/* Maximum HTTP 'Date' progression jitter to overlook (s): */
+// Maximum HTTP 'Date' progression jitter to overlook (s):
 
 #define HTTP_MAX_DATE_DIFF 10
 
@@ -256,6 +256,6 @@ static constexpr struct http_id resp_skipval_init[] = {
 	{"Server", 0},
 	{0, 0}};
 
-#endif /* _FROM_FP_HTTP */
+#endif // _FROM_FP_HTTP
 
-#endif /* ! _HAVE_CONFIG_H */
+#endif // ! _HAVE_CONFIG_H

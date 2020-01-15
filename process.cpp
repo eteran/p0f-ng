@@ -41,52 +41,52 @@
 namespace {
 
 struct process_context_t {
-	struct host_data *host_by_age = nullptr; /* All host entries, by last mod      */
-	struct host_data *newest_host = nullptr; /* Tail of the list                   */
+	struct host_data *host_by_age = nullptr; // All host entries, by last mod
+	struct host_data *newest_host = nullptr; // Tail of the list
 
-	struct packet_flow *flow_by_age = nullptr; /* All flows, by creation time        */
-	struct packet_flow *newest_flow = nullptr; /* Tail of the list                   */
+	struct packet_flow *flow_by_age = nullptr; // All flows, by creation time
+	struct packet_flow *newest_flow = nullptr; // Tail of the list
 
-	const struct timeval *cur_time = nullptr; /* Current time, courtesy of pcap     */
+	const struct timeval *cur_time = nullptr; // Current time, courtesy of pcap
 
-	/* Bucketed hosts and flows: */
+	// Bucketed hosts and flows:
 	struct host_data *host_b[HOST_BUCKETS]   = {};
 	struct packet_flow *flow_b[FLOW_BUCKETS] = {};
 
-	/* Counters for bookkeeping purposes  */
+	// Counters for bookkeeping purposes
 	uint32_t host_cnt = 0;
 	uint32_t flow_cnt = 0;
 
-	int8_t link_off     = -1; /* Link-specific IP header offset     */
-	uint8_t bad_packets = 0;  /* Seen non-IP packets?               */
+	int8_t link_off     = -1; // Link-specific IP header offset
+	uint8_t bad_packets = 0;  // Seen non-IP packets?
 };
 
 process_context_t process_context;
 
 }
 
-uint64_t packet_cnt; /* Total number of packets processed  */
+uint64_t packet_cnt; // Total number of packets processed
 
 static void flow_dispatch(struct packet_data *pk);
 static void nuke_flows(uint8_t silent);
 static void expire_cache();
 
-/* Get unix time in milliseconds. */
+// Get unix time in milliseconds.
 uint64_t get_unix_time_ms() {
 	return (process_context.cur_time->tv_sec) * 1000 + (process_context.cur_time->tv_usec / 1000);
 }
 
-/* Get unix time in seconds. */
+// Get unix time in seconds.
 time_t get_unix_time() {
 	return process_context.cur_time->tv_sec;
 }
 
-/* Find link-specific offset (pcap knows, but won't tell). */
+// Find link-specific offset (pcap knows, but won't tell).
 static void find_offset(const uint8_t *data, int32_t total_len) {
 
 	uint8_t i;
 
-	/* Check hardcoded values for some of the most common options. */
+	// Check hardcoded values for some of the most common options.
 
 	switch (link_type) {
 
@@ -103,7 +103,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 
 #ifdef DLT_PPP_SERIAL
 	case DLT_PPP_SERIAL:
-#endif /* DLT_PPP_SERIAL */
+#endif // DLT_PPP_SERIAL
 
 	case DLT_PPP_ETHER:
 		process_context.link_off = 8;
@@ -117,7 +117,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 	case DLT_LINUX_SLL:
 		process_context.link_off = 16;
 		return;
-#endif /* DLT_LINUX_SLL */
+#endif // DLT_LINUX_SLL
 
 	case DLT_PFLOG:
 		process_context.link_off = 28;
@@ -185,7 +185,7 @@ static void find_offset(const uint8_t *data, int32_t total_len) {
 	}
 }
 
-/* Convert IPv4 or IPv6 address to a human-readable form. */
+// Convert IPv4 or IPv6 address to a human-readable form.
 
 char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 
@@ -230,7 +230,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	if (!(packet_cnt % EXPIRE_INTERVAL)) expire_cache();
 
-	/* Be paranoid about how much data we actually have off the wire. */
+	// Be paranoid about how much data we actually have off the wire.
 
 	packet_len = std::min(hdr->len, hdr->caplen);
 	if (packet_len > SNAPLEN) packet_len = SNAPLEN;
@@ -238,7 +238,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	// DEBUG("[#] Received packet: len = %d, caplen = %d, limit = %d\n",
 	//    hdr->len, hdr->caplen, SNAPLEN);
 
-	/* Account for link-level headers. */
+	// Account for link-level headers.
 
 	if (process_context.link_off < 0) {
 		find_offset(data, packet_len);
@@ -279,7 +279,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 			// DEBUG("[#] ipv4.tot_len = %u, adjusted accordingly.\n", tot_len);
 		}
 
-		/* Bail out if the result leaves no room for IPv4 + TCP headers. */
+		// Bail out if the result leaves no room for IPv4 + TCP headers.
 
 		if (packet_len < MIN_TCP4) {
 			DEBUG("[#] packet_len = %u. Too short for IPv4 + TCP, giving up!\n",
@@ -287,7 +287,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 			return;
 		}
 
-		/* Bail out if the declared length of IPv4 headers is nonsensical. */
+		// Bail out if the declared length of IPv4 headers is nonsensical.
 
 		if (hdr_len < sizeof(struct ipv4_hdr)) {
 			DEBUG("[#] ipv4.hdr_len = %u. Too short for IPv4, giving up!\n",
@@ -313,7 +313,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 			return;
 		}
 
-		/* Bail out if the subsequent protocol is not TCP. */
+		// Bail out if the subsequent protocol is not TCP.
 
 		if (ip4->proto != PROTO_TCP) {
 			DEBUG("[#] Whoa, IPv4 packet with non-TCP payload (%u)?\n", ip4->proto);
@@ -328,7 +328,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 			return;
 		}
 
-		/* Store some relevant information about the packet. */
+		// Store some relevant information about the packet.
 
 		pk.ip_ver = IP_VER4;
 
@@ -343,7 +343,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		if (ip4->tos_ecn & (IP_TOS_CE | IP_TOS_ECT)) pk.quirks |= QUIRK_ECN;
 
-		/* Tag some of the corner cases associated with implementation quirks. */
+		// Tag some of the corner cases associated with implementation quirks.
 
 		if (flags_off & IP4_MBZ) pk.quirks |= QUIRK_NZ_MBZ;
 
@@ -380,7 +380,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 			// DEBUG("[#] ipv6.tot_len = %u, adjusted accordingly.\n", tot_len);
 		}
 
-		/* Bail out if the result leaves no room for IPv6 + TCP headers. */
+		// Bail out if the result leaves no room for IPv6 + TCP headers.
 
 		if (packet_len < MIN_TCP6) {
 			DEBUG("[#] packet_len = %u. Too short for IPv6 + TCP, giving up!\n",
@@ -406,7 +406,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 			return;
 		}
 
-		/* Store some relevant information about the packet. */
+		// Store some relevant information about the packet.
 
 		pk.ip_ver = IP_VER6;
 
@@ -445,7 +445,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	tcp_doff = (tcp->doff_rsvd >> 4) * 4;
 
-	/* As usual, let's start with sanity checks. */
+	// As usual, let's start with sanity checks.
 
 	if (tcp_doff < sizeof(struct tcp_hdr)) {
 		DEBUG("[#] tcp.hdr_len = %u, not enough for TCP!\n", tcp_doff);
@@ -464,7 +464,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	pk.tcp_type = tcp->flags & (TCP_SYN | TCP_ACK | TCP_FIN | TCP_RST);
 
-	/* NUL, SYN+FIN, SYN+RST, FIN+RST, etc, should go to /dev/null. */
+	// NUL, SYN+FIN, SYN+RST, FIN+RST, etc, should go to /dev/null.
 
 	if (((tcp->flags & TCP_SYN) && (tcp->flags & (TCP_FIN | TCP_RST))) ||
 		((tcp->flags & TCP_FIN) && (tcp->flags & TCP_RST)) ||
@@ -477,7 +477,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	pk.win = ntohs(RD16(tcp->win));
 	pk.seq = ntohl(RD32(tcp->seq));
 
-	/* Take note of miscellanous features and quirks. */
+	// Take note of miscellanous features and quirks.
 
 	if ((tcp->flags & (TCP_ECE | TCP_CWR)) || (tcp->doff_rsvd & TCP_NS_RES))
 		pk.quirks |= QUIRK_ECN;
@@ -515,7 +515,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	if (tcp->flags & TCP_PUSH)
 		pk.quirks |= QUIRK_PUSH;
 
-	/* Handle payload data. */
+	// Handle payload data.
 	if (tcp_doff == packet_len) {
 		pk.payload = nullptr;
 		pk.pay_len = 0;
@@ -529,7 +529,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
    * TCP option parsing *
    **********************/
 
-	opt_end = data + tcp_doff; /* First byte of non-option data */
+	opt_end = data + tcp_doff; // First byte of non-option data
 	data    = reinterpret_cast<const uint8_t *>(tcp + 1);
 
 	pk.opt_cnt     = 0;
@@ -567,13 +567,13 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		case TCPOPT_NOP:
 
-			/* NOP is a single-byte option that does nothing. */
+			// NOP is a single-byte option that does nothing.
 
 			break;
 
 		case TCPOPT_MAXSEG:
 
-			/* MSS is a four-byte option with specified size. */
+			// MSS is a four-byte option with specified size.
 
 			if (data + 3 > opt_end) {
 				DEBUG("[#] MSS option would end past end of header (%ld left).\n",
@@ -594,7 +594,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		case TCPOPT_WSCALE:
 
-			/* WS is a three-byte option with specified size. */
+			// WS is a three-byte option with specified size.
 
 			if (data + 2 > opt_end) {
 				DEBUG("[#] WS option would end past end of header (%ld left).\n",
@@ -617,7 +617,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		case TCPOPT_SACKOK:
 
-			/* SACKOK is a two-byte option with specified size. */
+			// SACKOK is a two-byte option with specified size.
 
 			if (data + 1 > opt_end) {
 				DEBUG("[#] SACKOK option would end past end of header (%ld left).\n",
@@ -661,7 +661,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		case TCPOPT_TSTAMP:
 
-			/* Timestamp is a ten-byte option with specified size. */
+			// Timestamp is a ten-byte option with specified size.
 
 			if (data + 9 > opt_end) {
 				DEBUG("[#] TStamp option would end past end of header (%ld left).\n",
@@ -693,7 +693,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		default:
 
-			/* Unknown option, presumably with specified size. */
+			// Unknown option, presumably with specified size.
 
 			if (data == opt_end) {
 				DEBUG("[#] Unknown option 0x%02x without room for length field.",
@@ -748,7 +748,7 @@ static uint32_t get_flow_bucket(struct packet_data *pk) {
 	return bucket % FLOW_BUCKETS;
 }
 
-/* Calculate hash bucket for host_data. */
+// Calculate hash bucket for host_data.
 
 static uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
 
@@ -759,7 +759,7 @@ static uint32_t get_host_bucket(uint8_t *addr, uint8_t ip_ver) {
 	return bucket % HOST_BUCKETS;
 }
 
-/* Look up host data. */
+// Look up host data.
 
 struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 
@@ -778,7 +778,7 @@ struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 	return nullptr;
 }
 
-/* Destroy host data. */
+// Destroy host data.
 
 static void destroy_host(struct host_data *h) {
 
@@ -791,7 +791,7 @@ static void destroy_host(struct host_data *h) {
 	DEBUG("[#] Destroying host data: %s (bucket %d)\n",
 		  addr_to_str(h->addr, h->ip_ver), bucket);
 
-	/* Remove it from the bucketed linked list. */
+	// Remove it from the bucketed linked list.
 
 	if (h->next) h->next->prev = h->prev;
 
@@ -800,7 +800,7 @@ static void destroy_host(struct host_data *h) {
 	else
 		process_context.host_b[bucket] = h->next;
 
-	/* Remove from the by-age linked list. */
+	// Remove from the by-age linked list.
 
 	if (h->newer)
 		h->newer->older = h->older;
@@ -812,7 +812,7 @@ static void destroy_host(struct host_data *h) {
 	else
 		process_context.host_by_age = h->newer;
 
-	/* Free memory. */
+	// Free memory.
 
 	free(h->last_syn);
 	free(h->last_synack);
@@ -825,7 +825,7 @@ static void destroy_host(struct host_data *h) {
 	process_context.host_cnt--;
 }
 
-/* Indiscriminately kill some of the older hosts. */
+// Indiscriminately kill some of the older hosts.
 
 static void nuke_hosts() {
 
@@ -847,7 +847,7 @@ static void nuke_hosts() {
 	}
 }
 
-/* Create a minimal host data. */
+// Create a minimal host data.
 
 static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
@@ -860,7 +860,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	auto nh = new struct host_data;
 
-	/* Insert into the bucketed linked list. */
+	// Insert into the bucketed linked list.
 	if (process_context.host_b[bucket]) {
 		process_context.host_b[bucket]->prev = nh;
 		nh->next                             = process_context.host_b[bucket];
@@ -868,7 +868,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	process_context.host_b[bucket] = nh;
 
-	/* Insert into the by-age linked list. */
+	// Insert into the by-age linked list.
 	if (process_context.newest_host) {
 		process_context.newest_host->newer = nh;
 		nh->older                          = process_context.newest_host;
@@ -878,7 +878,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	process_context.newest_host = nh;
 
-	/* Populate other data. */
+	// Populate other data.
 	nh->ip_ver = ip_ver;
 	memcpy(nh->addr, addr, (ip_ver == IP_VER4) ? 4 : 16);
 
@@ -895,7 +895,7 @@ static struct host_data *create_host(uint8_t *addr, uint8_t ip_ver) {
 	return nh;
 }
 
-/* Touch host data to make it more recent. */
+// Touch host data to make it more recent.
 
 static void touch_host(struct host_data *h) {
 
@@ -903,7 +903,7 @@ static void touch_host(struct host_data *h) {
 
 	if (h != process_context.newest_host) {
 
-		/* Remove from the the by-age linked list. */
+		// Remove from the the by-age linked list.
 
 		h->newer->older = h->older;
 
@@ -912,7 +912,7 @@ static void touch_host(struct host_data *h) {
 		else
 			process_context.host_by_age = h->newer;
 
-		/* Re-insert in front. */
+		// Re-insert in front.
 
 		process_context.newest_host->newer = h;
 		h->older                           = process_context.newest_host;
@@ -924,12 +924,12 @@ static void touch_host(struct host_data *h) {
 	   need to update the tail (process_context.host_by_age). */
 	}
 
-	/* Update last seen time. */
+	// Update last seen time.
 
 	h->last_seen = get_unix_time();
 }
 
-/* Destroy a flow. */
+// Destroy a flow.
 static void destroy_flow(struct packet_flow *f) {
 
 	DEBUG("[#] Destroying flow: %s/%u -> ",
@@ -939,7 +939,7 @@ static void destroy_flow(struct packet_flow *f) {
 		  addr_to_str(f->server->addr, f->server->ip_ver), f->srv_port,
 		  f->bucket);
 
-	/* Remove it from the bucketed linked list. */
+	// Remove it from the bucketed linked list.
 	if (f->next) {
 		f->next->prev = f->prev;
 	}
@@ -950,7 +950,7 @@ static void destroy_flow(struct packet_flow *f) {
 		process_context.flow_b[f->bucket] = f->next;
 	}
 
-	/* Remove from the by-age linked list. */
+	// Remove from the by-age linked list.
 	if (f->newer)
 		f->newer->older = f->older;
 	else {
@@ -963,7 +963,7 @@ static void destroy_flow(struct packet_flow *f) {
 		process_context.flow_by_age = f->newer;
 	}
 
-	/* Free memory, etc. */
+	// Free memory, etc.
 	f->client->use_cnt--;
 	f->server->use_cnt--;
 
@@ -976,7 +976,7 @@ static void destroy_flow(struct packet_flow *f) {
 	process_context.flow_cnt--;
 }
 
-/* Indiscriminately kill some of the oldest flows. */
+// Indiscriminately kill some of the oldest flows.
 static void nuke_flows(uint8_t silent) {
 
 	uint32_t kcnt = 1 + (process_context.flow_cnt * KILL_PERCENT / 100);
@@ -994,7 +994,7 @@ static void nuke_flows(uint8_t silent) {
 	}
 }
 
-/* Create flow, and host data if necessary. If counts exceeded, prune old. */
+// Create flow, and host data if necessary. If counts exceeded, prune old.
 
 static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 
@@ -1032,7 +1032,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	nf->client->total_conn++;
 	nf->server->total_conn++;
 
-	/* Insert into the bucketed linked list.*/
+	// Insert into the bucketed linked list.
 	if (process_context.flow_b[bucket]) {
 		process_context.flow_b[bucket]->prev = nf;
 		nf->next                             = process_context.flow_b[bucket];
@@ -1040,7 +1040,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 
 	process_context.flow_b[bucket] = nf;
 
-	/* Insert into the by-age linked list */
+	// Insert into the by-age linked list
 	if (process_context.newest_flow) {
 		process_context.newest_flow->newer = nf;
 		nf->older                          = process_context.newest_flow;
@@ -1049,7 +1049,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 
 	process_context.newest_flow = nf;
 
-	/* Populate other data */
+	// Populate other data
 
 	nf->cli_port = pk->sport;
 	nf->srv_port = pk->dport;
@@ -1062,7 +1062,7 @@ static struct packet_flow *create_flow_from_syn(struct packet_data *pk) {
 	return nf;
 }
 
-/* Look up an existing flow. */
+// Look up an existing flow.
 
 static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) {
 
@@ -1096,7 +1096,7 @@ static struct packet_flow *lookup_flow(struct packet_data *pk, uint8_t *to_srv) 
 	return nullptr;
 }
 
-/* Go through host and flow cache, expire outdated items. */
+// Go through host and flow cache, expire outdated items.
 
 static void expire_cache() {
 	struct host_data *target;
@@ -1124,7 +1124,7 @@ static void expire_cache() {
 	}
 }
 
-/* Insert data from a packet into a flow, call handlers as appropriate. */
+// Insert data from a packet into a flow, call handlers as appropriate.
 
 static void flow_dispatch(struct packet_data *pk) {
 
@@ -1144,7 +1144,7 @@ static void flow_dispatch(struct packet_data *pk) {
 	switch (pk->tcp_type) {
 	case TCP_SYN:
 		if (f) {
-			/* Perhaps just a simple dupe? */
+			// Perhaps just a simple dupe?
 			if (to_srv && f->next_cli_seq - 1 == pk->seq) return;
 
 			DEBUG("[#] New SYN for an existing flow, resetting.\n");
@@ -1187,7 +1187,7 @@ static void flow_dispatch(struct packet_data *pk) {
 			return;
 		}
 
-		/* This is about as far as we want to go with p0f-sendsyn. */
+		// This is about as far as we want to go with p0f-sendsyn.
 
 		if (f->sendsyn) {
 
@@ -1215,7 +1215,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 		tsig = fingerprint_tcp(0, pk, f);
 
-		/* SYN from real OS, SYN+ACK from a client stack. Weird, but whatever. */
+		// SYN from real OS, SYN+ACK from a client stack. Weird, but whatever.
 
 		if (!tsig) {
 			destroy_flow(f);
@@ -1249,7 +1249,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 		if (!f) return;
 
-		/* Stop there, you criminal scum! */
+		// Stop there, you criminal scum!
 
 		if (f->sendsyn) {
 			destroy_flow(f);
@@ -1270,7 +1270,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 			if (f->next_cli_seq != pk->seq) {
 
-				/* Not a simple dupe? */
+				// Not a simple dupe?
 
 				if (f->next_cli_seq - pk->pay_len != pk->seq)
 					DEBUG("[#] Expected client seq 0x%08x, got 0x%08x.\n", f->next_cli_seq, pk->seq);
@@ -1278,7 +1278,7 @@ static void flow_dispatch(struct packet_data *pk) {
 				return;
 			}
 
-			/* Append data */
+			// Append data
 
 			if (f->req_len < MAX_FLOW_DATA && pk->pay_len) {
 
@@ -1297,7 +1297,7 @@ static void flow_dispatch(struct packet_data *pk) {
 
 			if (f->next_srv_seq != pk->seq) {
 
-				/* Not a simple dupe? */
+				// Not a simple dupe?
 
 				if (f->next_srv_seq - pk->pay_len != pk->seq)
 					DEBUG("[#] Expected server seq 0x%08x, got 0x%08x.\n",
@@ -1306,7 +1306,7 @@ static void flow_dispatch(struct packet_data *pk) {
 				return;
 			}
 
-			/* Append data */
+			// Append data
 
 			if (f->resp_len < MAX_FLOW_DATA && pk->pay_len) {
 
@@ -1345,7 +1345,7 @@ static void flow_dispatch(struct packet_data *pk) {
 	}
 }
 
-/* Add NAT score, check if alarm due. */
+// Add NAT score, check if alarm due.
 
 void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score) {
 
@@ -1408,7 +1408,7 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 
 	} else {
 
-		/* Wait for something more substantial. */
+		// Wait for something more substantial.
 		if (score == 1) return;
 
 		start_observation("host change", 2, to_srv, f);
@@ -1446,7 +1446,7 @@ void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason,
 	observf("raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
 }
 
-/* Verify if tool class (called from modules). */
+// Verify if tool class (called from modules).
 
 void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt) {
 
@@ -1475,7 +1475,7 @@ void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sy
 			if (SYS_NF(sys[i]) == hd->last_name_id) break;
 		}
 
-	/* Oops, a mismatch. */
+	// Oops, a mismatch.
 
 	if (i == sys_cnt) {
 
@@ -1489,7 +1489,7 @@ void verify_tool_class(uint8_t to_srv, const struct packet_flow *f, uint32_t *sy
 	}
 }
 
-/* Clean up everything. */
+// Clean up everything.
 
 void destroy_all_hosts() {
 

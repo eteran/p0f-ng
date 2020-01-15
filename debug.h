@@ -20,7 +20,7 @@
 #define DEBUG(...) \
 	do {           \
 	} while (0)
-#endif /* ^DEBUG_BUILD */
+#endif // ^DEBUG_BUILD
 
 #define ERRORF(...) fprintf(stderr, __VA_ARGS__)
 #define SAYF(...) printf(__VA_ARGS__)
@@ -57,4 +57,4 @@
 		exit(1);                                     \
 	} while (0)
 
-#endif /* ! HAVE_DEBUG_H_ */
+#endif // ! HAVE_DEBUG_H_

@@ -28,45 +28,45 @@
 #define P0F_MATCH_FUZZY 0x01
 #define P0F_MATCH_GENERIC 0x02
 
-/* Keep these structures aligned to avoid architecture-specific padding. */
+// Keep these structures aligned to avoid architecture-specific padding.
 
 struct p0f_api_query {
 
-	uint32_t magic;    /* Must be P0F_QUERY_MAGIC            */
-	uint8_t addr_type; /* P0F_ADDR_*                         */
-	uint8_t addr[16];  /* IP address (big endian left align) */
+	uint32_t magic;    // Must be P0F_QUERY_MAGIC
+	uint8_t addr_type; // P0F_ADDR_*
+	uint8_t addr[16];  // IP address (big endian left align)
 
 } __attribute__((packed));
 
 struct p0f_api_response {
 
-	uint32_t magic;  /* Must be P0F_RESP_MAGIC             */
-	uint32_t status; /* P0F_STATUS_*                       */
+	uint32_t magic;  // Must be P0F_RESP_MAGIC
+	uint32_t status; // P0F_STATUS_*
 
-	uint32_t first_seen; /* First seen (unix time)             */
-	uint32_t last_seen;  /* Last seen (unix time)              */
-	uint32_t total_conn; /* Total connections seen             */
+	uint32_t first_seen; // First seen (unix time)
+	uint32_t last_seen;  // Last seen (unix time)
+	uint32_t total_conn; // Total connections seen
 
-	uint32_t uptime_min;  /* Last uptime (minutes)              */
-	uint32_t up_mod_days; /* Uptime modulo (days)               */
+	uint32_t uptime_min;  // Last uptime (minutes)
+	uint32_t up_mod_days; // Uptime modulo (days)
 
-	uint32_t last_nat; /* NAT / LB last detected (unix time) */
-	uint32_t last_chg; /* OS chg last detected (unix time)   */
+	uint32_t last_nat; // NAT / LB last detected (unix time)
+	uint32_t last_chg; // OS chg last detected (unix time)
 
-	int16_t distance; /* System distance                    */
+	int16_t distance; // System distance
 
-	uint8_t bad_sw;     /* Host is lying about U-A / Server   */
-	uint8_t os_match_q; /* Match quality                      */
+	uint8_t bad_sw;     // Host is lying about U-A / Server
+	uint8_t os_match_q; // Match quality
 
-	char os_name[P0F_STR_MAX + 1];   /* Name of detected OS                */
-	char os_flavor[P0F_STR_MAX + 1]; /* Flavor of detected OS              */
+	char os_name[P0F_STR_MAX + 1];   // Name of detected OS
+	char os_flavor[P0F_STR_MAX + 1]; // Flavor of detected OS
 
-	char http_name[P0F_STR_MAX + 1];   /* Name of detected HTTP app          */
-	char http_flavor[P0F_STR_MAX + 1]; /* Flavor of detected HTTP app        */
+	char http_name[P0F_STR_MAX + 1];   // Name of detected HTTP app
+	char http_flavor[P0F_STR_MAX + 1]; // Flavor of detected HTTP app
 
-	char link_type[P0F_STR_MAX + 1]; /* Link type                          */
+	char link_type[P0F_STR_MAX + 1]; // Link type
 
-	char language[P0F_STR_MAX + 1]; /* Language                           */
+	char language[P0F_STR_MAX + 1]; // Language
 
 } __attribute__((packed));
 
@@ -74,6 +74,6 @@ struct p0f_api_response {
 
 void handle_query(struct p0f_api_query *q, struct p0f_api_response *r);
 
-#endif /* _FROM_API */
+#endif // _FROM_API
 
-#endif /* !_HAVE_API_H */
+#endif // !_HAVE_API_H

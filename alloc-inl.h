@@ -46,4 +46,4 @@ inline char *ck_memdup_str(const char *mem, uint32_t size) {
 	return ret;
 }
 
-#endif /* ! HAVE_ALLOC_INL_H_ */
+#endif // ! HAVE_ALLOC_INL_H_

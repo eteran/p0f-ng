@@ -31,35 +31,35 @@
 #include "readfp.h"
 #include "types.h"
 
-char **fp_os_classes; /* Map of OS classes                  */
-char **fp_os_names;   /* Map of OS names                    */
+char **fp_os_classes; // Map of OS classes
+char **fp_os_names;   // Map of OS names
 
 namespace {
 
 struct fp_context_t {
-	uint32_t sig_cnt = 0; /* Total number of p0f.fp sigs        */
+	uint32_t sig_cnt = 0; // Total number of p0f.fp sigs
 
-	uint8_t state      = CF_NEED_SECT; /* Parser state (CF_NEED_*)           */
-	uint8_t mod_type   = 0;            /* Current module (CF_MOD_*)          */
-	uint8_t mod_to_srv = 0;            /* Traffic direction                  */
-	uint8_t generic    = 0;            /* Generic signature?                 */
+	uint8_t state      = CF_NEED_SECT; // Parser state (CF_NEED_*)
+	uint8_t mod_type   = 0;            // Current module (CF_MOD_*)
+	uint8_t mod_to_srv = 0;            // Traffic direction
+	uint8_t generic    = 0;            // Generic signature?
 
-	int32_t sig_class = 0;       /* Signature class ID (-1 = userland) */
-	uint32_t sig_name = 0;       /* Signature name                     */
-	char *sig_flavor  = nullptr; /* Signature flavor                   */
+	int32_t sig_class = 0;       // Signature class ID (-1 = userland)
+	uint32_t sig_name = 0;       // Signature name
+	char *sig_flavor  = nullptr; // Signature flavor
 
-	uint32_t *cur_sys    = nullptr; /* Current 'sys' values               */
-	uint32_t cur_sys_cnt = 0;       /* Number of 'sys' entries            */
+	uint32_t *cur_sys    = nullptr; // Current 'sys' values
+	uint32_t cur_sys_cnt = 0;       // Number of 'sys' entries
 
-	uint32_t class_cnt = 0; /* Sizes for maps                     */
+	uint32_t class_cnt = 0; // Sizes for maps
 	uint32_t name_cnt  = 0;
-	uint32_t label_id  = 0; /* Current label ID                   */
-	uint32_t line_no   = 0; /* Current line number                */
+	uint32_t label_id  = 0; // Current label ID
+	uint32_t line_no   = 0; // Current line number
 };
 
 fp_context_t fp_context;
 
-/* Parse 'classes' parameter by populating fp_os_classes. */
+// Parse 'classes' parameter by populating fp_os_classes.
 void config_parse_classes(char *val) {
 
 	while (*val) {
@@ -85,12 +85,12 @@ void config_parse_classes(char *val) {
 	}
 }
 
-/* Parse 'label' parameter by looking up ID and recording name / flavor. */
+// Parse 'label' parameter by looking up ID and recording name / flavor.
 void config_parse_label(char *val) {
 
 	char *nxt;
 
-	/* Simplified handling for [mtu] signatures. */
+	// Simplified handling for [mtu] signatures.
 	if (fp_context.mod_type == CF_MOD_MTU) {
 		if (!*val)
 			FATAL("Empty MTU label in line %u.\n", fp_context.line_no);
@@ -154,7 +154,7 @@ void config_parse_label(char *val) {
 	fp_context.label_id++;
 }
 
-/* Parse 'sys' parameter into fp_context.cur_sys[]. */
+// Parse 'sys' parameter into fp_context.cur_sys[].
 void config_parse_sys(char *val) {
 
 	if (fp_context.cur_sys) {
@@ -216,13 +216,13 @@ void config_parse_sys(char *val) {
 	}
 }
 
-/* Read p0f.fp line, dispatching it to fingerprinting modules as necessary. */
+// Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
 static void config_parse_line(char *line) {
 
 	char *val = nullptr;
 	char *eon = nullptr;
 
-	/* Special handling for [module:direction]... */
+	// Special handling for [module:direction]...
 
 	if (*line == '[') {
 
@@ -230,7 +230,7 @@ static void config_parse_line(char *line) {
 
 		line++;
 
-		/* Simplified case for [mtu]. */
+		// Simplified case for [mtu].
 
 		if (!strcmp(line, "mtu]")) {
 
@@ -277,7 +277,7 @@ static void config_parse_line(char *line) {
 		return;
 	}
 
-	/* Everything else follows the 'name = value' approach. */
+	// Everything else follows the 'name = value' approach.
 
 	val = line;
 
@@ -365,7 +365,7 @@ static void config_parse_line(char *line) {
 
 }
 
-/* Look up or create OS or application id. */
+// Look up or create OS or application id.
 uint32_t lookup_name_id(const char *name, uint8_t len) {
 
 	uint32_t i;
@@ -384,7 +384,7 @@ uint32_t lookup_name_id(const char *name, uint8_t len) {
 	return i;
 }
 
-/* Top-level file parsing. */
+// Top-level file parsing.
 void read_config(const char *fname) {
 
 	struct stat st;
@@ -413,7 +413,7 @@ void read_config(const char *fname) {
 	data[st.st_size] = 0;
 	close(f);
 
-	/* If you put NUL in your p0f.fp... Well, sucks to be you. */
+	// If you put NUL in your p0f.fp... Well, sucks to be you.
 	while (1) {
 		char *eol;
 

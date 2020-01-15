@@ -33,14 +33,14 @@
 namespace {
 
 struct tcp_context_t {
-	/* TCP signature buckets: */
+	// TCP signature buckets:
 	struct tcp_sig_record *sigs[2][SIG_BUCKETS];
 	uint32_t sig_cnt[2][SIG_BUCKETS];
 };
 
 tcp_context_t tcp_context;
 
-/* Figure out what the TTL distance might have been for an unknown sig. */
+// Figure out what the TTL distance might have been for an unknown sig.
 uint8_t guess_dist(uint8_t ttl) {
 	if (ttl <= 32) return 32 - ttl;
 	if (ttl <= 64) return 64 - ttl;
@@ -70,7 +70,7 @@ int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t sy
 
 	RET_IF_DIV(mss, 0, "MSS");
 
-	/* Some systems will sometimes subtract 12 bytes when timestamps are in use. */
+	// Some systems will sometimes subtract 12 bytes when timestamps are in use.
 
 	if (ts->ts1) RET_IF_DIV(mss12, 0, "MSS - 12");
 
@@ -86,14 +86,14 @@ int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t sy
 		RET_IF_DIV(1500 - MIN_TCP6 - 12, 0, "MSS (MTU = 1500, IPv6 - 12)");
 	}
 
-	/* Some systems use MTU instead of MSS: */
+	// Some systems use MTU instead of MSS:
 
 	RET_IF_DIV(mss + MIN_TCP4, 1, "MTU (IPv4)");
 	RET_IF_DIV(mss + ts->tot_hdr, 1, "MTU (actual size)");
 	if (ts->ip_ver == IP_VER6) RET_IF_DIV(mss + MIN_TCP6, 1, "MTU (IPv6)");
 	RET_IF_DIV(1500, 1, "MTU (1500)");
 
-	/* On SYN+ACKs, some systems use of the peer: */
+	// On SYN+ACKs, some systems use of the peer:
 
 	if (syn_mss) {
 
@@ -106,7 +106,7 @@ int16_t detect_win_multi(const struct tcp_sig *ts, uint8_t *use_mtu, uint16_t sy
 	return -1;
 }
 
-/* See if any of the p0f.fp signatures matches the collected data. */
+// See if any of the p0f.fp signatures matches the collected data.
 void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 					uint16_t syn_mss) {
 
@@ -150,12 +150,12 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 			fuzzy = 1;
 		}
 
-		/* Fixed parameters. */
+		// Fixed parameters.
 
 		if (refs->opt_eol_pad != ts->opt_eol_pad ||
 			refs->ip_opt_len != ts->ip_opt_len) continue;
 
-		/* TTL matching, with a provision to allow fuzzy match. */
+		// TTL matching, with a provision to allow fuzzy match.
 
 		if (ref->bad_ttl) {
 
@@ -166,23 +166,23 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 			if (refs->ttl < ts->ttl || refs->ttl - ts->ttl > MAX_DIST) fuzzy = 1;
 		}
 
-		/* Simple wildcards. */
+		// Simple wildcards.
 
 		if (refs->mss != -1 && refs->mss != ts->mss) continue;
 		if (refs->wscale != -1 && refs->wscale != ts->wscale) continue;
 		if (refs->pay_class != -1 && refs->pay_class != ts->pay_class) continue;
 
-		/* Window size. */
+		// Window size.
 
 		if (ts->win_type != WIN_TYPE_NORMAL) {
 
-			/* Comparing two p0f.fp signatures. */
+			// Comparing two p0f.fp signatures.
 
 			if (refs->win_type != ts->win_type || refs->win != ts->win) continue;
 
 		} else {
 
-			/* Comparing real-world stuff. */
+			// Comparing real-world stuff.
 
 			switch (refs->win_type) {
 
@@ -206,11 +206,11 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 				if (!use_mtu || refs->win != win_multi) continue;
 				break;
 
-				/* WIN_TYPE_ANY */
+				// WIN_TYPE_ANY
 			}
 		}
 
-		/* Got a match? If not fuzzy, return. If fuzzy, keep looking. */
+		// Got a match? If not fuzzy, return. If fuzzy, keep looking.
 
 		if (!fuzzy) {
 
@@ -228,7 +228,7 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 			fmatch = ref;
 	}
 
-	/* OK, no definitive match so far... */
+	// OK, no definitive match so far...
 
 	if (dupe_det) return;
 
@@ -243,7 +243,7 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 		return;
 	}
 
-	/* No fuzzy matching for userland tools. */
+	// No fuzzy matching for userland tools.
 
 	if (fmatch && fmatch->class_id == -1) return;
 
@@ -256,7 +256,7 @@ void tcp_find_match(uint8_t to_srv, struct tcp_sig *ts, uint8_t dupe_det,
 	else
 		ts->dist = fmatch->sig->ttl - ts->ttl;
 
-	/* Record the outcome. */
+	// Record the outcome.
 
 	ts->matched = fmatch;
 
@@ -276,7 +276,7 @@ void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
 	ts->ttl         = pk->ttl;
 	ts->mss         = pk->mss;
 	ts->win         = pk->win;
-	ts->win_type    = WIN_TYPE_NORMAL; /* Keep as-is. */
+	ts->win_type    = WIN_TYPE_NORMAL; // Keep as-is.
 	ts->wscale      = pk->wscale;
 	ts->pay_class   = !!pk->pay_len;
 	ts->tot_hdr     = pk->tot_hdr;
@@ -287,7 +287,7 @@ void packet_to_sig(struct packet_data *pk, struct tcp_sig *ts) {
 	ts->dist        = 0;
 }
 
-/* Dump unknown signature. */
+// Dump unknown signature.
 const char *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uint16_t syn_mss) {
 
 	std::ostringstream ss;
@@ -404,7 +404,7 @@ const char *dump_sig(const struct packet_data *pk, const struct tcp_sig *ts, uin
 	return ret.c_str();
 }
 
-/* Dump signature-related flags. */
+// Dump signature-related flags.
 const char *dump_flags(struct packet_data *pk, struct tcp_sig *ts) {
 
 	std::ostringstream ss;
@@ -471,7 +471,7 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 		goto log_and_update;
 	}
 
-	/* We have some previous data. */
+	// We have some previous data.
 
 	if (!sig->matched || !ref->matched) {
 
@@ -499,7 +499,7 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 			score += 1;
 		}
 
-		/* Progression from known to unknown is also of interest for SYNs. */
+		// Progression from known to unknown is also of interest for SYNs.
 
 		if (to_srv && sig->matched != ref->matched) {
 
@@ -512,7 +512,7 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 
 	} else {
 
-		/* Both signatures known! */
+		// Both signatures known!
 
 		if (ref->matched->name_id != sig->matched->name_id) {
 
@@ -524,7 +524,7 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 
 		} else if (to_srv) {
 
-			/* SYN signatures match superficially, but... */
+			// SYN signatures match superficially, but...
 
 			if (ref->matched->label_id != sig->matched->label_id) {
 
@@ -546,7 +546,7 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 
 			} else if (sig->fuzzy != ref->fuzzy) {
 
-				/* Fuzziness change on a perfectly matched signature? */
+				// Fuzziness change on a perfectly matched signature?
 
 				DEBUG("[#] SYN signature fuzziness changes.\n");
 				score += 1;
@@ -602,7 +602,7 @@ void score_nat(uint8_t to_srv, struct tcp_sig *sig, struct packet_flow *f) {
 		reason |= NAT_PORT;
 	}
 
-	/* Change of MTU is always sketchy. */
+	// Change of MTU is always sketchy.
 
 	if (sig->mss != ref->mss) {
 
@@ -654,7 +654,7 @@ log_and_update:
 
 	add_nat_score(to_srv, f, reason, score);
 
-	/* Update some of the essential records. */
+	// Update some of the essential records.
 
 	if (sig->matched) {
 
@@ -690,7 +690,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	struct tcp_sig *tsig;
 	struct tcp_sig_record *trec;
 
-	/* IP version */
+	// IP version
 
 	switch (*val) {
 	case '4':
@@ -710,7 +710,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 
 	val += 2;
 
-	/* Initial TTL (possibly ttl+dist or ttl-) */
+	// Initial TTL (possibly ttl+dist or ttl-)
 
 	nxt = val;
 	while (isdigit(*nxt))
@@ -746,7 +746,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 		val = nxt + 1;
 	}
 
-	/* Length of IP options */
+	// Length of IP options
 
 	nxt = val;
 	while (isdigit(*nxt))
@@ -760,7 +760,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 
 	val = nxt + 1;
 
-	/* MSS */
+	// MSS
 
 	if (*val == '*' && val[1] == ':') {
 		mss = -1;
@@ -778,7 +778,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 		val = nxt + 1;
 	}
 
-	/* window size, followed by comma */
+	// window size, followed by comma
 
 	if (*val == '*' && val[1] == ',') {
 		win_type = WIN_TYPE_ANY;
@@ -830,7 +830,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 		val = nxt + 1;
 	}
 
-	/* Window scale */
+	// Window scale
 	if (*val == '*' && val[1] == ':') {
 		scale = -1;
 		val += 2;
@@ -847,7 +847,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 		val = nxt + 1;
 	}
 
-	/* Option layout */
+	// Option layout
 	memset(opt_layout, 0, sizeof(opt_layout));
 
 	while (*val != ':') {
@@ -935,7 +935,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 
 	opt_hash = hash32(opt_layout, opt_cnt);
 
-	/* Quirks */
+	// Quirks
 	while (*val != ':') {
 		if (!strncmp(val, "df", 2)) {
 			if (ver == IP_VER6)
@@ -1018,7 +1018,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 
 	val++;
 
-	/* Payload class */
+	// Payload class
 
 	if (!strcmp(val, "*"))
 		pay_class = -1;
@@ -1029,7 +1029,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	else
 		FATAL("Malformed payload class in line %u.", line_no);
 
-	/* Phew, okay, we're done. Now, create tcp_sig... */
+	// Phew, okay, we're done. Now, create tcp_sig...
 
 	tsig = static_cast<struct tcp_sig *>(calloc(sizeof(struct tcp_sig), 1));
 
@@ -1048,7 +1048,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	tsig->wscale    = scale;
 	tsig->pay_class = pay_class;
 
-	/* No need to set ts1, recv_ms, match, fuzzy, dist */
+	// No need to set ts1, recv_ms, match, fuzzy, dist
 
 	tcp_find_match(to_srv, tsig, 1, 0);
 
@@ -1056,7 +1056,7 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 		FATAL("Signature in line %u is already covered by line %u.",
 			  line_no, tsig->matched->line_no);
 
-	/* Everything checks out, so let's register it. */
+	// Everything checks out, so let's register it.
 
 	bucket = opt_hash % SIG_BUCKETS;
 
@@ -1077,10 +1077,10 @@ void tcp_register_sig(uint8_t to_srv, uint8_t generic, int32_t sig_class, uint32
 	trec->sig      = tsig;
 	trec->bad_ttl  = bad_ttl;
 
-	/* All done, phew. */
+	// All done, phew.
 }
 
-/* Fingerprint SYN or SYN+ACK. */
+// Fingerprint SYN or SYN+ACK.
 struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f) {
 
 	struct tcp_sig *sig;
@@ -1134,7 +1134,7 @@ struct tcp_sig *fingerprint_tcp(uint8_t to_srv, struct packet_data *pk, struct p
 
 	if (pk->tcp_type == TCP_SYN) f->syn_mss = pk->mss;
 
-	/* That's about as far as we go with non-OS signatures. */
+	// That's about as far as we go with non-OS signatures.
 
 	if (m && m->class_id == -1) {
 		verify_tool_class(to_srv, f, m->sys, m->sys_cnt);
@@ -1222,7 +1222,7 @@ void check_ts_tcp(uint8_t to_srv, struct packet_data *pk, struct packet_flow *f)
 
 	freq = ffreq;
 
-	/* Round the frequency neatly. */
+	// Round the frequency neatly.
 
 	if (freq == 0)
 		freq = 1;

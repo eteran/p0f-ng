@@ -34,7 +34,7 @@ struct mtu_context_t {
 
 static mtu_context_t mtu_context;
 
-/* Register a new MTU signature. */
+// Register a new MTU signature.
 void mtu_register_sig(char *name, char *val, uint32_t line_no) {
 
 	char *nxt = val;
