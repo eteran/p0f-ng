@@ -36,8 +36,10 @@
 #include "debug.h"
 #include "tcp.h"
 
+namespace {
+
 /* Do a basic IPv6 TCP checksum. */
-static void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
+void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
 
 	uint32_t sum, i;
 	uint8_t *p;
@@ -67,8 +69,7 @@ static void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt
 }
 
 /* Parse IPv6 address into a buffer. */
-
-static void parse_addr(char *str, uint8_t *ret) {
+void parse_addr(char *str, uint8_t *ret) {
 
 	uint32_t seg = 0;
 	uint32_t val;
@@ -104,9 +105,8 @@ static void parse_addr(char *str, uint8_t *ret) {
 #define TS(_x, _y) TCPOPT_TSTAMP, 10, D(_x), D(_y)
 
 /* There are virtually no OSes that do not send MSS. Support for RFC 1323
-   and 2018 is not given, so we have to test various combinations here. */
-
-static uint8_t opt_combos[8][24] = {
+ * and 2018 is not given, so we have to test various combinations here. */
+const uint8_t opt_combos[8][24] = {
 
 	{MSS(SPECIAL_MSS), NOP, EOL}, /* 6  */
 
@@ -126,14 +126,16 @@ static uint8_t opt_combos[8][24] = {
 
 };
 
+}
+
 int main(int argc, char **argv) {
 
-	static struct sockaddr_in6 sin;
+	struct sockaddr_in6 sin;
 	char one = 1;
 	int32_t sock;
 	uint32_t i;
 
-	static uint8_t work_buf[MIN_TCP6 + 24];
+	uint8_t work_buf[MIN_TCP6 + 24];
 
 	struct ipv6_hdr *ip6 = (struct ipv6_hdr *)work_buf;
 	struct tcp_hdr *tcp  = (struct tcp_hdr *)(ip6 + 1);

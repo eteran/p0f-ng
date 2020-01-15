@@ -31,9 +31,10 @@
 #include "debug.h"
 #include "tcp.h"
 
-/* Do a basic IPv4 TCP checksum. */
+namespace {
 
-static void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
+/* Do a basic IPv4 TCP checksum. */
+void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
 
 	uint32_t sum, i;
 	uint8_t *p;
@@ -63,8 +64,7 @@ static void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt
 }
 
 /* Parse IPv4 address into a buffer. */
-
-static void parse_addr(char *str, uint8_t *ret) {
+void parse_addr(char *str, uint8_t *ret) {
 
 	uint32_t a1, a2, a3, a4;
 
@@ -91,9 +91,8 @@ static void parse_addr(char *str, uint8_t *ret) {
 #define TS(_x, _y) TCPOPT_TSTAMP, 10, D(_x), D(_y)
 
 /* There are virtually no OSes that do not send MSS. Support for RFC 1323
-   and 2018 is not given, so we have to test various combinations here. */
-
-static uint8_t opt_combos[8][24] = {
+ * and 2018 is not given, so we have to test various combinations here. */
+const uint8_t opt_combos[8][24] = {
 
 	{MSS(SPECIAL_MSS), NOP, EOL}, /* 6  */
 
@@ -113,14 +112,16 @@ static uint8_t opt_combos[8][24] = {
 
 };
 
+}
+
 int main(int argc, char **argv) {
 
-	static struct sockaddr_in sin;
+	struct sockaddr_in sin;
 	char one = 1;
 	int32_t sock;
 	uint32_t i;
 
-	static uint8_t work_buf[MIN_TCP4 + 24];
+	uint8_t work_buf[MIN_TCP4 + 24];
 
 	struct ipv4_hdr *ip4 = (struct ipv4_hdr *)work_buf;
 	struct tcp_hdr *tcp  = (struct tcp_hdr *)(ip4 + 1);

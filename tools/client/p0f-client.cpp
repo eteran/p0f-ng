@@ -30,9 +30,10 @@
 #include "config.h"
 #include "debug.h"
 
-/* Parse IPv4 address into a buffer. */
+namespace {
 
-static void parse_addr4(char *str, uint8_t *ret) {
+/* Parse IPv4 address into a buffer. */
+void parse_addr4(char *str, uint8_t *ret) {
 
 	uint32_t a1, a2, a3, a4;
 
@@ -49,8 +50,7 @@ static void parse_addr4(char *str, uint8_t *ret) {
 }
 
 /* Parse IPv6 address into a buffer. */
-
-static void parse_addr6(char *str, uint8_t *ret) {
+void parse_addr6(char *str, uint8_t *ret) {
 
 	uint32_t seg = 0;
 	uint32_t val;
@@ -75,17 +75,17 @@ static void parse_addr6(char *str, uint8_t *ret) {
 	if (seg != 8) FATAL("Malformed IPv6 address (don't abbreviate).");
 }
 
+}
+
 int main(int argc, char **argv) {
 
-	uint8_t tmp[128];
+	char tmp[128];
 	struct tm *t;
 
-	static struct p0f_api_query q;
-	static struct p0f_api_response r;
+	struct p0f_api_query q;
+	struct p0f_api_response r;
+	struct sockaddr_un sun;
 
-	static struct sockaddr_un sun;
-
-	int32_t sock;
 	time_t ut;
 
 	if (argc != 3) {
@@ -96,17 +96,14 @@ int main(int argc, char **argv) {
 	q.magic = P0F_QUERY_MAGIC;
 
 	if (strchr(argv[2], ':')) {
-
 		parse_addr6(argv[2], q.addr);
 		q.addr_type = P0F_ADDR_IPV6;
-
 	} else {
-
 		parse_addr4(argv[2], q.addr);
 		q.addr_type = P0F_ADDR_IPV4;
 	}
 
-	sock = socket(PF_UNIX, SOCK_STREAM, 0);
+	int sock = socket(PF_UNIX, SOCK_STREAM, 0);
 
 	if (sock < 0) PFATAL("Call to socket() failed.");
 
@@ -141,13 +138,13 @@ int main(int argc, char **argv) {
 
 	ut = r.first_seen;
 	t  = localtime(&ut);
-	strftime((char *)tmp, 128, "%Y/%m/%d %H:%M:%S", t);
+	strftime(tmp, 128, "%Y/%m/%d %H:%M:%S", t);
 
 	SAYF("First seen    = %s\n", tmp);
 
 	ut = r.last_seen;
 	t  = localtime(&ut);
-	strftime((char *)tmp, 128, "%Y/%m/%d %H:%M:%S", t);
+	strftime(tmp, 128, "%Y/%m/%d %H:%M:%S", t);
 
 	SAYF("Last update   = %s\n", tmp);
 
@@ -184,14 +181,14 @@ int main(int argc, char **argv) {
 	if (r.last_nat) {
 		ut = r.last_nat;
 		t  = localtime(&ut);
-		strftime((char *)tmp, 128, "%Y/%m/%d %H:%M:%S", t);
+		strftime(tmp, 128, "%Y/%m/%d %H:%M:%S", t);
 		SAYF("IP sharing    = %s\n", tmp);
 	}
 
 	if (r.last_chg) {
 		ut = r.last_chg;
 		t  = localtime(&ut);
-		strftime((char *)tmp, 128, "%Y/%m/%d %H:%M:%S", t);
+		strftime(tmp, 128, "%Y/%m/%d %H:%M:%S", t);
 		SAYF("Sys change    = %s\n", tmp);
 	}
 

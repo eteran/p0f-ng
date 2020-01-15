@@ -535,8 +535,20 @@ header_check:
 	add_nat_score(to_srv, f, reason, score, libp0f_context);
 }
 
+// Parse HTTP date field.
+time_t parse_date(const char *str) {
+	struct tm t;
+
+	if (!strptime(str, "%a, %d %b %Y %H:%M:%S %Z", &t)) {
+		DEBUG("[#] Invalid 'Date' field ('%s').\n", str);
+		return 0;
+	}
+
+	return mktime(&t);
+}
+
 // Look up HTTP signature, create an observation.
-static void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	struct http_sig_record *m;
 	const char *lang = nullptr;
@@ -652,20 +664,8 @@ static void fingerprint_http(uint8_t to_srv, struct packet_flow *f, libp0f_conte
 	}
 }
 
-// Parse HTTP date field.
-time_t parse_date(const char *str) {
-	struct tm t;
-
-	if (!strptime(str, "%a, %d %b %Y %H:%M:%S %Z", &t)) {
-		DEBUG("[#] Invalid 'Date' field ('%s').\n", str);
-		return 0;
-	}
-
-	return mktime(&t);
-}
-
 // Parse name=value pairs into a signature.
-static uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_get_more, libp0f_context_t *libp0f_context) {
+uint8_t parse_pairs(uint8_t to_srv, struct packet_flow *f, uint8_t can_get_more, libp0f_context_t *libp0f_context) {
 
 	uint32_t plen = to_srv ? f->req_len : f->resp_len;
 

@@ -1256,8 +1256,6 @@ struct host_data *lookup_host(uint8_t *addr, uint8_t ip_ver) {
 	return nullptr;
 }
 
-
-
 // Add NAT score, check if alarm due.
 void add_nat_score(uint8_t to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context) {
 
