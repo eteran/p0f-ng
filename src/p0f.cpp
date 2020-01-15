@@ -888,7 +888,7 @@ void add_observation_field(const char *key, const char *value) {
 }
 
 // Main entry point
-int main(int argc, char **argv) {
+int main(int argc, char *argv[]) {
 
 	setlinebuf(stdout);
 
@@ -1018,8 +1018,8 @@ int main(int argc, char **argv) {
 
 	close_spare_fds();
 
+	// Initialize the p0f library
 	http_init();
-
 	read_config(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE, &libp0f_context);
 
 	prepare_pcap();
@@ -1054,5 +1054,6 @@ int main(int argc, char **argv) {
 	if (!p0f_context.daemon_mode)
 		SAYF("\nAll done. Processed %lu packets.\n", libp0f_context.packet_cnt);
 
+	// Shut down the p0f library
 	destroy_all_hosts();
 }

@@ -10,10 +10,13 @@
 
  */
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 #include <unistd.h>
+#include <vector>
 
 #include <netinet/in.h>
 #include <sys/fcntl.h>
@@ -43,15 +46,15 @@ struct fp_context_t {
 	uint32_t sig_name = 0;       // Signature name
 	char *sig_flavor  = nullptr; // Signature flavor
 
-	char **fp_os_classes = nullptr; // Map of OS classes
-
 	uint32_t *cur_sys    = nullptr; // Current 'sys' values
 	uint32_t cur_sys_cnt = 0;       // Number of 'sys' entries
 
-	uint32_t class_cnt = 0; // Sizes for maps
-	uint32_t name_cnt  = 0;
-	uint32_t label_id  = 0; // Current label ID
-	uint32_t line_no   = 0; // Current line number
+	uint32_t name_cnt = 0;
+	uint32_t label_id = 0; // Current label ID
+	uint32_t line_no  = 0; // Current line number
+
+	// Map of OS classes
+	std::vector<std::string> fp_os_classes;
 };
 
 fp_context_t fp_context;
@@ -74,10 +77,7 @@ void config_parse_classes(char *val) {
 		if (nxt == val || (*nxt && *nxt != ','))
 			FATAL("Malformed class entry in line %u.", fp_context.line_no);
 
-		fp_context.fp_os_classes = static_cast<char **>(realloc(fp_context.fp_os_classes, (fp_context.class_cnt + 1) * sizeof(char *)));
-
-		fp_context.fp_os_classes[fp_context.class_cnt++] = ck_memdup_str(val, nxt - val);
-
+		fp_context.fp_os_classes.push_back(std::string(val, nxt - val));
 		val = nxt;
 	}
 }
@@ -116,21 +116,20 @@ void config_parse_label(char *val, libp0f_context_t *libp0f_context) {
 		FATAL("Malformed class entry in line %u.", fp_context.line_no);
 
 	if (*val == '!' && val[1] == ':') {
-
 		fp_context.sig_class = -1;
-
 	} else {
 
 		*nxt = 0;
-		uint32_t i;
-		for (i = 0; i < fp_context.class_cnt; i++)
-			if (!strcasecmp(val, fp_context.fp_os_classes[i]))
-				break;
 
-		if (i == fp_context.class_cnt)
+		auto it = std::find_if(fp_context.fp_os_classes.begin(), fp_context.fp_os_classes.end(), [val](const std::string &os_class) {
+			return strcasecmp(val, os_class.c_str()) == 0;
+		});
+
+		if (it == fp_context.fp_os_classes.end()) {
 			FATAL("Unknown class '%s' in line %u.", val, fp_context.line_no);
+		}
 
-		fp_context.sig_class = i;
+		fp_context.sig_class = std::distance(fp_context.fp_os_classes.begin(), it);
 	}
 
 	nxt++;
@@ -161,38 +160,41 @@ void config_parse_sys(char *val, libp0f_context_t *libp0f_context) {
 
 	while (*val) {
 
-		char *nxt;
-		uint8_t is_cl = 0, orig;
-		uint32_t i;
+		bool is_cl = false;
 
-		while (isblank(*val) || *val == ',')
-			val++;
-
-		if (*val == '@') {
-			is_cl = 1;
+		while (isblank(*val) || *val == ',') {
 			val++;
 		}
 
-		nxt = val;
+		if (*val == '@') {
+			is_cl = true;
+			val++;
+		}
 
-		while (isalnum(*nxt) || (*nxt && strchr(NAME_CHARS, *nxt)))
+		char *nxt = val;
+
+		while (isalnum(*nxt) || (*nxt && strchr(NAME_CHARS, *nxt))) {
 			nxt++;
+		}
 
-		if (nxt == val || (*nxt && *nxt != ','))
+		if (nxt == val || (*nxt && *nxt != ',')) {
 			FATAL("Malformed sys entry in line %u.", fp_context.line_no);
+		}
 
-		orig = *nxt;
-		*nxt = 0;
+		char orig = *nxt;
+		*nxt      = 0;
 
+		uint32_t i;
 		if (is_cl) {
 
-			for (i = 0; i < fp_context.class_cnt; i++)
-				if (!strcasecmp(val, fp_context.fp_os_classes[i])) break;
+			auto it = std::find_if(fp_context.fp_os_classes.begin(), fp_context.fp_os_classes.end(), [val](const std::string &os_class) {
+				return strcasecmp(val, os_class.c_str()) == 0;
+			});
 
-			if (i == fp_context.class_cnt)
+			if (it == fp_context.fp_os_classes.end())
 				FATAL("Unknown class '%s' in line %u.", val, fp_context.line_no);
 
-			i |= SYS_CLASS_FLAG;
+			i = std::distance(fp_context.fp_os_classes.begin(), it) | SYS_CLASS_FLAG;
 
 		} else {
 
