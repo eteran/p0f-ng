@@ -12,6 +12,7 @@
 #define HAVE_FP_HTTP_H_
 
 #include "config.h"
+#include <cstdint>
 
 // A structure used for looking up various headers internally in fp_http.c:
 struct http_id {

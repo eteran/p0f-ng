@@ -8,8 +8,10 @@
 
  */
 
-#ifndef _HAVE_FP_TCP_H
-#define _HAVE_FP_TCP_H
+#ifndef HAVE_FP_TCP_H_
+#define HAVE_FP_TCP_H_
+
+#include <cstdint>
 
 // Simplified data for signature matching and NAT detection:
 struct tcp_sig {

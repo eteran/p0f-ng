@@ -14,6 +14,8 @@
 #ifndef HAVE_TCP_H_
 #define HAVE_TCP_H_
 
+#include <cstdint>
+
 /* -----------
  * IP common *
  * ----------*/

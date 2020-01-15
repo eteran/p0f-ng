@@ -11,6 +11,8 @@
 #ifndef HAVE_READFP_H_
 #define HAVE_READFP_H_
 
+#include <cstdint>
+
 // List of fingerprinting modules:
 #define CF_MOD_TCP 0x00  // fp_tcp.c
 #define CF_MOD_MTU 0x01  // fp_mtu.c

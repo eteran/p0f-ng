@@ -14,7 +14,9 @@
 
 #include "types.h"
 
-#define ROL32(_x, _r) (((_x) << (_r)) | ((_x) >> (32 - (_r))))
+constexpr uint32_t ROL32(uint32_t value, unsigned r) {
+	return (value << r) | (value >> (32 - r));
+}
 
 constexpr uint32_t hash32(const void *key, uint32_t len) {
 
@@ -61,61 +63,49 @@ constexpr uint32_t hash32(const void *key, uint32_t len) {
 		b += RD32p(k + 4);
 		a += RD32p(k);
 		break;
-
 	case 11:
 		c += (RD16p(k + 8) << 8) | k[10];
 		b += RD32p(k + 4);
 		a += RD32p(k);
 		break;
-
 	case 10:
 		c += RD16p(k + 8);
 		b += RD32p(k + 4);
 		a += RD32p(k);
 		break;
-
 	case 9:
 		c += k[8];
 		b += RD32p(k + 4);
 		a += RD32p(k);
 		break;
-
 	case 8:
 		b += RD32p(k + 4);
 		a += RD32p(k);
 		break;
-
 	case 7:
 		b += (RD16p(k + 4) << 8) | k[6];
 		a += RD32p(k);
 		break;
-
 	case 6:
 		b += RD16p(k + 4);
 		a += RD32p(k);
 		break;
-
 	case 5:
 		b += k[4];
 		a += RD32p(k);
 		break;
-
 	case 4:
 		a += RD32p(k);
 		break;
-
 	case 3:
 		a += (RD16p(k) << 8) | k[2];
 		break;
-
 	case 2:
 		a += RD16p(k);
 		break;
-
 	case 1:
 		a += k[0];
 		break;
-
 	case 0:
 		return c;
 	}

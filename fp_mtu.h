@@ -11,6 +11,8 @@
 #ifndef HAVE_FP_MTU_H_
 #define HAVE_FP_MTU_H_
 
+#include <cstdint>
+
 // Record for a TCP signature read from p0f.fp:
 struct mtu_sig_record {
 
