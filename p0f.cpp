@@ -115,17 +115,13 @@ p0f_context_t p0f_context;
 		"\n"
 		"  -f file   - read fingerprint database from 'file' (%s)\n"
 		"  -o file   - write information to the specified log file\n"
-#ifndef __CYGWIN__
 		"  -s name   - answer to API queries at a named unix socket\n"
-#endif /* !__CYGWIN__ */
 		"  -u user   - switch to the specified unprivileged account and chroot\n"
 		"  -d        - fork into background (requires -o or -s)\n"
 		"\n"
 		"Performance-related options:\n"
 		"\n"
-#ifndef __CYGWIN__
 		"  -S limit  - limit number of parallel API connections (%u)\n"
-#endif /* !__CYGWIN__ */
 		"  -t c,h    - set connection / host cache age limits (%us,%um)\n"
 		"  -m c,h    - cap the number of active connections / hosts (%u,%u)\n"
 		"\n"
@@ -137,10 +133,11 @@ p0f_context_t p0f_context;
 	ERRORF(
 		message,
 		FP_FILE,
-#ifndef __CYGWIN__
 		API_MAX_CONN,
-#endif /* !__CYGWIN__ */
-		CONN_MAX_AGE, HOST_IDLE_LIMIT, MAX_CONN, MAX_HOSTS);
+		CONN_MAX_AGE,
+		HOST_IDLE_LIMIT,
+		MAX_CONN,
+		MAX_HOSTS);
 
 	exit(1);
 }
@@ -307,31 +304,6 @@ void list_interfaces() {
 	pcap_freealldevs(dev);
 }
 
-#ifdef __CYGWIN__
-/* List PCAP-recognized interfaces */
-uint8_t *find_interface(int num) {
-
-	char pcap_err[PCAP_ERRBUF_SIZE];
-	pcap_if_t *dev;
-
-	if (pcap_findalldevs(&dev, pcap_err) == -1)
-		FATAL("pcap_findalldevs: %s\n", pcap_err);
-
-	do {
-
-		if (!num--) {
-			char *ret = ck_strdup(dev->name);
-			pcap_freealldevs(dev);
-			return ret;
-		}
-
-	} while ((dev = dev->next));
-
-	FATAL("Interface not found (use -L to list all).");
-}
-
-#endif /* __CYGWIN__ */
-
 /* Initialize PCAP capture */
 void prepare_pcap() {
 
@@ -376,28 +348,10 @@ void prepare_pcap() {
 			}
 		}
 
-#ifdef __CYGWIN__
-
-		/* On Windows, interface names are unwieldy, and people prefer to use
-		 * numerical IDs. */
-
-		else {
-			int iface_id;
-			if (sscanf(p0f_context.use_iface, "%u", &iface_id) == 1) {
-				p0f_context.use_iface = find_interface(iface_id);
-			}
-		}
-
-		p0f_context.pt = pcap_open_live(p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 250, pcap_err);
-
-#else
-
 		/* PCAP timeouts tend to be broken, so we'll use a very small value
 		 * and rely on select() instead. */
-
 		p0f_context.pt = pcap_open_live(p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 5, pcap_err);
 
-#endif /* ^__CYGWIN__ */
 
 		if (!orig_iface)
 			SAYF("[+] Intercepting traffic on default interface '%s'.\n", p0f_context.use_iface);
@@ -583,7 +537,6 @@ void abort_handler(int sig) {
 	p0f_context.stop_soon = 1;
 }
 
-#ifndef __CYGWIN__
 /* Regenerate pollfd data for poll() */
 uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 	uint32_t i;
@@ -620,11 +573,10 @@ uint32_t regen_pfds(struct pollfd *pfds, struct api_client **ctable) {
 
 	return count;
 }
-#endif /* !__CYGWIN__ */
+
 
 /* Event loop! Accepts and dispatches pcap data, API queries, etc. */
 void live_event_loop() {
-#ifndef __CYGWIN__
 
 	/* The huge problem with winpcap on cygwin is that you can't get a file
 	 descriptor suitable for poll() / select() out of it:
@@ -790,26 +742,6 @@ void live_event_loop() {
 	free(ctable);
 	free(pfds);
 
-#else
-	if (!daemon_mode)
-		SAYF("[+] Entered main event loop.\n\n");
-
-	/* Ugh. The only way to keep SIGINT and other signals working is to have this
-	 funny loop with dummy I/O every 250 ms. Signal handlers don't get called
-	 in pcap_dispatch() or pcap_loop() unless there's I/O. */
-
-	while (!stop_soon) {
-
-		int32_t ret = pcap_dispatch(p0f_context.pt, -1, (pcap_handler)parse_packet, 0);
-
-		if (ret < 0) return;
-
-		if (log_file && !ret) fflush(lf);
-
-		write(2, nullptr, 0);
-	}
-
-#endif /* ^!__CYGWIN__ */
 	WARN("User-initiated shutdown.");
 }
 
@@ -903,9 +835,6 @@ int main(int argc, char **argv) {
 			list_interfaces();
 			exit(0);
 		case 'S':
-#ifdef __CYGWIN__
-			FATAL("API mode not supported on Windows (see README).");
-#else
 			if (p0f_context.api_max_conn != API_MAX_CONN)
 				FATAL("Multiple -S options not supported.");
 
@@ -915,18 +844,13 @@ int main(int argc, char **argv) {
 				FATAL("Outlandish value specified for -S.");
 
 			break;
-#endif /* ^__CYGWIN__ */
-
 		case 'd':
-
 			if (daemon_mode)
 				FATAL("Double werewolf mode not supported yet.");
 
 			daemon_mode = 1;
 			break;
-
 		case 'f':
-
 			if (p0f_context.fp_file)
 				FATAL("Multiple -f options not supported.");
 
@@ -934,16 +858,12 @@ int main(int argc, char **argv) {
 			break;
 
 		case 'i':
-
 			if (p0f_context.use_iface)
 				FATAL("Multiple -i options not supported (try '-i any').");
 
 			p0f_context.use_iface = optarg;
-
 			break;
-
 		case 'm':
-
 			if (max_conn != MAX_CONN || max_hosts != MAX_HOSTS)
 				FATAL("Multiple -m options not supported.");
 
@@ -953,22 +873,18 @@ int main(int argc, char **argv) {
 				FATAL("Outlandish value specified for -m.");
 
 			break;
-
 		case 'o':
 			if (p0f_context.log_file)
 				FATAL("Multiple -o options not supported.");
 
 			p0f_context.log_file = optarg;
-
 			break;
-
 		case 'p':
 			if (p0f_context.set_promisc)
 				FATAL("Even more promiscuous? People will start talking!");
 
 			p0f_context.set_promisc = 1;
 			break;
-
 		case 'r':
 			if (read_file)
 				FATAL("Multiple -r options not supported.");
@@ -976,21 +892,11 @@ int main(int argc, char **argv) {
 			break;
 
 		case 's':
-
-#ifdef __CYGWIN__
-
-			FATAL("API mode not supported on Windows (see README).");
-
-#else
-
 			if (p0f_context.api_sock)
 				FATAL("Multiple -s options not supported.");
 
 			p0f_context.api_sock = optarg;
-
 			break;
-
-#endif /* ^__CYGWIN__ */
 
 		case 't':
 
@@ -1003,7 +909,6 @@ int main(int argc, char **argv) {
 				FATAL("Outlandish value specified for -t.");
 
 			break;
-
 		case 'u':
 
 			if (p0f_context.switch_user)
@@ -1039,17 +944,9 @@ int main(int argc, char **argv) {
 		if (!p0f_context.log_file && !p0f_context.api_sock)
 			FATAL("Daemon mode requires -o or -s.");
 
-#ifdef __CYGWIN__
-
-		if (switch_user)
-			SAYF("[!] Note: under cygwin, -u is largely useless.\n");
-
-#else
-
 		if (!p0f_context.switch_user)
 			SAYF("[!] Consider specifying -u in daemon mode (see README).\n");
 
-#endif /* ^__CYGWIN__ */
 	}
 
 	tzset();
