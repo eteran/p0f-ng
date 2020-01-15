@@ -46,11 +46,6 @@ constexpr int HDR_VIA = 3;
 constexpr int HDR_XFF = 4;
 constexpr int HDR_DAT = 5;
 
-struct header_name {
-	size_t size;
-	char *name;
-};
-
 struct http_context_t {
 	struct http_id req_optional[sizeof(req_optional_init) / sizeof(http_id)];
 	struct http_id resp_optional[sizeof(resp_optional_init) / sizeof(http_id)];
@@ -59,7 +54,7 @@ struct http_context_t {
 	struct http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
 	struct http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
 
-	std::vector<struct header_name> hdr_names; // List of header names by ID
+	std::vector<std::string> hdr_names; // List of header names by ID
 	std::vector<uint32_t> hdr_by_hash[SIG_BUCKETS]; // Hashed header names
 
 	/* Signatures aren't bucketed due to the complex matching used; but we use
@@ -91,8 +86,9 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 	uint32_t i  = http_context.hdr_by_hash[bucket].size();
 
 	while (i--) {
-		if (http_context.hdr_names[*p].size == len && !memcmp(http_context.hdr_names[*p].name, name, len) && !http_context.hdr_names[*p].name[len])
+		if (http_context.hdr_names[*p].size() == len && http_context.hdr_names[*p] == std::string(name, len)) {
 			return *p;
+		}
 		p++;
 	}
 
@@ -102,11 +98,7 @@ int32_t lookup_hdr(const char *name, size_t len, uint8_t create) {
 
 	size_t index = http_context.hdr_names.size();
 
-	struct header_name hn;
-	hn.name = ck_memdup_str(name, len);
-	hn.size = len;
-	http_context.hdr_names.push_back(hn);
-
+	http_context.hdr_names.push_back(std::string(name, len));
 	http_context.hdr_by_hash[bucket].push_back(index);
 
 	return index;
@@ -231,7 +223,7 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
 	uint32_t i;
-	uint8_t had_prev = 0;
+	bool had_prev = false;
 	struct http_id *list;
 
 	uint8_t tmp[HTTP_MAX_SHOW + 1];
@@ -246,7 +238,7 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
 		if (hsig->hdr[i].id >= 0) {
 
-			uint8_t optional = 0;
+			bool optional = false;
 
 			// Check the "optional" list.
 			list = to_srv ? http_context.req_optional : http_context.resp_optional;
@@ -256,10 +248,14 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 				list++;
 			}
 
-			if (list->name) optional = 1;
+			if (list->name)
+				optional = true;
 
-			append_format(ss, "%s%s%s", had_prev ? "," : "", optional ? "?" : "", http_context.hdr_names[hsig->hdr[i].id].name);
-			had_prev = 1;
+			append_format(ss, "%s%s%s",
+						  had_prev ? "," : "",
+						  optional ? "?" : "",
+						  http_context.hdr_names[hsig->hdr[i].id].c_str());
+			had_prev = true;
 
 			if (!(val = hsig->hdr[i].value)) continue;
 
@@ -319,7 +315,7 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 	append_format(ss, ":");
 
 	list     = to_srv ? http_context.req_common : http_context.resp_common;
-	had_prev = 0;
+	had_prev = false;
 
 	while (list->name) {
 
@@ -342,14 +338,14 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 		tpos = 0;
 
 		while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && static_cast<uint8_t>(val[tpos]) < 0x80 && val[tpos] != ']') {
-
 			tmp[tpos] = val[tpos];
 			tpos++;
 		}
 
 		tmp[tpos] = 0;
 
-		if (tpos) append_format(ss, "%s", tmp);
+		if (tpos)
+			append_format(ss, "%s", tmp);
 	}
 
 	return ss.str();
