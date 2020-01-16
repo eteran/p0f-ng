@@ -186,7 +186,7 @@ void config_parse_sys(string_view value) {
 }
 
 // Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
-void config_parse_line(char *line) {
+void config_parse_line(string_view line) {
 
 	parser in(line);
 
@@ -205,7 +205,7 @@ void config_parse_line(char *line) {
 		} else if (in.match("http")) {
 			fp_context.mod_type = CF_MOD_HTTP;
 		} else {
-			FATAL("Unrecognized fingerprinting module '%s' in line %u.", line, fp_context.line_no);
+			FATAL("Unrecognized fingerprinting module '%s' in line %u.", std::string(line.begin(), line.end()).c_str(), fp_context.line_no);
 		}
 
 		if (!in.match(':')) {
@@ -258,7 +258,7 @@ void config_parse_line(char *line) {
 		std::string value;
 		in.match_any(&value);
 
-		http_parse_ua(value.c_str(), fp_context.line_no);
+		http_parse_ua(value, fp_context.line_no);
 
 	} else if (in.match("label")) {
 
@@ -357,7 +357,7 @@ void config_parse_line(char *line) {
 		fp_context.sig_cnt++;
 
 	} else {
-		FATAL("Unrecognized field '%s' in line %u.", line, fp_context.line_no);
+		FATAL("Unrecognized field '%s' in line %u.", std::string(line.begin(), line.end()).c_str(), fp_context.line_no);
 	}
 }
 

@@ -1032,43 +1032,36 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 }
 
 // Register new HTTP signature.
-void http_parse_ua(const char *val, uint32_t line_no) {
+void http_parse_ua(string_view value, uint32_t line_no) {
 
-	const char *nxt;
+	parser in(value);
+	while (!in.eof()) {
 
-	while (*val) {
-
-		nxt = val;
-		while (*nxt && (isalnum(*nxt) || strchr(NAME_CHARS, *nxt))) {
-			nxt++;
-		}
-
-		if (val == nxt) {
+		std::string system_str;
+		if(!in.match([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); }, &system_str)) {
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
-		uint32_t id = lookup_name_id(val, nxt - val);
+		uint32_t id = lookup_name_id(system_str.c_str(), system_str.size());
 
-		val = nxt;
 
 		char *name = nullptr;
-		if (*val == '=') {
+		if (in.match('=')) {
 
-			if (val[1] != '[')
+			if (!in.match('[')) {
 				FATAL("Missing '[' after '=' in line %u.", line_no);
+			}
 
-			val += 2;
-			nxt = val;
-
-			while (*nxt && *nxt != ']')
-				nxt++;
-
-			if (val == nxt || !*nxt)
+			std::string value_str;
+			if(!in.match([](char ch) { return ch != ']'; }, &value_str)) {
 				FATAL("Malformed signature in line %u.", line_no);
+			}
 
-			name = ck_memdup_str(val, nxt - val);
+			if (!in.match(']')) {
+				FATAL("Malformed signature in line %u.", line_no);
+			}
 
-			val = nxt + 1;
+			name = ck_memdup_str(value_str.c_str(), value_str.size());
 		}
 
 		struct ua_map_record record;
@@ -1076,7 +1069,7 @@ void http_parse_ua(const char *val, uint32_t line_no) {
 		record.name = (!name) ? fp_context.fp_os_names[id] : name;
 		http_context.ua_map.push_back(record);
 
-		if (*val == ',') val++;
+		in.match(',');
 	}
 }
 
