@@ -17,6 +17,7 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+#include <fstream>
 
 #include <netinet/in.h>
 #include <sys/fcntl.h>
@@ -205,7 +206,7 @@ void config_parse_line(string_view line) {
 		} else if (in.match("http")) {
 			fp_context.mod_type = CF_MOD_HTTP;
 		} else {
-			FATAL("Unrecognized fingerprinting module '%s' in line %u.", std::string(line.begin(), line.end()).c_str(), fp_context.line_no);
+			FATAL("Unrecognized fingerprinting module '%s' in line %u.", line.to_string().c_str(), fp_context.line_no);
 		}
 
 		if (!in.match(':')) {
@@ -357,7 +358,7 @@ void config_parse_line(string_view line) {
 		fp_context.sig_cnt++;
 
 	} else {
-		FATAL("Unrecognized field '%s' in line %u.", std::string(line.begin(), line.end()).c_str(), fp_context.line_no);
+		FATAL("Unrecognized field '%s' in line %u.", line.to_string().c_str(), fp_context.line_no);
 	}
 }
 
@@ -382,59 +383,23 @@ uint32_t lookup_name_id(const char *name, uint8_t len) {
 // Top-level file parsing.
 void read_config(const char *fname) {
 
-	struct stat st;
-	char *data;
-	char *cur;
-
-	int f = open(fname, O_RDONLY);
-	if (f < 0)
-		PFATAL("Cannot open '%s' for reading.", fname);
-
-	if (fstat(f, &st))
-		PFATAL("fstat() on '%s' failed.", fname);
-
-	if (!st.st_size) {
-		close(f);
-		goto end_fp_read;
-	}
-
-	data = static_cast<char *>(calloc(st.st_size + 1, 1));
-	cur  = data;
-
-	if (read(f, data, st.st_size) != st.st_size) {
-		FATAL("Short read from '%s'.", fname);
-	}
-
-	data[st.st_size] = 0;
-	close(f);
-
 	// If you put NUL in your p0f.fp... Well, sucks to be you.
-	while (1) {
-		char *eol;
+	std::ifstream file(fname);
+	for(std::string line; std::getline(file, line); ) {
 
 		fp_context.line_no++;
 
-		while (isblank(*cur))
-			cur++;
-
-		eol = cur;
-		while (*eol && *eol != '\n')
-			eol++;
-
-		if (*cur != ';' && cur != eol) {
-			char *line = ck_memdup_str(cur, eol - cur);
-			config_parse_line(line);
-			free(line);
+		string_view line_view(line);
+		while(!line_view.empty() && isblank(line_view[0])) {
+			line_view.remove_prefix(1);
 		}
 
-		if (!*eol) break;
+		if(line_view.empty() || line_view[0] == ';') {
+			continue;
+		}
 
-		cur = eol + 1;
+		config_parse_line(line_view);
 	}
-
-	free(data);
-
-end_fp_read:
 
 	if (!fp_context.sig_cnt)
 		SAYF("[!] No signatures found in '%s'.\n", fname);
