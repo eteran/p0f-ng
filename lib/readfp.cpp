@@ -32,13 +32,14 @@
 #include "p0f/p0f.h"
 #include "p0f/parser.h"
 #include "p0f/readfp.h"
+#include "p0f/string_view.h"
 
 fp_context_t fp_context;
 
 namespace {
 
 // Parse 'classes' parameter by populating fp_context.fp_os_classes.
-void config_parse_classes(const std::string &value) {
+void config_parse_classes(string_view value) {
 
 	parser in(value);
 	do {
@@ -130,7 +131,7 @@ void config_parse_label(const std::string &value) {
 }
 
 // Parse 'sys' parameter into fp_context.cur_sys[].
-void config_parse_sys(const std::string &value) {
+void config_parse_sys(string_view value) {
 
 	if (fp_context.cur_sys) {
 		fp_context.cur_sys     = nullptr;
