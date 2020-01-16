@@ -8,7 +8,7 @@
 
 class parser {
 public:
-	explicit parser(std::string input);
+	explicit parser(string_view input);
 
 public:
 	bool eof() const;
@@ -44,7 +44,7 @@ public:
 	size_t column() const;
 
 private:
-	std::string input_; // TODO(eteran): would be better as string_view
+	string_view input_;
 	size_t index_  = 0;
 	size_t line_   = 1;
 	size_t column_ = 1;

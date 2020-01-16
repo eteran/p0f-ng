@@ -6,8 +6,8 @@
  * @param source
  * @param input
  */
-parser::parser(std::string input)
-	: input_(std::move(input)) {
+parser::parser(string_view input)
+	: input_(input) {
 }
 
 /**
@@ -79,11 +79,7 @@ void parser::consume(string_view chars) {
  */
 bool parser::match_any(std::string *match) {
 	std::string m;
-	while (true) {
-		const char ch = peek();
-		if (ch == '\0') {
-			break;
-		}
+	while (!eof()) {
 		m.push_back(read());
 	}
 
