@@ -12,9 +12,13 @@
 #define HAVE_FP_HTTP_H_
 
 #include "config.h"
+#include "string_view.h"
 #include <cstdint>
 #include <ctime>
 #include <memory>
+
+struct packet_flow;
+struct libp0f_context_t;
 
 // A structure used for looking up various headers internally in fp_http.c:
 struct http_id {
@@ -81,11 +85,9 @@ struct http_sig_record {
 	std::unique_ptr<struct http_sig> sig; // Actual signature data
 };
 
-struct packet_flow;
-struct libp0f_context_t;
 
 void http_parse_ua(char *val, uint32_t line_no);
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no);
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view val, uint32_t line_no);
 uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context);
 void free_sig_hdrs(struct http_sig *h);
 void http_init();
