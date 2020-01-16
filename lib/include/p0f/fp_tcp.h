@@ -11,9 +11,9 @@
 #ifndef HAVE_FP_TCP_H_
 #define HAVE_FP_TCP_H_
 
+#include "string_view.h"
 #include <cstdint>
 #include <memory>
-#include "string_view.h"
 
 // Simplified data for signature matching and NAT detection:
 struct tcp_sig {

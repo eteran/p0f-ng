@@ -122,7 +122,7 @@ bool parser::match_any_of(string_view chars, std::string *match) {
  */
 bool parser::match(string_view s) {
 
-	if (index_ + s.size() >= input_.size()) {
+	if (index_ + s.size() > input_.size()) {
 		return false;
 	}
 

@@ -653,34 +653,34 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 	parser in(value);
 
 	// IP version
-	if(in.match('4')) {
+	if (in.match('4')) {
 		ver = IP_VER4;
-	} else if(in.match('6')) {
+	} else if (in.match('6')) {
 		ver = IP_VER6;
-	} else if(in.match('*')) {
+	} else if (in.match('*')) {
 		ver = -1;
 	} else {
 		FATAL("Unrecognized IP version in line %u.", line_no);
 	}
 
-	if(!in.match(':')) {
+	if (!in.match(':')) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 
 	// Initial TTL (possibly ttl+dist or ttl-)
 	std::string ttl;
-	if(!in.match([](char ch) { return isdigit(ch); }, &ttl)) {
+	if (!in.match([](char ch) { return isdigit(ch); }, &ttl)) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 	int32_t ittl = atol(ttl.c_str());
 	if (ittl < 1 || ittl > 255)
 		FATAL("Bogus initial TTL in line %u.", line_no);
 
-	if(in.match('-')) {
+	if (in.match('-')) {
 		bad_ttl = 1;
-	} else if(in.match('+')) {
+	} else if (in.match('+')) {
 		std::string ttl_add;
-		if(!in.match([](char ch) { return isdigit(ch); }, &ttl_add)) {
+		if (!in.match([](char ch) { return isdigit(ch); }, &ttl_add)) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 		int32_t ittl_add = atol(ttl_add.c_str());
@@ -691,13 +691,13 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		ittl += ittl_add;
 	}
 
-	if(!in.match(':')) {
+	if (!in.match(':')) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 
 	// Length of IP options
 	std::string olen_str;
-	if(!in.match([](char ch) { return isdigit(ch); }, &olen_str)) {
+	if (!in.match([](char ch) { return isdigit(ch); }, &olen_str)) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 
@@ -705,16 +705,16 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 	if (olen < 0 || olen > 255)
 		FATAL("Bogus IP option length in line %u.", line_no);
 
-	if(!in.match(':')) {
+	if (!in.match(':')) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 
 	// MSS
-	if(in.match('*')) {
+	if (in.match('*')) {
 		mss = -1;
 	} else {
 		std::string mss_str;
-		if(!in.match([](char ch) { return isdigit(ch); }, &mss_str)) {
+		if (!in.match([](char ch) { return isdigit(ch); }, &mss_str)) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
@@ -723,19 +723,19 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 			FATAL("Bogus MSS in line %u.", line_no);
 	}
 
-	if(!in.match(':')) {
+	if (!in.match(':')) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 
 	// window size, followed by comma
-	if(in.match("*,")) {
+	if (in.match("*,")) {
 		win_type = WIN_TYPE_ANY;
 		win      = 0;
 	} else if (in.match('%')) {
 		win_type = WIN_TYPE_MOD;
 
 		std::string win_str;
-		if(!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+		if (!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
@@ -747,10 +747,10 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 			FATAL("Malformed signature in line %u.", line_no);
 
 	} else if (in.match("mss*")) {
-		win_type =  WIN_TYPE_MSS;
+		win_type = WIN_TYPE_MSS;
 
 		std::string win_str;
-		if(!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+		if (!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
@@ -765,14 +765,13 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		win_type = WIN_TYPE_MTU;
 
 		std::string win_str;
-		if(!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+		if (!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
 		win = atol(win_str.c_str());
 		if (win < 1 || win > 1000)
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
-
 
 		if (!in.match(','))
 			FATAL("Malformed signature in line %u.", line_no);
@@ -781,7 +780,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		win_type = WIN_TYPE_NORMAL;
 
 		std::string win_str;
-		if(!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+		if (!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
@@ -798,7 +797,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		scale = -1;
 	} else {
 		std::string scale_str;
-		if(!in.match([](char ch) { return isdigit(ch); }, &scale_str)) {
+		if (!in.match([](char ch) { return isdigit(ch); }, &scale_str)) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
@@ -827,7 +826,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 			}
 
 			std::string eol_str;
-			if(!in.match([](char ch) { return isdigit(ch); }, &eol_str)) {
+			if (!in.match([](char ch) { return isdigit(ch); }, &eol_str)) {
 				FATAL("Truncated options in line %u.", line_no);
 			}
 
@@ -836,7 +835,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 				FATAL("Bogus EOL padding in line %u.", line_no);
 			}
 
-			if(in.peek() != ':') {
+			if (in.peek() != ':') {
 				FATAL("EOL must be the last option in line %u.", line_no);
 			}
 		} else if (in.match("nop")) {
@@ -854,7 +853,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		} else if (in.match('?')) {
 
 			std::string opt_str;
-			if(!in.match([](char ch) { return isdigit(ch); }, &opt_str)) {
+			if (!in.match([](char ch) { return isdigit(ch); }, &opt_str)) {
 				FATAL("Malformed '?' option in line %u.", line_no);
 			}
 
@@ -864,7 +863,6 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 
 			opt_layout[opt_cnt++] = optno;
 
-
 			if (in.peek() != ':' && in.peek() != ',') {
 				FATAL("Malformed '?' option in line %u.", line_no);
 			}
@@ -873,11 +871,11 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 			FATAL("Unrecognized TCP option in line %u.", line_no);
 		}
 
-		if(in.peek() == ':') {
+		if (in.peek() == ':') {
 			break;
 		}
 
-		if(!in.match(',')) {
+		if (!in.match(',')) {
 			FATAL("Malformed TCP options in line %u.", line_no);
 		}
 	}
@@ -890,7 +888,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 
 	// Quirks
 	while (in.peek() != ':') {
-		if (in.match("df")){
+		if (in.match("df")) {
 			if (ver == IP_VER6)
 				FATAL("'df' is not valid for IPv6 in line %u.", line_no);
 
@@ -943,11 +941,11 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 			FATAL("Unrecognized quirk in line %u.", line_no);
 		}
 
-		if(in.peek() == ':') {
+		if (in.peek() == ':') {
 			break;
 		}
 
-		if(!in.match(',')) {
+		if (!in.match(',')) {
 			FATAL("Malformed quirks in line %u.", line_no);
 		}
 	}

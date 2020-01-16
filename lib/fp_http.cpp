@@ -1032,9 +1032,9 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 }
 
 // Register new HTTP signature.
-void http_parse_ua(char *val, uint32_t line_no) {
+void http_parse_ua(const char *val, uint32_t line_no) {
 
-	char *nxt;
+	const char *nxt;
 
 	while (*val) {
 

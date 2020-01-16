@@ -188,37 +188,33 @@ void config_parse_sys(string_view value) {
 // Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
 void config_parse_line(char *line) {
 
-	char *val = nullptr;
-	char *eon = nullptr;
+	parser in(line);
 
 	// Special handling for [module:direction]...
-	if (*line == '[') {
-		line++;
+	if (in.match('[')) {
 
 		// Simplified case for [mtu].
-		if (!strcmp(line, "mtu]")) {
+		if (in.match("mtu]")) {
 			fp_context.mod_type = CF_MOD_MTU;
 			fp_context.state    = CF_NEED_LABEL;
 			return;
 		}
 
-		char *dir = strchr(line, ':');
-		if (!dir)
-			FATAL("Malformed section identifier in line %u.", fp_context.line_no);
-
-		*dir++ = '\0';
-
-		if (!strcmp(line, "tcp")) {
+		if (in.match("tcp")) {
 			fp_context.mod_type = CF_MOD_TCP;
-		} else if (!strcmp(line, "http")) {
+		} else if (in.match("http")) {
 			fp_context.mod_type = CF_MOD_HTTP;
 		} else {
 			FATAL("Unrecognized fingerprinting module '%s' in line %u.", line, fp_context.line_no);
 		}
 
-		if (!strcmp(dir, "request]")) {
+		if (!in.match(':')) {
+			FATAL("Malformed section identifier in line %u.", fp_context.line_no);
+		}
+
+		if (in.match("request]")) {
 			fp_context.mod_to_srv = 1;
-		} else if (!strcmp(dir, "response]")) {
+		} else if (in.match("response]")) {
 			fp_context.mod_to_srv = 0;
 		} else {
 			FATAL("Unrecognized traffic direction in line %u.", fp_context.line_no);
@@ -229,39 +225,42 @@ void config_parse_line(char *line) {
 	}
 
 	// Everything else follows the 'name = value' approach.
-	val = line;
-
-	while (isalpha(*val) || *val == '_')
-		val++;
-
-	eon = val;
-
-	while (isblank(*val))
-		val++;
-
-	if (line == val || *val != '=')
-		FATAL("Unexpected statement in line %u.", fp_context.line_no);
-
-	while (isblank(*++val))
-		;
-
-	*eon = 0;
-
-	if (!strcmp(line, "classes")) {
+	if (in.match("classes")) {
 
 		if (fp_context.state != CF_NEED_SECT)
 			FATAL("misplaced 'classes' in line %u.", fp_context.line_no);
 
-		config_parse_classes(val);
+		in.consume(" \t");
 
-	} else if (!strcmp(line, "ua_os")) {
+		if (!in.match('=')) {
+			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+		}
+
+		in.consume(" \t");
+
+		std::string value;
+		in.match_any(&value);
+		config_parse_classes(value);
+
+	} else if (in.match("ua_os")) {
 
 		if (fp_context.state != CF_NEED_LABEL || fp_context.mod_to_srv != 1 || fp_context.mod_type != CF_MOD_HTTP)
 			FATAL("misplaced 'us_os' in line %u.", fp_context.line_no);
 
-		http_parse_ua(val, fp_context.line_no);
+		in.consume(" \t");
 
-	} else if (!strcmp(line, "label")) {
+		if (!in.match('=')) {
+			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+		}
+
+		in.consume(" \t");
+
+		std::string value;
+		in.match_any(&value);
+
+		http_parse_ua(value.c_str(), fp_context.line_no);
+
+	} else if (in.match("label")) {
 
 		/* We will drop sig_sys / fp_context.sig_flavor on the floor if no
 		 * signatures actually created, but it's not worth tracking that. */
@@ -269,23 +268,56 @@ void config_parse_line(char *line) {
 		if (fp_context.state != CF_NEED_LABEL && fp_context.state != CF_NEED_SIG)
 			FATAL("misplaced 'label' in line %u.", fp_context.line_no);
 
-		config_parse_label(val);
+		in.consume(" \t");
+
+		if (!in.match('=')) {
+			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+		}
+
+		in.consume(" \t");
+
+		std::string value;
+		in.match_any(&value);
+
+		config_parse_label(value);
 
 		if (fp_context.mod_type != CF_MOD_MTU && fp_context.sig_class < 0)
 			fp_context.state = CF_NEED_SYS;
 		else
 			fp_context.state = CF_NEED_SIG;
 
-	} else if (!strcmp(line, "sys")) {
+	} else if (in.match("sys")) {
 		if (fp_context.state != CF_NEED_SYS)
 			FATAL("Misplaced 'sys' in line %u.", fp_context.line_no);
 
-		config_parse_sys(val);
+		in.consume(" \t");
+
+		if (!in.match('=')) {
+			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+		}
+
+		in.consume(" \t");
+
+		std::string value;
+		in.match_any(&value);
+
+		config_parse_sys(value);
 		fp_context.state = CF_NEED_SIG;
-	} else if (!strcmp(line, "sig")) {
+	} else if (in.match("sig")) {
 
 		if (fp_context.state != CF_NEED_SIG)
 			FATAL("Misplaced 'sig' in line %u.", fp_context.line_no);
+
+		in.consume(" \t");
+
+		if (!in.match('=')) {
+			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+		}
+
+		in.consume(" \t");
+
+		std::string value;
+		in.match_any(&value);
 
 		switch (fp_context.mod_type) {
 		case CF_MOD_TCP:
@@ -298,13 +330,13 @@ void config_parse_line(char *line) {
 				fp_context.label_id,
 				fp_context.cur_sys,
 				fp_context.cur_sys_cnt,
-				val,
+				value,
 				fp_context.line_no);
 			break;
 		case CF_MOD_MTU:
 			mtu_register_sig(
 				fp_context.sig_flavor,
-				val,
+				value,
 				fp_context.line_no);
 			break;
 		case CF_MOD_HTTP:
@@ -317,7 +349,7 @@ void config_parse_line(char *line) {
 				fp_context.label_id,
 				fp_context.cur_sys,
 				fp_context.cur_sys_cnt,
-				val,
+				value,
 				fp_context.line_no);
 			break;
 		}
