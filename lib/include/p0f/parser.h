@@ -2,6 +2,7 @@
 #ifndef PARSER_H_
 #define PARSER_H_
 
+#include "string_view.h"
 #include <cstddef>
 #include <string>
 
@@ -13,10 +14,10 @@ public:
 	bool eof() const;
 	char peek() const;
 	char read();
-	void consume(const std::string &chars);
+	void consume(string_view chars);
 	bool match(char ch);
-	bool match(const std::string &s);
-	bool match_any_of(const std::string &chars, std::string *match);
+	bool match(string_view s);
+	bool match_any_of(string_view chars, std::string *match);
 	bool match_any(std::string *match);
 
 	template <class Pred>

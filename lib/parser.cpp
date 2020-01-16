@@ -59,7 +59,7 @@ bool parser::eof() const {
  * @brief parser::consume
  * @param chars
  */
-void parser::consume(const std::string &chars) {
+void parser::consume(string_view chars) {
 
 	while (!eof()) {
 		char ch = peek();
@@ -101,7 +101,7 @@ bool parser::match_any(std::string *match) {
  * @param match
  * @return
  */
-bool parser::match_any_of(const std::string &chars, std::string *match) {
+bool parser::match_any_of(string_view chars, std::string *match) {
 	std::string m;
 	while (true) {
 		const char ch = peek();
@@ -124,7 +124,7 @@ bool parser::match_any_of(const std::string &chars, std::string *match) {
  * @param s
  * @return
  */
-bool parser::match(const std::string &s) {
+bool parser::match(string_view s) {
 
 	if (index_ + s.size() >= input_.size()) {
 		return false;

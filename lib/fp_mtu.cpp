@@ -20,11 +20,11 @@
 #include "p0f/debug.h"
 #include "p0f/fp_mtu.h"
 #include "p0f/p0f.h"
+#include "p0f/parser.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
-#include "p0f/parser.h"
 
 namespace {
 
