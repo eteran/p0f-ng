@@ -84,8 +84,8 @@ struct http_sig_record {
 struct packet_flow;
 struct libp0f_context_t;
 
-void http_parse_ua(const std::string &value, uint32_t line_no);
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, const std::string &val, uint32_t line_no);
+void http_parse_ua(char *val, uint32_t line_no);
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no);
 uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context);
 void free_sig_hdrs(struct http_sig *h);
 void http_init();
