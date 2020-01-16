@@ -92,7 +92,7 @@ struct host_data {
 	uint8_t ip_ver   = 0;  // Address type
 	uint8_t addr[16] = {}; // Host address data
 
-	std::shared_ptr<struct tcp_sig> last_syn; // Sig of the most recent SYN
+	std::shared_ptr<struct tcp_sig> last_syn;    // Sig of the most recent SYN
 	std::shared_ptr<struct tcp_sig> last_synack; // Sig of the most recent SYN+ACK
 
 	int32_t last_class_id = 0;       // OS class ID (-1 = not found)

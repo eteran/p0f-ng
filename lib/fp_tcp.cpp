@@ -115,7 +115,7 @@ void tcp_find_match(bool to_srv, const std::shared_ptr<struct tcp_sig> &ts, uint
 
 	for (size_t i = 0; i < tcp_context.sigs[to_srv][bucket].size(); i++) {
 
-		struct tcp_sig_record *ref            = &tcp_context.sigs[to_srv][bucket][i];
+		struct tcp_sig_record *ref                  = &tcp_context.sigs[to_srv][bucket][i];
 		const std::shared_ptr<struct tcp_sig> &refs = ref->sig;
 
 		uint8_t fuzzy       = 0;

@@ -2,25 +2,27 @@ cmake_minimum_required(VERSION 3.0)
 
 add_library(p0f-engine
     fp_http.cpp
-    fp_tcp.cpp
     fp_mtu.cpp
-    process.cpp
+    fp_tcp.cpp
+    include/p0f/alloc-inl.h
     include/p0f/api_client.h
-    include/p0f/tcp.h
-    include/p0f/p0f.h
+    include/p0f/api.h
     include/p0f/config.h
     include/p0f/debug.h
-    include/p0f/alloc-inl.h
-    include/p0f/types.h
-    include/p0f/process.h
     include/p0f/fp_http.h
-    include/p0f/fp_tcp.h
-    include/p0f/languages.h
-    include/p0f/readfp.h
     include/p0f/fp_mtu.h
-    include/p0f/util.h
+    include/p0f/fp_tcp.h
     include/p0f/hash.h
-    include/p0f/api.h
+    include/p0f/languages.h
+    include/p0f/p0f.h
+    include/p0f/parser.h
+    include/p0f/process.h
+    include/p0f/readfp.h
+    include/p0f/tcp.h
+    include/p0f/types.h
+    include/p0f/util.h
+    parser.cpp
+    process.cpp
     readfp.cpp
 )
 

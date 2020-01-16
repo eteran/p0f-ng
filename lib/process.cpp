@@ -388,8 +388,8 @@ struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_
 void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 
 	std::shared_ptr<struct tcp_sig> tsig;
-	bool to_srv          = false;
-	uint8_t need_more    = 0;
+	bool to_srv       = false;
+	uint8_t need_more = 0;
 
 	DEBUG("[#] Received TCP packet: %s/%u -> ",
 		  addr_to_str(pk->src, pk->ip_ver),
@@ -480,7 +480,7 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 		check_ts_tcp(0, pk, f, libp0f_context);
 
 		f->server->last_synack = tsig;
-		f->next_srv_seq = pk->seq + 1;
+		f->next_srv_seq        = pk->seq + 1;
 		break;
 
 	case TCP_RST | TCP_ACK:

@@ -333,7 +333,6 @@ void prepare_pcap() {
 		if (!p0f_context.use_iface) {
 			/* See the earlier note on libpcap SEGV - same problem here.
 			 * Also, this returns something stupid on Windows, but hey... */
-
 			if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT) {
 				pcap_if_t *alldevs = nullptr;
 				char error[PCAP_ERRBUF_SIZE];
@@ -341,7 +340,7 @@ void prepare_pcap() {
 					FATAL("pcap_findalldevs: %s\n", error);
 				}
 
-				p0f_context.use_iface = alldevs->name;
+				p0f_context.use_iface = ck_strdup(alldevs->name);
 				pcap_freealldevs(alldevs);
 			}
 

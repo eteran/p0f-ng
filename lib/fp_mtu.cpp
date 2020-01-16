@@ -24,6 +24,7 @@
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
+#include "p0f/parser.h"
 
 namespace {
 
@@ -36,24 +37,20 @@ mtu_context_t mtu_context;
 }
 
 // Register a new MTU signature.
-void mtu_register_sig(char *name, char *val, uint32_t line_no) {
+void mtu_register_sig(char *name, const std::string &val, uint32_t line_no) {
 
-	char *nxt = val;
-	int32_t mtu;
-	uint32_t bucket;
+	parser in(val);
 
-	while (isdigit(*nxt))
-		nxt++;
-
-	if (nxt == val || *nxt)
+	std::string mtu_str;
+	if (!in.match([](char ch) { return isdigit(ch); }, &mtu_str)) {
 		FATAL("Malformed MTU value in line %u.", line_no);
-
-	mtu = atoi(val);
+	}
+	int32_t mtu = atoi(mtu_str.c_str());
 
 	if (mtu <= 0 || mtu > 65535)
 		FATAL("Malformed MTU value in line %u.", line_no);
 
-	bucket = mtu % SIG_BUCKETS;
+	uint32_t bucket = mtu % SIG_BUCKETS;
 
 	struct mtu_sig_record sig;
 	sig.mtu  = mtu;

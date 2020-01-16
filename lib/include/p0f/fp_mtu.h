@@ -24,7 +24,7 @@ struct mtu_sig_record {
 struct packet_data;
 struct packet_flow;
 
-void mtu_register_sig(char *name, char *val, uint32_t line_no);
+void mtu_register_sig(char *name, const std::string &val, uint32_t line_no);
 void fingerprint_mtu(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 
 #endif
