@@ -12,6 +12,11 @@
 #define HAVE_FP_MTU_H_
 
 #include <cstdint>
+#include "string_view.h"
+#include "process.h"
+
+struct packet_data;
+struct packet_flow;
 
 // Record for a TCP signature read from p0f.fp:
 struct mtu_sig_record {
@@ -19,12 +24,7 @@ struct mtu_sig_record {
 	uint16_t mtu;
 };
 
-#include "process.h"
-
-struct packet_data;
-struct packet_flow;
-
-void mtu_register_sig(char *name, const std::string &val, uint32_t line_no);
+void mtu_register_sig(char *name, string_view val, uint32_t line_no);
 void fingerprint_mtu(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 
 #endif

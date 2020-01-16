@@ -37,7 +37,7 @@ mtu_context_t mtu_context;
 }
 
 // Register a new MTU signature.
-void mtu_register_sig(char *name, const std::string &val, uint32_t line_no) {
+void mtu_register_sig(char *name, string_view val, uint32_t line_no) {
 
 	parser in(val);
 
