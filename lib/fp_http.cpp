@@ -30,11 +30,11 @@
 #include "p0f/hash.h"
 #include "p0f/languages.h"
 #include "p0f/p0f.h"
+#include "p0f/parser.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
-#include "p0f/parser.h"
 
 namespace {
 
@@ -908,20 +908,19 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 	parser in(value);
 
 	// http_ver
-	if(in.match('0')) {
+	if (in.match('0')) {
 
-	} else if(in.match('1')) {
+	} else if (in.match('1')) {
 		hsig->http_ver = 1;
-	} else if(in.match('*')) {
+	} else if (in.match('*')) {
 		hsig->http_ver = -1;
 	} else {
 		FATAL("Bad HTTP version in line %u.", line_no);
 	}
 
-	if(!in.match(':')) {
+	if (!in.match(':')) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
-
 
 	// horder
 	while (in.peek() != ':') {
@@ -933,7 +932,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 		bool optional = in.match('?');
 
 		std::string horder_key;
-		if(!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &horder_key)) {
+		if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &horder_key)) {
 			FATAL("Malformed header name in line %u.", line_no);
 		}
 
@@ -946,14 +945,13 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 			hsig->hdr_bloom4 |= bloom4_64(id);
 		}
 
-
 		if (in.match('=')) {
 			if (!in.match('[')) {
 				FATAL("Missing '[' after '=' in line %u.", line_no);
 			}
 
 			std::string horder_value;
-			if(!in.match([](char ch) { return ch != ']'; }, &horder_value)) {
+			if (!in.match([](char ch) { return ch != ']'; }, &horder_value)) {
 				FATAL("Malformed signature in line %u.", line_no);
 			}
 
@@ -983,7 +981,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 		}
 
 		std::string habsent_key;
-		if(!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &habsent_key)) {
+		if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &habsent_key)) {
 			FATAL("Malformed header name in line %u.", line_no);
 		}
 
@@ -999,13 +997,12 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 	}
 
 	if (!in.match(':')) {
-			FATAL("Malformed signature in line %u.", line_no);
-		}
-
+		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	// exp_sw
 	std::string exp_sw;
-	if(in.match_any(&exp_sw)) {
+	if (in.match_any(&exp_sw)) {
 		if (exp_sw.find(':') != std::string::npos) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}

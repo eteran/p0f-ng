@@ -11,9 +11,9 @@
 #ifndef HAVE_FP_MTU_H_
 #define HAVE_FP_MTU_H_
 
-#include <cstdint>
-#include "string_view.h"
 #include "process.h"
+#include "string_view.h"
+#include <cstdint>
 
 struct packet_data;
 struct packet_flow;
