@@ -25,6 +25,7 @@
 #include "p0f/fp_tcp.h"
 #include "p0f/hash.h"
 #include "p0f/p0f.h"
+#include "p0f/parser.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
@@ -640,346 +641,327 @@ log_and_update:
 
 /* Parse TCP-specific bits and register a signature read from p0f.fp.
  * This function is too long. */
-void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
+void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view value, uint32_t line_no) {
 
 	int8_t ver, win_type, pay_class;
 	uint8_t opt_layout[MAX_TCP_OPT];
 	uint8_t opt_cnt = 0, bad_ttl = 0;
 
-	int32_t ittl, olen, mss, win, scale, opt_eol_pad = 0;
+	int32_t olen, mss, win, scale, opt_eol_pad = 0;
 	uint32_t quirks = 0, bucket, opt_hash;
 
-	char *nxt;
+	parser in(value);
 
 	// IP version
-	switch (*val) {
-	case '4':
+	if(in.match('4')) {
 		ver = IP_VER4;
-		break;
-	case '6':
+	} else if(in.match('6')) {
 		ver = IP_VER6;
-		break;
-	case '*':
+	} else if(in.match('*')) {
 		ver = -1;
-		break;
-	default:
+	} else {
 		FATAL("Unrecognized IP version in line %u.", line_no);
 	}
 
-	if (val[1] != ':') FATAL("Malformed signature in line %u.", line_no);
-
-	val += 2;
+	if(!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	// Initial TTL (possibly ttl+dist or ttl-)
-	nxt = val;
-	while (isdigit(*nxt))
-		nxt++;
-
-	if (*nxt != ':' && *nxt != '+' && *nxt != '-')
+	std::string ttl;
+	if(!in.match([](char ch) { return isdigit(ch); }, &ttl)) {
 		FATAL("Malformed signature in line %u.", line_no);
+	}
+	int32_t ittl = atol(ttl.c_str());
+	if (ittl < 1 || ittl > 255)
+		FATAL("Bogus initial TTL in line %u.", line_no);
 
-	ittl = atol(val);
-	if (ittl < 1 || ittl > 255) FATAL("Bogus initial TTL in line %u.", line_no);
-	val = nxt + 1;
-
-	if (*nxt == '-' && nxt[1] == ':') {
-
+	if(in.match('-')) {
 		bad_ttl = 1;
-		val += 2;
-
-	} else if (*nxt == '+') {
-
-		int32_t ittl_add;
-
-		nxt++;
-		while (isdigit(*nxt))
-			nxt++;
-		if (*nxt != ':') FATAL("Malformed signature in line %u.", line_no);
-
-		ittl_add = atol(val);
+	} else if(in.match('+')) {
+		std::string ttl_add;
+		if(!in.match([](char ch) { return isdigit(ch); }, &ttl_add)) {
+			FATAL("Malformed signature in line %u.", line_no);
+		}
+		int32_t ittl_add = atol(ttl_add.c_str());
 
 		if (ittl_add < 0 || ittl + ittl_add > 255)
 			FATAL("Bogus initial TTL in line %u.", line_no);
 
 		ittl += ittl_add;
-		val = nxt + 1;
+	}
+
+	if(!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
 	}
 
 	// Length of IP options
-	nxt = val;
-	while (isdigit(*nxt))
-		nxt++;
-	if (*nxt != ':')
+	std::string olen_str;
+	if(!in.match([](char ch) { return isdigit(ch); }, &olen_str)) {
 		FATAL("Malformed signature in line %u.", line_no);
+	}
 
-	olen = atol(val);
+	olen = atol(olen_str.c_str());
 	if (olen < 0 || olen > 255)
 		FATAL("Bogus IP option length in line %u.", line_no);
 
-	val = nxt + 1;
+	if(!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	// MSS
-	if (*val == '*' && val[1] == ':') {
+	if(in.match('*')) {
 		mss = -1;
-		val += 2;
 	} else {
-		nxt = val;
-		while (isdigit(*nxt))
-			nxt++;
-		if (*nxt != ':')
+		std::string mss_str;
+		if(!in.match([](char ch) { return isdigit(ch); }, &mss_str)) {
 			FATAL("Malformed signature in line %u.", line_no);
+		}
 
-		mss = atol(val);
+		mss = atol(mss_str.c_str());
 		if (mss < 0 || mss > 65535)
 			FATAL("Bogus MSS in line %u.", line_no);
-		val = nxt + 1;
+	}
+
+	if(!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
 	}
 
 	// window size, followed by comma
-	if (*val == '*' && val[1] == ',') {
+	if(in.match("*,")) {
 		win_type = WIN_TYPE_ANY;
 		win      = 0;
-		val += 2;
-	} else if (*val == '%') {
-
+	} else if (in.match('%')) {
 		win_type = WIN_TYPE_MOD;
 
-		val++;
+		std::string win_str;
+		if(!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+			FATAL("Malformed signature in line %u.", line_no);
+		}
 
-		nxt = val;
-		while (isdigit(*nxt))
-			nxt++;
-		if (*nxt != ',') FATAL("Malformed signature in line %u.", line_no);
+		win = atol(win_str.c_str());
+		if (win < 2 || win > 65535)
+			FATAL("Bogus '%%' value in line %u.", line_no);
 
-		win = atol(val);
-		if (win < 2 || win > 65535) FATAL("Bogus '%%' value in line %u.", line_no);
-		val = nxt + 1;
+		if (in.match(','))
+			FATAL("Malformed signature in line %u.", line_no);
 
-	} else if (!strncmp(val, "mss*", 4) || !strncmp(val, "mtu*", 4)) {
+	} else if (in.match("mss*")) {
+		win_type =  WIN_TYPE_MSS;
 
-		win_type = (val[1] == 's') ? WIN_TYPE_MSS : WIN_TYPE_MTU;
+		std::string win_str;
+		if(!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+			FATAL("Malformed signature in line %u.", line_no);
+		}
 
-		val += 4;
-
-		nxt = val;
-		while (isdigit(*nxt))
-			nxt++;
-		if (*nxt != ',') FATAL("Malformed signature in line %u.", line_no);
-
-		win = atol(val);
+		win = atol(win_str.c_str());
 		if (win < 1 || win > 1000)
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
 
-		val = nxt + 1;
+		if (!in.match(','))
+			FATAL("Malformed signature in line %u.", line_no);
 
+	} else if (in.match("mtu*")) {
+		win_type = WIN_TYPE_MTU;
+
+		std::string win_str;
+		if(!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+			FATAL("Malformed signature in line %u.", line_no);
+		}
+
+		win = atol(win_str.c_str());
+		if (win < 1 || win > 1000)
+			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
+
+
+		if (!in.match(','))
+			FATAL("Malformed signature in line %u.", line_no);
 	} else {
 
 		win_type = WIN_TYPE_NORMAL;
 
-		nxt = val;
-		while (isdigit(*nxt))
-			nxt++;
-		if (*nxt != ',') FATAL("Malformed signature in line %u.", line_no);
+		std::string win_str;
+		if(!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+			FATAL("Malformed signature in line %u.", line_no);
+		}
 
-		win = atol(val);
-		if (win < 0 || win > 65535) FATAL("Bogus window size in line %u.", line_no);
-		val = nxt + 1;
+		win = atol(win_str.c_str());
+		if (win < 0 || win > 65535)
+			FATAL("Bogus window size in line %u.", line_no);
+
+		if (!in.match(','))
+			FATAL("Malformed signature in line %u.", line_no);
 	}
 
 	// Window scale
-	if (*val == '*' && val[1] == ':') {
+	if (in.match('*')) {
 		scale = -1;
-		val += 2;
 	} else {
-		nxt = val;
-		while (isdigit(*nxt))
-			nxt++;
-		if (*nxt != ':') FATAL("Malformed signature in line %u.", line_no);
+		std::string scale_str;
+		if(!in.match([](char ch) { return isdigit(ch); }, &scale_str)) {
+			FATAL("Malformed signature in line %u.", line_no);
+		}
 
-		scale = atol(val);
+		scale = atol(scale_str.c_str());
 		if (scale < 0 || scale > 255)
 			FATAL("Bogus window scale in line %u.", line_no);
+	}
 
-		val = nxt + 1;
+	if (!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
 	}
 
 	// Option layout
 	memset(opt_layout, 0, sizeof(opt_layout));
 
-	while (*val != ':') {
+	while (in.peek() != ':') {
 
 		if (opt_cnt >= MAX_TCP_OPT)
 			FATAL("Too many TCP options in line %u.", line_no);
 
-		if (!strncmp(val, "eol", 3)) {
+		if (in.match("eol")) {
 			opt_layout[opt_cnt++] = TCPOPT_EOL;
-			val += 3;
 
-			if (*val != '+')
+			if (!in.match('+')) {
 				FATAL("Malformed EOL option in line %u.", line_no);
+			}
 
-			val++;
-			nxt = val;
-			while (isdigit(*nxt))
-				nxt++;
+			std::string eol_str;
+			if(!in.match([](char ch) { return isdigit(ch); }, &eol_str)) {
+				FATAL("Truncated options in line %u.", line_no);
+			}
 
-			if (!*nxt) FATAL("Truncated options in line %u.", line_no);
-
-			if (*nxt != ':')
-				FATAL("EOL must be the last option in line %u.", line_no);
-
-			opt_eol_pad = atol(val);
-
-			if (opt_eol_pad < 0 || opt_eol_pad > 255)
+			opt_eol_pad = atol(eol_str.c_str());
+			if (opt_eol_pad < 0 || opt_eol_pad > 255) {
 				FATAL("Bogus EOL padding in line %u.", line_no);
+			}
 
-			val = nxt;
-		} else if (!strncmp(val, "nop", 3)) {
+			if(in.peek() != ':') {
+				FATAL("EOL must be the last option in line %u.", line_no);
+			}
+		} else if (in.match("nop")) {
 			opt_layout[opt_cnt++] = TCPOPT_NOP;
-			val += 3;
-		} else if (!strncmp(val, "mss", 3)) {
+		} else if (in.match("mss")) {
 			opt_layout[opt_cnt++] = TCPOPT_MAXSEG;
-			val += 3;
-		} else if (!strncmp(val, "ws", 2)) {
+		} else if (in.match("ws")) {
 			opt_layout[opt_cnt++] = TCPOPT_WSCALE;
-			val += 2;
-		} else if (!strncmp(val, "sok", 3)) {
+		} else if (in.match("sok")) {
 			opt_layout[opt_cnt++] = TCPOPT_SACKOK;
-			val += 3;
-		} else if (!strncmp(val, "sack", 4)) {
+		} else if (in.match("sack")) {
 			opt_layout[opt_cnt++] = TCPOPT_SACK;
-			val += 4;
-		} else if (!strncmp(val, "ts", 2)) {
+		} else if (in.match("ts")) {
 			opt_layout[opt_cnt++] = TCPOPT_TSTAMP;
-			val += 2;
-		} else if (*val == '?') {
+		} else if (in.match('?')) {
 
-			int32_t optno;
-
-			val++;
-			nxt = val;
-			while (isdigit(*nxt))
-				nxt++;
-
-			if (*nxt != ':' && *nxt != ',')
+			std::string opt_str;
+			if(!in.match([](char ch) { return isdigit(ch); }, &opt_str)) {
 				FATAL("Malformed '?' option in line %u.", line_no);
+			}
 
-			optno = atoi(val);
-
+			int32_t optno = atoi(opt_str.c_str());
 			if (optno < 0 || optno > 255)
 				FATAL("Bogus '?' option in line %u.", line_no);
 
 			opt_layout[opt_cnt++] = optno;
 
-			val = nxt;
+
+			if (in.peek() != ':' && in.peek() != ',') {
+				FATAL("Malformed '?' option in line %u.", line_no);
+			}
 
 		} else {
-
 			FATAL("Unrecognized TCP option in line %u.", line_no);
 		}
 
-		if (*val == ':')
+		if(in.peek() == ':') {
 			break;
+		}
 
-		if (*val != ',')
+		if(!in.match(',')) {
 			FATAL("Malformed TCP options in line %u.", line_no);
-
-		val++;
+		}
 	}
 
-	val++;
+	if (!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	opt_hash = hash32(opt_layout, opt_cnt);
 
 	// Quirks
-	while (*val != ':') {
-		if (!strncmp(val, "df", 2)) {
+	while (in.peek() != ':') {
+		if (in.match("df")){
 			if (ver == IP_VER6)
 				FATAL("'df' is not valid for IPv6 in line %u.", line_no);
 
 			quirks |= QUIRK_DF;
-			val += 2;
-		} else if (!strncmp(val, "id+", 3)) {
+		} else if (in.match("id+")) {
 			if (ver == IP_VER6)
 				FATAL("'id+' is not valid for IPv6 in line %u.", line_no);
 
 			quirks |= QUIRK_NZ_ID;
-			val += 3;
-		} else if (!strncmp(val, "id-", 3)) {
+		} else if (in.match("id-")) {
 			if (ver == IP_VER6)
 				FATAL("'id-' is not valid for IPv6 in line %u.", line_no);
 
 			quirks |= QUIRK_ZERO_ID;
-			val += 3;
-		} else if (!strncmp(val, "ecn", 3)) {
+		} else if (in.match("ecn")) {
 			quirks |= QUIRK_ECN;
-			val += 3;
-		} else if (!strncmp(val, "0+", 2)) {
+		} else if (in.match("0+")) {
 			if (ver == IP_VER6)
 				FATAL("'0+' is not valid for IPv6 in line %u.", line_no);
 
 			quirks |= QUIRK_NZ_MBZ;
-			val += 2;
-		} else if (!strncmp(val, "flow", 4)) {
+		} else if (in.match("flow")) {
 			if (ver == IP_VER4)
 				FATAL("'flow' is not valid for IPv4 in line %u.", line_no);
 
 			quirks |= QUIRK_FLOW;
-			val += 4;
-		} else if (!strncmp(val, "seq-", 4)) {
+		} else if (in.match("seq-")) {
 			quirks |= QUIRK_ZERO_SEQ;
-			val += 4;
-		} else if (!strncmp(val, "ack+", 4)) {
+		} else if (in.match("ack+")) {
 			quirks |= QUIRK_NZ_ACK;
-			val += 4;
-		} else if (!strncmp(val, "ack-", 4)) {
+		} else if (in.match("ack-")) {
 			quirks |= QUIRK_ZERO_ACK;
-			val += 4;
-		} else if (!strncmp(val, "uptr+", 5)) {
+		} else if (in.match("uptr+")) {
 			quirks |= QUIRK_NZ_URG;
-			val += 5;
-		} else if (!strncmp(val, "urgf+", 5)) {
+		} else if (in.match("urgf+")) {
 			quirks |= QUIRK_URG;
-			val += 5;
-		} else if (!strncmp(val, "pushf+", 6)) {
+		} else if (in.match("pushf+")) {
 			quirks |= QUIRK_PUSH;
-			val += 6;
-		} else if (!strncmp(val, "ts1-", 4)) {
+		} else if (in.match("ts1-")) {
 			quirks |= QUIRK_OPT_ZERO_TS1;
-			val += 4;
-		} else if (!strncmp(val, "ts2+", 4)) {
+		} else if (in.match("ts2+")) {
 			quirks |= QUIRK_OPT_NZ_TS2;
-			val += 4;
-		} else if (!strncmp(val, "opt+", 4)) {
+		} else if (in.match("opt+")) {
 			quirks |= QUIRK_OPT_EOL_NZ;
-			val += 4;
-		} else if (!strncmp(val, "exws", 4)) {
+		} else if (in.match("exws")) {
 			quirks |= QUIRK_OPT_EXWS;
-			val += 4;
-		} else if (!strncmp(val, "bad", 3)) {
+		} else if (in.match("bad")) {
 			quirks |= QUIRK_OPT_BAD;
-			val += 3;
 		} else {
 			FATAL("Unrecognized quirk in line %u.", line_no);
 		}
 
-		if (*val == ':')
+		if(in.peek() == ':') {
 			break;
+		}
 
-		if (*val != ',')
+		if(!in.match(',')) {
 			FATAL("Malformed quirks in line %u.", line_no);
-
-		val++;
+		}
 	}
 
-	val++;
+	if (!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	// Payload class
-	if (!strcmp(val, "*"))
+	if (in.match('*'))
 		pay_class = -1;
-	else if (!strcmp(val, "0"))
+	else if (in.match('0'))
 		pay_class = 0;
-	else if (!strcmp(val, "+"))
+	else if (in.match('+'))
 		pay_class = 1;
 	else
 		FATAL("Malformed payload class in line %u.", line_no);

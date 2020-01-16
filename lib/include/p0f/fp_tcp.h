@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <memory>
+#include "string_view.h"
 
 // Simplified data for signature matching and NAT detection:
 struct tcp_sig {
@@ -77,7 +78,7 @@ struct tcp_sig_record {
 struct packet_data;
 struct packet_flow;
 
-void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no);
+void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view val, uint32_t line_no);
 std::shared_ptr<tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 void check_ts_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 
