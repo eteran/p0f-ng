@@ -30,6 +30,7 @@
 #include "p0f/hash.h"
 #include "p0f/languages.h"
 #include "p0f/p0f.h"
+#include "p0f/parser.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
@@ -900,135 +901,109 @@ void http_init() {
 }
 
 // Register new HTTP signature.
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, char *val, uint32_t line_no) {
-
-	char *nxt;
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, const std::string &value, uint32_t line_no) {
 
 	auto hsig = std::make_unique<struct http_sig>();
 
-	if (val[1] != ':')
-		FATAL("Malformed signature in line %u.", line_no);
+	parser in(value);
 
 	// http_ver
-	switch (*val) {
-	case '0':
-		break;
-	case '1':
+	if (in.match('0')) {
+		hsig->http_ver = 0;
+	} else if (in.match('1')) {
 		hsig->http_ver = 1;
-		break;
-	case '*':
+	} else if (in.match('*')) {
 		hsig->http_ver = -1;
-		break;
-	default:
+	} else {
 		FATAL("Bad HTTP version in line %u.", line_no);
 	}
 
-	val += 2;
+	if (!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	// horder
-	while (*val != ':') {
+	if (in.peek() != ':') {
+		do {
+			if (hsig->hdr_cnt >= HTTP_MAX_HDRS)
+				FATAL("Too many headers listed in line %u.", line_no);
 
-		uint8_t optional = 0;
+			const bool optional = in.match('?');
 
-		if (hsig->hdr_cnt >= HTTP_MAX_HDRS)
-			FATAL("Too many headers listed in line %u.", line_no);
+			std::string header;
+			if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &header)) {
+				FATAL("Malformed header name in line %u.", line_no);
+			}
 
-		nxt = val;
+			uint32_t id = lookup_hdr(header, 1);
 
-		if (*nxt == '?') {
-			optional = 1;
-			val++;
-			nxt++;
-		}
+			hsig->hdr[hsig->hdr_cnt].id       = id;
+			hsig->hdr[hsig->hdr_cnt].optional = optional;
 
-		while (isalnum(*nxt) || *nxt == '-' || *nxt == '_')
-			nxt++;
+			if (!optional) {
+				hsig->hdr_bloom4 |= bloom4_64(id);
+			}
 
-		if (val == nxt)
-			FATAL("Malformed header name in line %u.", line_no);
+			if (in.match('=')) {
+				if (!in.match('[')) {
+					FATAL("Missing '[' after '=' in line %u.", line_no);
+				}
 
-		uint32_t id = lookup_hdr(std::string(val, nxt - val), 1);
+				std::string header_value;
+				if (!in.match([](char ch) { return ch != ']'; }, &header_value)) {
+					FATAL("Malformed signature in line %u.", line_no);
+				}
 
-		hsig->hdr[hsig->hdr_cnt].id       = id;
-		hsig->hdr[hsig->hdr_cnt].optional = optional;
+				if (!in.match(']')) {
+					FATAL("Missing ']'. Malformed signature in line %u.", line_no);
+				}
 
-		if (!optional)
-			hsig->hdr_bloom4 |= bloom4_64(id);
+				hsig->hdr[hsig->hdr_cnt].value = ck_memdup_str(header_value.c_str(), header_value.size());
+			}
 
-		val = nxt;
-
-		if (*val == '=') {
-
-			if (val[1] != '[')
-				FATAL("Missing '[' after '=' in line %u.", line_no);
-
-			val += 2;
-			nxt = val;
-
-			while (*nxt && *nxt != ']')
-				nxt++;
-
-			if (val == nxt || !*nxt)
-				FATAL("Malformed signature in line %u.", line_no);
-
-			hsig->hdr[hsig->hdr_cnt].value = ck_memdup_str(val, nxt - val);
-
-			val = nxt + 1;
-		}
-
-		hsig->hdr_cnt++;
-
-		if (*val == ',')
-			val++;
-		else if (*val != ':')
-			FATAL("Malformed signature in line %u.", line_no);
+			hsig->hdr_cnt++;
+		} while (in.match(','));
 	}
 
-	val++;
+	if (!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	// habsent
-	while (*val != ':') {
+	if (in.peek() != ':') {
+		do {
+			if (hsig->miss_cnt >= HTTP_MAX_HDRS) {
+				FATAL("Too many headers listed in line %u.", line_no);
+			}
 
-		if (hsig->miss_cnt >= HTTP_MAX_HDRS)
-			FATAL("Too many headers listed in line %u.", line_no);
+			std::string header;
+			if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &header)) {
+				FATAL("Malformed header name in line %u.", line_no);
+			}
 
-		nxt = val;
-		while (isalnum(*nxt) || *nxt == '-' || *nxt == '_')
-			nxt++;
+			uint32_t id                  = lookup_hdr(header, 1);
+			hsig->miss[hsig->miss_cnt++] = id;
 
-		if (val == nxt)
-			FATAL("Malformed header name in line %u.", line_no);
-
-		uint32_t id = lookup_hdr(std::string(val, nxt - val), 1);
-
-		hsig->miss[hsig->miss_cnt] = id;
-
-		val = nxt;
-
-		hsig->miss_cnt++;
-
-		if (*val == ',')
-			val++;
-		else if (*val != ':')
-			FATAL("Malformed signature in line %u.", line_no);
+		} while (in.match(','));
 	}
 
-	val++;
+	if (!in.match(':')) {
+		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	// exp_sw
-	if (*val) {
-
-		if (strchr(val, ':'))
-			FATAL("Malformed signature in line %u.", line_no);
-
-		hsig->sw = ck_strdup(val);
+	std::string exp;
+	if (in.match_any(&exp)) {
+		hsig->sw = ck_strdup(exp.c_str());
 	}
 
 	http_find_match(to_srv, hsig, 1);
 
-	if (hsig->matched)
+	if (hsig->matched) {
 		FATAL("Signature in line %u is already covered by line %u.",
-			  line_no, hsig->matched->line_no);
+			  line_no,
+			  hsig->matched->line_no);
+	}
 
 	struct http_sig_record hrec;
 	hrec.class_id = sig_class;
@@ -1045,51 +1020,45 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 }
 
 // Register new HTTP signature.
-void http_parse_ua(char *val, uint32_t line_no) {
+void http_parse_ua(const std::string &value, uint32_t line_no) {
 
-	char *nxt;
+	parser in(value);
 
-	while (*val) {
-
-		nxt = val;
-		while (*nxt && (isalnum(*nxt) || strchr(NAME_CHARS, *nxt))) {
-			nxt++;
-		}
-
-		if (val == nxt) {
+	const char *name = nullptr;
+	do {
+		std::string user_agent;
+		if (!in.match([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); }, &user_agent)) {
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
-		uint32_t id = lookup_name_id(val, nxt - val);
+		uint32_t id = lookup_name_id(user_agent.c_str(), user_agent.size());
 
-		val = nxt;
-
-		char *name = nullptr;
-		if (*val == '=') {
-
-			if (val[1] != '[')
+		if (in.match('=')) {
+			if (!in.match('[')) {
 				FATAL("Missing '[' after '=' in line %u.", line_no);
+			}
 
-			val += 2;
-			nxt = val;
-
-			while (*nxt && *nxt != ']')
-				nxt++;
-
-			if (val == nxt || !*nxt)
+			std::string agent_value;
+			if (!in.match([](char ch) { return ch != ']'; }, &agent_value)) {
 				FATAL("Malformed signature in line %u.", line_no);
+			}
 
-			name = ck_memdup_str(val, nxt - val);
+			if (!in.match(']')) {
+				FATAL("Missing ']'. Malformed signature in line %u.", line_no);
+			}
 
-			val = nxt + 1;
+			name = ck_memdup_str(agent_value.c_str(), agent_value.size());
 		}
 
 		struct ua_map_record record;
 		record.id   = id;
 		record.name = (!name) ? fp_context.fp_os_names[id] : name;
-		http_context.ua_map.push_back(record);
+		http_context.ua_map.push_back(std::move(record));
 
-		if (*val == ',') val++;
+	} while (in.match(','));
+
+	if (!in.eof()) {
+		FATAL("Malformed signature in line %u.", line_no);
 	}
 }
 
