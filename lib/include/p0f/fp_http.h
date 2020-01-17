@@ -54,8 +54,8 @@ struct http_sig {
 	uint32_t miss_cnt           = 0;
 
 	char *sw   = nullptr; // Software string (U-A or Server)
-	char *lang = nullptr; // Accept-Language
-	char *via  = nullptr; // Via or X-Forwarded-For
+	const char *lang = nullptr; // Accept-Language
+	const char *via  = nullptr; // Via or X-Forwarded-For
 
 	time_t date      = 0; // Parsed 'Date'
 	time_t recv_date = 0; // Actual receipt date
