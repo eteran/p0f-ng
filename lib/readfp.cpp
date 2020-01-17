@@ -114,7 +114,7 @@ void config_parse_label(const std::string &value) {
 		FATAL("Malformed name in line %u.", fp_context.line_no);
 	}
 
-	fp_context.sig_name = lookup_name_id(name.c_str(), name.size());
+	fp_context.sig_name = lookup_name_id(name);
 
 	if (!in.match(':')) {
 		FATAL("Malformed class entry in line %u.", fp_context.line_no);
@@ -365,15 +365,16 @@ void config_parse_line(string_view line) {
 	}
 }
 
-}
-
 // Look up or create OS or application id.
-uint32_t lookup_name_id(const char *name, uint8_t len) {
+int32_t lookup_name_id(const char *name, size_t len) {
 
 	uint32_t i;
 
-	for (i = 0; i < fp_context.fp_os_names.size(); i++)
-		if (!strncasecmp(name, fp_context.fp_os_names[i], len) && !fp_context.fp_os_names[i][len]) break;
+	for (i = 0; i < fp_context.fp_os_names.size(); i++) {
+		if (!strncasecmp(name, fp_context.fp_os_names[i], len) && !fp_context.fp_os_names[i][len]) {
+			break;
+		}
+	}
 
 	if (i == fp_context.fp_os_names.size()) {
 		fp_context.sig_name = fp_context.fp_os_names.size();
@@ -381,6 +382,12 @@ uint32_t lookup_name_id(const char *name, uint8_t len) {
 	}
 
 	return i;
+}
+
+}
+
+int32_t lookup_name_id(string_view name) {
+	return lookup_name_id(name.data(), name.size());
 }
 
 // Top-level file parsing.

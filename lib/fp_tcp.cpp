@@ -721,7 +721,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 	}
 
 	// window size, followed by comma
-	if (in.match("*,")) {
+	if (in.match("*")) {
 		win_type = WIN_TYPE_ANY;
 		win      = 0;
 	} else if (in.match('%')) {
@@ -735,10 +735,6 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		win = atol(win_str.c_str());
 		if (win < 2 || win > 65535)
 			FATAL("Bogus '%%' value in line %u.", line_no);
-
-		if (in.match(','))
-			FATAL("Malformed signature in line %u.", line_no);
-
 	} else if (in.match("mss*")) {
 		win_type = WIN_TYPE_MSS;
 
@@ -750,10 +746,6 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		win = atol(win_str.c_str());
 		if (win < 1 || win > 1000)
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
-
-		if (!in.match(','))
-			FATAL("Malformed signature in line %u.", line_no);
-
 	} else if (in.match("mtu*")) {
 		win_type = WIN_TYPE_MTU;
 
@@ -765,11 +757,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		win = atol(win_str.c_str());
 		if (win < 1 || win > 1000)
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
-
-		if (!in.match(','))
-			FATAL("Malformed signature in line %u.", line_no);
 	} else {
-
 		win_type = WIN_TYPE_NORMAL;
 
 		std::string win_str;
@@ -780,10 +768,10 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		win = atol(win_str.c_str());
 		if (win < 0 || win > 65535)
 			FATAL("Bogus window size in line %u.", line_no);
-
-		if (!in.match(','))
-			FATAL("Malformed signature in line %u.", line_no);
 	}
+
+	if (!in.match(','))
+		FATAL("Malformed signature in line %u.", line_no);
 
 	// Window scale
 	if (in.match('*')) {

@@ -1029,14 +1029,14 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 void http_parse_ua(string_view value, uint32_t line_no) {
 
 	parser in(value);
-	while (!in.eof()) {
+	do {
 
 		std::string system_str;
 		if (!in.match([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); }, &system_str)) {
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
-		uint32_t id = lookup_name_id(system_str.c_str(), system_str.size());
+		int32_t id = lookup_name_id(system_str);
 
 		char *name = nullptr;
 		if (in.match('=')) {
@@ -1062,7 +1062,10 @@ void http_parse_ua(string_view value, uint32_t line_no) {
 		record.name = (!name) ? fp_context.fp_os_names[id] : name;
 		http_context.ua_map.push_back(record);
 
-		in.match(',');
+	} while(in.match(','));
+
+	if (!in.eof()) {
+		FATAL("Malformed signature in line %u.", line_no);
 	}
 }
 

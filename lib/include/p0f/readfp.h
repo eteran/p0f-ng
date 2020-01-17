@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "string_view.h"
 
 // List of fingerprinting modules:
 #define CF_MOD_TCP 0x00  // fp_tcp.c
@@ -34,8 +35,7 @@ constexpr int32_t SYS_NF(uint32_t x) {
 }
 
 void read_config(const char *fname);
-
-uint32_t lookup_name_id(const char *name, uint8_t len);
+int32_t lookup_name_id(string_view name);
 
 struct fp_context_t {
 	uint32_t sig_cnt = 0; // Total number of p0f.fp sigs
@@ -46,7 +46,7 @@ struct fp_context_t {
 	uint8_t generic    = 0;            // Generic signature?
 
 	int32_t sig_class = 0;       // Signature class ID (-1 = userland)
-	uint32_t sig_name = 0;       // Signature name
+	int32_t sig_name = 0;       // Signature name
 	char *sig_flavor  = nullptr; // Signature flavor
 
 	uint32_t *cur_sys    = nullptr; // Current 'sys' values
