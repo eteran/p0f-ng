@@ -662,9 +662,9 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 }
 
 // Parse name=value pairs into a signature.
-uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, libp0f_context_t *libp0f_context) {
+bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context) {
 
-	uint32_t plen = to_srv ? f->request.size() : f->response.size();
+	size_t plen = to_srv ? f->request.size() : f->response.size();
 
 	uint32_t off;
 
@@ -692,10 +692,10 @@ uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, li
 
 				free_sig_hdrs(&f->http_tmp);
 				f->http_tmp = {};
-				return 1;
+				return true;
 			} else {
 				f->in_http = -1;
-				return 0;
+				return false;
 			}
 		}
 
@@ -705,7 +705,7 @@ uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, li
 			DEBUG("[#] Too many HTTP headers in a %s.\n", to_srv ? "request" : "response");
 
 			f->in_http = -1;
-			return 0;
+			return false;
 		}
 
 		// Try to extract header name.
@@ -737,7 +737,7 @@ uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, li
 				  nlen, pay[off]);
 
 			f->in_http = -1;
-			return 0;
+			return false;
 		}
 
 		/* At this point, header name starts at f->http_pos, and has nlen bytes.
@@ -759,7 +759,7 @@ uint8_t parse_pairs(bool to_srv, struct packet_flow *f, uint8_t can_get_more, li
 			DEBUG("[#] HTTP %s header value length exceeded.\n",
 				  to_srv ? "request" : "response");
 			f->in_http = -1;
-			return -1;
+			return true;
 		}
 
 		if (off == plen) {
@@ -1086,11 +1086,11 @@ void free_sig_hdrs(struct http_sig *h) {
 
 /* Examine request or response; returns 1 if more data needed and plausibly
  * can be read. Note that the buffer is always NUL-terminated. */
-uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+bool process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	// Already decided this flow is not worth tracking?
 	if (f->in_http < 0)
-		return 0;
+		return false;
 
 	if (to_srv) {
 
@@ -1099,7 +1099,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 
 		// Request done, but pending response?
 		if (f->http_req_done)
-			return 1;
+			return true;
 
 		if (!f->in_http) {
 
@@ -1118,14 +1118,14 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 				strncmp(pay, "HEAD /", 6)) {
 				DEBUG("[#] Does not seem like a GET / HEAD request.\n");
 				f->in_http = -1;
-				return 0;
+				return false;
 			}
 
 			while (off < f->request.size() && off < HTTP_MAX_URL && (chr = pay[off]) != '\n') {
 				if (chr != '\r' && (chr < 0x20 || chr > 0x7f)) {
 					DEBUG("[#] Not HTTP - character 0x%02x encountered.\n", chr);
 					f->in_http = -1;
-					return 0;
+					return false;
 				}
 
 				off++;
@@ -1135,7 +1135,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 			if (off == HTTP_MAX_URL || off < 14) {
 				DEBUG("[#] Not HTTP - newline offset %u.\n", off);
 				f->in_http = -1;
-				return 0;
+				return false;
 			}
 
 			// Not enough data yet?
@@ -1157,7 +1157,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 			if (strncmp(sig_at, "HTTP/1.", 7)) {
 				DEBUG("[#] Not HTTP - bad signature.\n");
 				f->in_http = -1;
-				return 0;
+				return false;
 			}
 
 			f->http_tmp.http_ver = (sig_at[7] == '1');
@@ -1178,7 +1178,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 		// Response before request? Bail out.
 		if (!f->in_http || !f->http_req_done) {
 			f->in_http = -1;
-			return 0;
+			return false;
 		}
 
 		if (!f->http_gotresp1) {
@@ -1196,7 +1196,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 					DEBUG("[#] Invalid HTTP response - character 0x%02x encountered.\n",
 						  chr);
 					f->in_http = -1;
-					return 0;
+					return false;
 				}
 
 				off++;
@@ -1206,7 +1206,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 			if (off == HTTP_MAX_URL || off < 13) {
 				DEBUG("[#] Invalid HTTP response - newline offset %u.\n", off);
 				f->in_http = -1;
-				return 0;
+				return false;
 			}
 
 			// Not enough data yet?
@@ -1224,7 +1224,7 @@ uint8_t process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0
 			if (strncmp(pay, "HTTP/1.", 7)) {
 				DEBUG("[#] Invalid HTTP response - bad signature.\n");
 				f->in_http = -1;
-				return 0;
+				return false;
 			}
 
 			f->http_tmp.http_ver = (pay[7] == '1');
