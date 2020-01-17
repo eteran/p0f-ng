@@ -11,9 +11,14 @@
 #ifndef HAVE_LANGUAGES_H_
 #define HAVE_LANGUAGES_H_
 
-#define MAX_LANG 3
+#include <cstdint>
 
-#define LANG_HASH(_b0, _b1) (((_b0) * (_b1) ^ (_b1)) & 0xff)
+constexpr int MAX_LANG = 3;
+
+template <class T1, class T2>
+constexpr uint8_t LANG_HASH(T1 b0, T2 b1) {
+	return (b0 * b1 ^ b1) & 0xff;
+}
 
 constexpr const char *languages[256][MAX_LANG * 2 + 1] = {
 
