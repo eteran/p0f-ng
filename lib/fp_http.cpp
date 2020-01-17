@@ -235,7 +235,7 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 	uint32_t tpos;
 
 	std::stringstream ss;
-	char *val;
+	const char *val;
 
 	append_format(ss, "%u:", hsig->http_ver);
 

@@ -34,9 +34,9 @@ struct ua_map_record {
 
 // HTTP header field:
 struct http_hdr {
+	char *name = nullptr;       // Text name (nullptr = use lookup ID)
+	char *value = nullptr;      // Value, if any
 	int32_t id;       // Lookup ID (-1 = none)
-	char *name;       // Text name (nullptr = use lookup ID)
-	char *value;      // Value, if any
 	uint8_t optional; // Optional header?
 };
 
