@@ -477,7 +477,8 @@ void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0
 		uint32_t i;
 
 		for (i = 0; i < http_context.ua_map.size(); i++)
-			if (strstr(f->http_tmp.sw, http_context.ua_map[i].name)) break;
+			if (strstr(f->http_tmp.sw, http_context.ua_map[i].name.c_str()))
+				break;
 
 		if (i != http_context.ua_map.size()) {
 
@@ -487,7 +488,8 @@ void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0
 				score += 4;
 				reason |= NAT_APP_UA;
 
-				if (!hd->bad_sw) hd->bad_sw = 1;
+				if (!hd->bad_sw)
+					hd->bad_sw = 1;
 
 			} else {
 
