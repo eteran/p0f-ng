@@ -12,6 +12,7 @@
 #define HAVE_FP_HTTP_H_
 
 #include "config.h"
+#include "optional.h"
 #include "string_view.h"
 #include <cstdint>
 #include <ctime>
@@ -35,10 +36,10 @@ struct ua_map_record {
 
 // HTTP header field:
 struct http_hdr {
-	char *name    = nullptr; // Text name (nullptr = use lookup ID)
-	char *value   = nullptr; // Value, if any
-	int32_t id    = 0;       // Lookup ID (-1 = none)
-	bool optional = false;   // Optional header?
+	ext::optional<std::string> name;  // Text name (nullptr = use lookup ID)
+	ext::optional<std::string> value; // Value, if any
+	int32_t id    = 0;                // Lookup ID (-1 = none)
+	bool optional = false;            // Optional header?
 };
 
 // Request / response signature collected from the wire:
@@ -52,9 +53,9 @@ struct http_sig {
 
 	std::vector<int32_t> miss; // Missing headers
 
-	char *sw         = nullptr; // Software string (U-A or Server)
-	const char *lang = nullptr; // Accept-Language
-	const char *via  = nullptr; // Via or X-Forwarded-For
+	ext::optional<std::string> sw;   // Software string (U-A or Server)
+	ext::optional<std::string> lang; // Accept-Language
+	ext::optional<std::string> via;  // Via or X-Forwarded-For
 
 	time_t date      = 0; // Parsed 'Date'
 	time_t recv_date = 0; // Actual receipt date

@@ -151,7 +151,7 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 				continue;
 			}
 
-			if (rs->hdr[rs_hdr].value && (!ts->hdr[ts_hdr].value || !strstr(ts->hdr[ts_hdr].value, rs->hdr[rs_hdr].value)))
+			if (rs->hdr[rs_hdr].value && (!ts->hdr[ts_hdr].value || !strstr(ts->hdr[ts_hdr].value->c_str(), rs->hdr[rs_hdr].value->c_str())))
 				goto next_sig;
 
 			ts_hdr++;
@@ -198,7 +198,7 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 		if (!ref->generic) {
 			ts->matched = ref;
 
-			if (rs->sw && ts->sw && !strstr(ts->sw, rs->sw)) {
+			if (rs->sw && ts->sw && !strstr(ts->sw->c_str(), rs->sw->c_str())) {
 				ts->dishonest = 1;
 			}
 
@@ -214,7 +214,7 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 	// A generic signature is the best we could find.
 	if (!dupe_det && gmatch) {
 		ts->matched = gmatch;
-		if (gmatch->sig->sw && ts->sw && !strstr(ts->sw, gmatch->sig->sw)) {
+		if (gmatch->sig->sw && ts->sw && !strstr(ts->sw->c_str(), gmatch->sig->sw->c_str())) {
 			ts->dishonest = 1;
 		}
 	}
@@ -260,7 +260,10 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
 			had_prev = true;
 
-			if (const char *val = hsig->hdr[i].value) {
+			if (hsig->hdr[i].value) {
+
+				const char *val = hsig->hdr[i].value->c_str();
+
 				// Next, make sure that the value is not on the ignore list.
 				if (optional)
 					continue;
@@ -298,10 +301,13 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 			}
 		} else {
 
-			append_format(ss, "%s%s", had_prev ? "," : "", hsig->hdr[i].name);
+			append_format(ss, "%s%s", had_prev ? "," : "", hsig->hdr[i].name->c_str());
 			had_prev = 1;
 
-			if (const char *val = hsig->hdr[i].value) {
+			if (hsig->hdr[i].value) {
+
+				const char *val = hsig->hdr[i].value->c_str();
+
 				std::string tmp;
 				for (const char *ptr = val;; ++ptr) {
 					if (tmp.size() >= HTTP_MAX_SHOW) {
@@ -344,7 +350,9 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
 	append_format(ss, ":");
 
-	if (const char *val = hsig->sw) {
+	if (hsig->sw) {
+
+		const char *val = hsig->sw->c_str();
 
 		std::string tmp;
 		for (const char *ptr = val;; ++ptr) {
@@ -491,7 +499,7 @@ void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0
 		uint32_t i;
 
 		for (i = 0; i < http_context.ua_map.size(); i++)
-			if (strstr(f->http_tmp.sw, http_context.ua_map[i].name.c_str()))
+			if (strstr(f->http_tmp.sw->c_str(), http_context.ua_map[i].name.c_str()))
 				break;
 
 		if (i != http_context.ua_map.size()) {
@@ -578,15 +586,15 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 	} else
 		libp0f_context->observation_field("app", nullptr);
 
-	if (f->http_tmp.lang && isalpha(f->http_tmp.lang[0]) &&
-		isalpha(f->http_tmp.lang[1]) && !isalpha(f->http_tmp.lang[2])) {
+	if (f->http_tmp.lang && isalpha((*f->http_tmp.lang)[0]) && isalpha((*f->http_tmp.lang)[1]) && !isalpha((*f->http_tmp.lang)[2])) {
 
-		uint8_t lh  = LANG_HASH(f->http_tmp.lang[0], f->http_tmp.lang[1]);
+		uint8_t lh  = LANG_HASH((*f->http_tmp.lang)[0], (*f->http_tmp.lang)[1]);
 		uint8_t pos = 0;
 
 		while (languages[lh][pos]) {
-			if (f->http_tmp.lang[0] == languages[lh][pos][0] &&
-				f->http_tmp.lang[1] == languages[lh][pos][1]) break;
+			if ((*f->http_tmp.lang)[0] == languages[lh][pos][0] && (*f->http_tmp.lang)[1] == languages[lh][pos][1]) {
+				break;
+			}
 			pos += 2;
 		}
 
@@ -613,9 +621,9 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 		f->server->http_resp = std::make_shared<struct http_sig>(f->http_tmp);
 
 		f->server->http_resp->hdr.clear();
-		f->server->http_resp->sw   = nullptr;
-		f->server->http_resp->lang = nullptr;
-		f->server->http_resp->via  = nullptr;
+		f->server->http_resp->sw   = {};
+		f->server->http_resp->lang = {};
+		f->server->http_resp->via  = {};
 
 		f->server->http_resp_port = f->srv_port;
 
@@ -653,13 +661,12 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 				f->client->http_req_os = std::make_shared<struct http_sig>(f->http_tmp);
 
 				f->client->http_req_os->hdr.clear();
-				f->client->http_req_os->sw   = nullptr;
-				f->client->http_req_os->lang = nullptr;
-				f->client->http_req_os->via  = nullptr;
-
-				f->client->last_class_id = m->class_id;
-				f->client->last_name_id  = m->name_id;
-				f->client->last_flavor   = m->flavor;
+				f->client->http_req_os->sw   = {};
+				f->client->http_req_os->lang = {};
+				f->client->http_req_os->via  = {};
+				f->client->last_class_id     = m->class_id;
+				f->client->last_name_id      = m->name_id;
+				f->client->last_flavor       = m->flavor;
 
 				f->client->last_quality = (m->generic * P0F_MATCH_GENERIC);
 
@@ -700,9 +707,7 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 			if (to_srv) {
 				f->http_req_done = 1;
 				f->http_pos      = 0;
-
-				free_sig_hdrs(&f->http_tmp);
-				f->http_tmp = {};
+				f->http_tmp      = {};
 				return true;
 			} else {
 				f->in_http = -1;
@@ -794,7 +799,7 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 
 		if (hid < 0) {
 			// Header ID not found, store literal value.
-			new_hdr.name = ck_memdup_str(pay + f->http_pos, nlen);
+			new_hdr.name = std::string(pay + f->http_pos, nlen);
 		} else {
 			// Found - update Bloom filter.
 			f->http_tmp.hdr_bloom4 |= bloom4_64(hid);
@@ -804,7 +809,7 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 		 * 'sw'; and for requests, collect Accept-Language. */
 		if (vlen) {
 
-			auto val = ck_memdup_str(pay + vstart, vlen);
+			std::string val = std::string(pay + vstart, vlen);
 
 			new_hdr.value = val;
 
@@ -828,7 +833,7 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 					f->http_tmp.sw = val;
 					break;
 				case HDR_DAT:
-					f->http_tmp.date = parse_date(val);
+					f->http_tmp.date = parse_date(val.c_str());
 					break;
 				case HDR_VIA:
 				case HDR_XFF:
@@ -839,7 +844,7 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 		}
 
 		// Moving on...
-		f->http_tmp.hdr.push_back(new_hdr);
+		f->http_tmp.hdr.push_back(std::move(new_hdr));
 		f->http_pos = off + 1;
 	}
 
@@ -967,7 +972,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 					FATAL("Malformed signature in line %u.", line_no);
 				}
 
-				new_hdr.value = ck_strdup(horder_value.c_str());
+				new_hdr.value = horder_value;
 
 				if (!in.match(']')) {
 					FATAL("Malformed signature in line %u.", line_no);
@@ -1009,7 +1014,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 		if (exp_sw.find(':') != std::string::npos) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
-		hsig->sw = ck_strdup(exp_sw.c_str());
+		hsig->sw = exp_sw;
 	}
 
 	http_find_match(to_srv, hsig, 1);
@@ -1074,17 +1079,6 @@ void http_parse_ua(string_view value, uint32_t line_no) {
 
 	if (!in.eof()) {
 		FATAL("Malformed signature in line %u.", line_no);
-	}
-}
-
-// Free up any allocated strings in http_sig.
-void free_sig_hdrs(struct http_sig *h) {
-	for (uint32_t i = 0; i < h->hdr.size(); i++) {
-		if (h->hdr[i].name)
-			free(h->hdr[i].name);
-
-		if (h->hdr[i].value)
-			free(h->hdr[i].value);
 	}
 }
 

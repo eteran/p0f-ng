@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
+find_package(Boost 1.35 REQUIRED)
+
 add_library(p0f-engine
     fp_http.cpp
     fp_mtu.cpp
@@ -22,6 +24,7 @@ add_library(p0f-engine
     include/p0f/types.h
     include/p0f/util.h
 	include/p0f/string_view.h
+	include/p0f/optional.h
     parser.cpp
     process.cpp
     readfp.cpp
@@ -40,6 +43,7 @@ PUBLIC
 
 target_link_libraries(p0f-engine
 PUBLIC
+    Boost::boost
 )
 
 target_compile_options(p0f-engine

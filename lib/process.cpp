@@ -148,8 +148,6 @@ void destroy_flow(struct packet_flow *f) {
 	f->client->use_cnt--;
 	f->server->use_cnt--;
 
-	free_sig_hdrs(&f->http_tmp);
-
 	delete f;
 
 	process_context.flow_cnt--;
