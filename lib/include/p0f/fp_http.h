@@ -69,9 +69,9 @@ struct http_sig {
 // Record for a HTTP signature read from p0f.fp:
 struct http_sig_record {
 
-	int32_t class_id   = 0;       // OS class ID (-1 = user)
-	int32_t name_id    = 0;       // OS name ID
-	const char *flavor = nullptr; // Human-readable flavor string
+	int32_t class_id = 0;              // OS class ID (-1 = user)
+	int32_t name_id  = 0;              // OS name ID
+	ext::optional<std::string> flavor; // Human-readable flavor string
 
 	int32_t label_id = 0; // Signature label ID
 
@@ -84,7 +84,7 @@ struct http_sig_record {
 };
 
 void http_parse_ua(string_view val, uint32_t line_no);
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view val, uint32_t line_no);
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view val, uint32_t line_no);
 bool process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context);
 void free_sig_hdrs(struct http_sig *h);
 void http_init();

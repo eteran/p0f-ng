@@ -69,7 +69,7 @@ void config_parse_label(const std::string &value) {
 		if (value.empty())
 			FATAL("Empty MTU label in line %u.\n", fp_context.line_no);
 
-		fp_context.sig_flavor = ck_strdup(value.c_str());
+		fp_context.sig_flavor = value;
 		return;
 	}
 
@@ -123,9 +123,9 @@ void config_parse_label(const std::string &value) {
 	// flavor
 	std::string flavor;
 	if (in.match_any(&flavor)) {
-		fp_context.sig_flavor = ck_strdup(flavor.c_str());
+		fp_context.sig_flavor = flavor;
 	} else {
-		fp_context.sig_flavor = nullptr;
+		fp_context.sig_flavor = {};
 	}
 
 	fp_context.label_id++;

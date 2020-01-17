@@ -95,13 +95,13 @@ struct host_data {
 	std::unique_ptr<struct tcp_sig> last_syn;    // Sig of the most recent SYN
 	std::unique_ptr<struct tcp_sig> last_synack; // Sig of the most recent SYN+ACK
 
-	int32_t last_class_id   = 0;       // OS class ID (-1 = not found)
-	int32_t last_name_id    = 0;       // OS name ID (-1 = not found)
-	const char *last_flavor = nullptr; // Last OS flavor
+	int32_t last_class_id = 0;              // OS class ID (-1 = not found)
+	int32_t last_name_id  = 0;              // OS name ID (-1 = not found)
+	ext::optional<std::string> last_flavor; // Last OS flavor
 
 	uint8_t last_quality = 0; // Generic or fuzzy match?
 
-	const char *link_type = nullptr; // MTU-derived link type
+	ext::optional<std::string> link_type; // MTU-derived link type
 
 	uint8_t cli_scores[NAT_SCORES] = {}; // Scoreboard for client NAT
 	uint8_t srv_scores[NAT_SCORES] = {}; // Scoreboard for server NAT
@@ -121,8 +121,8 @@ struct host_data {
 	std::shared_ptr<struct http_sig> http_req_os; // Last request, if class != -1
 	std::shared_ptr<struct http_sig> http_resp;   // Last response
 
-	int32_t http_name_id    = 0;       // Client name ID (-1 = not found)
-	const char *http_flavor = nullptr; // Client flavor
+	int32_t http_name_id = 0;               // Client name ID (-1 = not found)
+	ext::optional<std::string> http_flavor; // Client flavor
 
 	const char *language = nullptr; // Detected language
 

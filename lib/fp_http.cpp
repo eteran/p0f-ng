@@ -580,8 +580,9 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 	if ((m = f->http_tmp.matched)) {
 
 		observf(libp0f_context, (m->class_id < 0) ? "app" : "os", "%s%s%s",
-				fp_context.fp_os_names[m->name_id], m->flavor ? " " : "",
-				m->flavor ? m->flavor : "");
+				fp_context.fp_os_names[m->name_id],
+				m->flavor ? " " : "",
+				m->flavor ? m->flavor->c_str() : "");
 
 	} else
 		libp0f_context->observation_field("app", nullptr);
@@ -917,7 +918,7 @@ void http_init() {
 }
 
 // Register new HTTP signature.
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view value, uint32_t line_no) {
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view value, uint32_t line_no) {
 
 	auto hsig = std::make_unique<struct http_sig>();
 

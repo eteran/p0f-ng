@@ -11,6 +11,7 @@
 #ifndef HAVE_READFP_H_
 #define HAVE_READFP_H_
 
+#include "optional.h"
 #include "string_view.h"
 #include <cstdint>
 #include <string>
@@ -45,9 +46,9 @@ struct fp_context_t {
 	uint8_t mod_to_srv = 0;            // Traffic direction
 	uint8_t generic    = 0;            // Generic signature?
 
-	int32_t sig_class = 0;       // Signature class ID (-1 = userland)
-	int32_t sig_name  = 0;       // Signature name
-	char *sig_flavor  = nullptr; // Signature flavor
+	int32_t sig_class = 0;                 // Signature class ID (-1 = userland)
+	int32_t sig_name  = 0;                 // Signature name
+	ext::optional<std::string> sig_flavor; // Signature flavor
 
 	std::vector<uint32_t> cur_sys; // Current 'sys' values
 

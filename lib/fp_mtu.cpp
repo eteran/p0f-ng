@@ -37,7 +37,7 @@ mtu_context_t mtu_context;
 }
 
 // Register a new MTU signature.
-void mtu_register_sig(const char *name, string_view val, uint32_t line_no) {
+void mtu_register_sig(const ext::optional<std::string> &name, string_view val, uint32_t line_no) {
 
 	parser in(val);
 
@@ -85,7 +85,7 @@ void fingerprint_mtu(bool to_srv, struct packet_data *pk, struct packet_flow *f,
 		libp0f_context->observation_field("link", nullptr);
 	else {
 
-		libp0f_context->observation_field("link", mtu_context.sigs[bucket][i].name);
+		libp0f_context->observation_field("link", mtu_context.sigs[bucket][i].name->c_str());
 
 		if (to_srv)
 			f->client->link_type = mtu_context.sigs[bucket][i].name;

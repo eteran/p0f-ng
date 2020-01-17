@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <arpa/inet.h>
+#include <memory>
 #include <netinet/in.h>
 #include <sys/fcntl.h>
 #include <sys/file.h>
@@ -33,7 +34,6 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
-#include <memory>
 
 #include <pcap/pcap.h>
 
@@ -86,8 +86,8 @@ struct p0f_context_t {
 	const char *fp_file     = nullptr; // Location of p0f.fp
 
 	std::unique_ptr<struct api_client[]> api_cl; // Array with API client state
-	FILE *lf                  = nullptr; // Log file stream
-	pcap_t *pt                = nullptr; // PCAP capture thingy
+	FILE *lf   = nullptr;                        // Log file stream
+	pcap_t *pt = nullptr;                        // PCAP capture thingy
 
 	uint32_t api_max_conn = API_MAX_CONN; // Maximum number of API connections
 	int32_t null_fd       = -1;           // File descriptor of /dev/null
@@ -597,7 +597,7 @@ void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
 		r->os_name[P0F_STR_MAX] = '\0';
 
 		if (h->last_flavor) {
-			strncpy(r->os_flavor, h->last_flavor, P0F_STR_MAX + 1);
+			strncpy(r->os_flavor, h->last_flavor->c_str(), P0F_STR_MAX + 1);
 			r->os_flavor[P0F_STR_MAX] = '\0';
 		}
 	}
@@ -607,13 +607,13 @@ void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
 		r->http_name[P0F_STR_MAX] = '\0';
 
 		if (h->http_flavor) {
-			strncpy(r->http_flavor, h->http_flavor, P0F_STR_MAX + 1);
+			strncpy(r->http_flavor, h->http_flavor->c_str(), P0F_STR_MAX + 1);
 			r->http_flavor[P0F_STR_MAX] = '\0';
 		}
 	}
 
 	if (h->link_type) {
-		strncpy(r->link_type, h->link_type, P0F_STR_MAX + 1);
+		strncpy(r->link_type, h->link_type->c_str(), P0F_STR_MAX + 1);
 		r->link_type[P0F_STR_MAX] = '\0';
 	}
 
