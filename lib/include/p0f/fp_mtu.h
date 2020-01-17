@@ -14,6 +14,7 @@
 #include "process.h"
 #include "string_view.h"
 #include <cstdint>
+#include <string>
 
 struct packet_data;
 struct packet_flow;
@@ -24,7 +25,7 @@ struct mtu_sig_record {
 	uint16_t mtu;
 };
 
-void mtu_register_sig(char *name, string_view val, uint32_t line_no);
+void mtu_register_sig(const char *name, string_view val, uint32_t line_no);
 void fingerprint_mtu(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 
 #endif

@@ -227,19 +227,13 @@ void http_find_match(bool to_srv, const std::unique_ptr<struct http_sig> &ts, ui
 // Dump a HTTP signature.
 std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
-	uint32_t i;
 	bool had_prev = false;
 	struct http_id *list;
 
-	uint8_t tmp[HTTP_MAX_SHOW + 1];
-	uint32_t tpos;
-
 	std::stringstream ss;
-	const char *val;
-
 	append_format(ss, "%u:", hsig->http_ver);
 
-	for (i = 0; i < hsig->hdr.size(); i++) {
+	for (size_t i = 0; i < hsig->hdr.size(); i++) {
 
 		if (hsig->hdr[i].id >= 0) {
 
@@ -249,71 +243,81 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 			list = to_srv ? http_context.req_optional : http_context.resp_optional;
 
 			while (list->name) {
-				if (list->id == hsig->hdr[i].id) break;
+				if (list->id == hsig->hdr[i].id) {
+					break;
+				}
 				list++;
 			}
 
-			if (list->name)
+			if (list->name) {
 				optional = true;
+			}
 
 			append_format(ss, "%s%s%s",
 						  had_prev ? "," : "",
 						  optional ? "?" : "",
 						  http_context.hdr_names[hsig->hdr[i].id].c_str());
+
 			had_prev = true;
 
-			if (!(val = hsig->hdr[i].value)) continue;
+			if (const char *val = hsig->hdr[i].value) {
+				// Next, make sure that the value is not on the ignore list.
+				if (optional)
+					continue;
 
-			// Next, make sure that the value is not on the ignore list.
-			if (optional) continue;
+				list = to_srv ? http_context.req_skipval : http_context.resp_skipval;
 
-			list = to_srv ? http_context.req_skipval : http_context.resp_skipval;
+				while (list->name) {
+					if (list->id == hsig->hdr[i].id) {
+						break;
+					}
+					list++;
+				}
 
-			while (list->name) {
-				if (list->id == hsig->hdr[i].id) break;
-				list++;
+				if (list->name) {
+					continue;
+				}
+
+				/* Looks like it's not on the list, so let's output a cleaned-up
+				 * version up to HTTP_MAX_SHOW. */
+				std::string tmp;
+				for (const char *ptr = val;; ++ptr) {
+					if (tmp.size() >= HTTP_MAX_SHOW) {
+						break;
+					}
+
+					if (*ptr < 0x20 || static_cast<uint8_t>(*ptr) >= 0x80 || *ptr == ']' || *ptr == '|') {
+						break;
+					}
+					tmp.push_back(*ptr);
+				}
+
+				if (!tmp.empty()) {
+					append_format(ss, "=[%s]", tmp.c_str());
+				}
 			}
-
-			if (list->name) continue;
-
-			/* Looks like it's not on the list, so let's output a cleaned-up
-			 * version up to HTTP_MAX_SHOW. */
-
-			tpos = 0;
-
-			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && static_cast<uint8_t>(val[tpos]) < 0x80 &&
-				   val[tpos] != ']' && val[tpos] != '|') {
-
-				tmp[tpos] = val[tpos];
-				tpos++;
-			}
-
-			tmp[tpos] = 0;
-
-			if (!tpos) continue;
-
-			append_format(ss, "=[%s]", tmp);
-
 		} else {
 
 			append_format(ss, "%s%s", had_prev ? "," : "", hsig->hdr[i].name);
 			had_prev = 1;
 
-			if (!(val = hsig->hdr[i].value))
-				continue;
+			if (const char *val = hsig->hdr[i].value) {
+				std::string tmp;
+				for (const char *ptr = val;; ++ptr) {
+					if (tmp.size() >= HTTP_MAX_SHOW) {
+						break;
+					}
 
-			tpos = 0;
+					if (*ptr < 0x20 || static_cast<uint8_t>(*ptr) >= 0x80 || *ptr == ']') {
+						break;
+					}
+					tmp.push_back(*ptr);
+				}
 
-			while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && static_cast<uint8_t>(val[tpos]) < 0x80 && val[tpos] != ']') {
-				tmp[tpos] = val[tpos];
-				tpos++;
+				if (!tmp.empty()) {
+					append_format(ss, "=[%s]", tmp.c_str());
+				}
 			}
-
-			tmp[tpos] = 0;
-
-			if (!tpos) continue;
-
-			append_format(ss, "=[%s]", tmp);
 		}
 	}
 
@@ -323,10 +327,12 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 	had_prev = false;
 
 	while (list->name) {
-
-		for (i = 0; i < hsig->hdr.size(); i++)
-			if (hsig->hdr[i].id == list->id)
+		uint32_t i;
+		for (i = 0; i < hsig->hdr.size(); i++) {
+			if (hsig->hdr[i].id == list->id) {
 				break;
+			}
+		}
 
 		if (i == hsig->hdr.size()) {
 			append_format(ss, "%s%s", had_prev ? "," : "", list->name);
@@ -338,19 +344,23 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
 	append_format(ss, ":");
 
-	if ((val = hsig->sw)) {
+	if (const char *val = hsig->sw) {
 
-		tpos = 0;
+		std::string tmp;
+		for (const char *ptr = val;; ++ptr) {
+			if (tmp.size() >= HTTP_MAX_SHOW) {
+				break;
+			}
 
-		while (tpos < HTTP_MAX_SHOW && val[tpos] >= 0x20 && static_cast<uint8_t>(val[tpos]) < 0x80 && val[tpos] != ']') {
-			tmp[tpos] = val[tpos];
-			tpos++;
+			if (*ptr < 0x20 || static_cast<uint8_t>(*ptr) >= 0x80 || *ptr == ']') {
+				break;
+			}
+			tmp.push_back(*ptr);
 		}
 
-		tmp[tpos] = 0;
-
-		if (tpos)
-			append_format(ss, "%s", tmp);
+		if (!tmp.empty()) {
+			append_format(ss, "%s", tmp.c_str());
+		}
 	}
 
 	return ss.str();
@@ -361,9 +371,14 @@ std::string dump_flags(const struct http_sig *hsig, const struct http_sig_record
 
 	std::stringstream ss;
 
-	if (hsig->dishonest) append_format(ss, " dishonest");
-	if (!hsig->sw) append_format(ss, " anonymous");
-	if (m && m->generic) append_format(ss, " generic");
+	if (hsig->dishonest)
+		append_format(ss, " dishonest");
+
+	if (!hsig->sw)
+		append_format(ss, " anonymous");
+
+	if (m && m->generic)
+		append_format(ss, " generic");
 
 	std::string ret = ss.str();
 
@@ -403,7 +418,6 @@ void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0
 		 * interest if a server progresses from known to unknown. We can't
 		 * compare two unknown server sigs with that much confidence. */
 		if (!to_srv && ref && ref->matched) {
-
 			DEBUG("[#] HTTP server signature changed from known to unknown.\n");
 			score += 4;
 			reason |= NAT_TO_UNK;

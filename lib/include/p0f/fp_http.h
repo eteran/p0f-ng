@@ -68,17 +68,16 @@ struct http_sig {
 // Record for a HTTP signature read from p0f.fp:
 struct http_sig_record {
 
-	int32_t class_id;   // OS class ID (-1 = user)
-	int32_t name_id;    // OS name ID
-	const char *flavor; // Human-readable flavor string
+	int32_t class_id   = 0;       // OS class ID (-1 = user)
+	int32_t name_id    = 0;       // OS name ID
+	const char *flavor = nullptr; // Human-readable flavor string
 
-	int32_t label_id; // Signature label ID
+	int32_t label_id = 0; // Signature label ID
 
 	std::vector<uint32_t> sys; // OS class / name IDs for user apps
 
-	uint32_t line_no; // Line number in p0f.fp
-
-	uint8_t generic; // Generic signature?
+	uint32_t line_no = 0; // Line number in p0f.fp
+	uint8_t generic  = 0; // Generic signature?
 
 	std::unique_ptr<struct http_sig> sig; // Actual signature data
 };
