@@ -134,10 +134,7 @@ void config_parse_label(const std::string &value) {
 // Parse 'sys' parameter into fp_context.cur_sys[].
 void config_parse_sys(string_view value) {
 
-	if (fp_context.cur_sys) {
-		fp_context.cur_sys     = nullptr;
-		fp_context.cur_sys_cnt = 0;
-	}
+	fp_context.cur_sys.clear();
 
 	parser in(value);
 	do {
@@ -178,8 +175,7 @@ void config_parse_sys(string_view value) {
 			}
 		}
 
-		fp_context.cur_sys                           = static_cast<uint32_t *>(realloc(fp_context.cur_sys, (fp_context.cur_sys_cnt + 1) * sizeof(uint32_t)));
-		fp_context.cur_sys[fp_context.cur_sys_cnt++] = i;
+		fp_context.cur_sys.push_back(i);
 
 		in.consume(" \t");
 	} while (in.match(','));
@@ -333,7 +329,6 @@ void config_parse_line(string_view line) {
 				fp_context.sig_flavor,
 				fp_context.label_id,
 				fp_context.cur_sys,
-				fp_context.cur_sys_cnt,
 				value,
 				fp_context.line_no);
 			break;
@@ -352,7 +347,6 @@ void config_parse_line(string_view line) {
 				fp_context.sig_flavor,
 				fp_context.label_id,
 				fp_context.cur_sys,
-				fp_context.cur_sys_cnt,
 				value,
 				fp_context.line_no);
 			break;

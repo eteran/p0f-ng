@@ -1317,7 +1317,7 @@ void add_nat_score(bool to_srv, const struct packet_flow *f, uint16_t reason, ui
 }
 
 // Verify if tool class (called from modules).
-void verify_tool_class(bool to_srv, const struct packet_flow *f, uint32_t *sys, uint32_t sys_cnt, libp0f_context_t *libp0f_context) {
+void verify_tool_class(bool to_srv, const struct packet_flow *f, const std::vector<uint32_t> &sys, libp0f_context_t *libp0f_context) {
 
 	struct host_data *hd = nullptr;
 	if (to_srv)
@@ -1332,7 +1332,7 @@ void verify_tool_class(bool to_srv, const struct packet_flow *f, uint32_t *sys, 
 		return;
 
 	uint32_t i = 0;
-	for (i = 0; i < sys_cnt; i++)
+	for (i = 0; i < sys.size(); i++)
 		if ((sys[i] & SYS_CLASS_FLAG)) {
 			if (SYS_NF(sys[i]) == hd->last_class_id)
 				break;
@@ -1342,7 +1342,7 @@ void verify_tool_class(bool to_srv, const struct packet_flow *f, uint32_t *sys, 
 		}
 
 	// Oops, a mismatch.
-	if (i == sys_cnt) {
+	if (i == sys.size()) {
 		DEBUG("[#] Detected app not supposed to run on host OS.\n");
 		add_nat_score(to_srv, f, NAT_APP_SIG, 4, libp0f_context);
 	} else {

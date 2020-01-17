@@ -634,7 +634,7 @@ log_and_update:
 
 /* Parse TCP-specific bits and register a signature read from p0f.fp.
  * This function is too long. */
-void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view value, uint32_t line_no) {
+void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view value, uint32_t line_no) {
 
 	int8_t ver;
 	int8_t win_type;
@@ -982,7 +982,6 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 	trec.flavor   = sig_flavor;
 	trec.label_id = label_id;
 	trec.sys      = sys;
-	trec.sys_cnt  = sys_cnt;
 	trec.line_no  = line_no;
 	trec.sig      = std::move(tsig);
 	trec.bad_ttl  = bad_ttl;
@@ -1040,7 +1039,7 @@ std::unique_ptr<struct tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data 
 
 	// That's about as far as we go with non-OS signatures.
 	if (m && m->class_id == -1) {
-		verify_tool_class(to_srv, f, m->sys, m->sys_cnt, libp0f_context);
+		verify_tool_class(to_srv, f, m->sys, libp0f_context);
 		return nullptr;
 	}
 

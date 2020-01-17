@@ -49,8 +49,7 @@ struct fp_context_t {
 	int32_t sig_name  = 0;       // Signature name
 	char *sig_flavor  = nullptr; // Signature flavor
 
-	uint32_t *cur_sys    = nullptr; // Current 'sys' values
-	uint32_t cur_sys_cnt = 0;       // Number of 'sys' entries
+	std::vector<uint32_t> cur_sys; // Current 'sys' values
 
 	int32_t label_id = 0; // Current label ID
 	uint32_t line_no = 0; // Current line number

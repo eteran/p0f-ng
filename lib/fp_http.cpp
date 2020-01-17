@@ -415,7 +415,7 @@ void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0
 	if (m->class_id == -1) {
 		/* Got a match for an application signature. Make sure it runs on the
 		 * OS we have on file... */
-		verify_tool_class(to_srv, f, m->sys, m->sys_cnt, libp0f_context);
+		verify_tool_class(to_srv, f, m->sys, libp0f_context);
 
 		// ...and check for inconsistencies in server behavior.
 		if (!to_srv && ref && ref->matched) {
@@ -597,9 +597,9 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 		f->server->http_resp = std::make_shared<struct http_sig>(f->http_tmp);
 
 		f->server->http_resp->hdr.clear();
-		f->server->http_resp->sw      = nullptr;
-		f->server->http_resp->lang    = nullptr;
-		f->server->http_resp->via     = nullptr;
+		f->server->http_resp->sw   = nullptr;
+		f->server->http_resp->lang = nullptr;
+		f->server->http_resp->via  = nullptr;
 
 		f->server->http_resp_port = f->srv_port;
 
@@ -637,9 +637,9 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 				f->client->http_req_os = std::make_shared<struct http_sig>(f->http_tmp);
 
 				f->client->http_req_os->hdr.clear();
-				f->client->http_req_os->sw      = nullptr;
-				f->client->http_req_os->lang    = nullptr;
-				f->client->http_req_os->via     = nullptr;
+				f->client->http_req_os->sw   = nullptr;
+				f->client->http_req_os->lang = nullptr;
+				f->client->http_req_os->via  = nullptr;
 
 				f->client->last_class_id = m->class_id;
 				f->client->last_name_id  = m->name_id;
@@ -773,7 +773,6 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 		 * Record this in the signature. */
 		const int32_t hid = lookup_hdr(std::string(pay + f->http_pos, nlen), 0);
 
-
 		struct http_hdr new_hdr;
 		new_hdr.id = hid;
 
@@ -897,7 +896,7 @@ void http_init() {
 }
 
 // Register new HTTP signature.
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view value, uint32_t line_no) {
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view value, uint32_t line_no) {
 
 	auto hsig = std::make_unique<struct http_sig>();
 
@@ -934,11 +933,9 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 
 			const int32_t id = lookup_hdr(horder_key, 1);
 
-
 			struct http_hdr new_hdr;
-			new_hdr.id = id;
+			new_hdr.id       = id;
 			new_hdr.optional = optional;
-
 
 			if (!optional) {
 				hsig->hdr_bloom4 |= bloom4_64(id);
@@ -1013,7 +1010,6 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 	hrec.flavor   = sig_flavor;
 	hrec.label_id = label_id;
 	hrec.sys      = sys;
-	hrec.sys_cnt  = sys_cnt;
 	hrec.line_no  = line_no;
 	hrec.generic  = generic;
 	hrec.sig      = std::move(hsig);

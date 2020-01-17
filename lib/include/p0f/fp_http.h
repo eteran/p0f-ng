@@ -74,8 +74,7 @@ struct http_sig_record {
 
 	int32_t label_id; // Signature label ID
 
-	uint32_t *sys;    // OS class / name IDs for user apps
-	uint32_t sys_cnt; // Length of sys
+	std::vector<uint32_t> sys; // OS class / name IDs for user apps
 
 	uint32_t line_no; // Line number in p0f.fp
 
@@ -85,7 +84,7 @@ struct http_sig_record {
 };
 
 void http_parse_ua(string_view val, uint32_t line_no);
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view val, uint32_t line_no);
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view val, uint32_t line_no);
 bool process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context);
 void free_sig_hdrs(struct http_sig *h);
 void http_init();

@@ -14,6 +14,7 @@
 #include "string_view.h"
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 // Simplified data for signature matching and NAT detection:
 struct tcp_sig {
@@ -63,8 +64,7 @@ struct tcp_sig_record {
 
 	uint32_t label_id = 0; // Signature label ID
 
-	uint32_t *sys    = nullptr; // OS class / name IDs for user apps
-	uint32_t sys_cnt = 0;       // Length of sys
+	std::vector<uint32_t> sys; // OS class / name IDs for user apps
 
 	uint32_t line_no = 0; // Line number in p0f.fp
 
@@ -78,7 +78,7 @@ struct tcp_sig_record {
 struct packet_data;
 struct packet_flow;
 
-void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view value, uint32_t line_no);
+void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view value, uint32_t line_no);
 std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 void check_ts_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
 
