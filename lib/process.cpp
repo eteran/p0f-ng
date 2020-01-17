@@ -607,7 +607,7 @@ void expire_cache(libp0f_context_t *libp0f_context) {
 }
 
 // Find link-specific offset (pcap knows, but won't tell).
-void find_offset(const uint8_t *data, int32_t total_len, libp0f_context_t *libp0f_context) {
+void find_offset(const uint8_t *data, uint32_t total_len, libp0f_context_t *libp0f_context) {
 
 	// Check hardcoded values for some of the most common options.
 	switch (libp0f_context->link_type) {
@@ -740,7 +740,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		expire_cache(libp0f_context);
 
 	// Be paranoid about how much data we actually have off the wire.
-	int32_t packet_len = std::min(hdr->len, hdr->caplen);
+	uint32_t packet_len = std::min(hdr->len, hdr->caplen);
 	if (packet_len > SNAPLEN)
 		packet_len = SNAPLEN;
 
