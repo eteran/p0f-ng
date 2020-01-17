@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <ctime>
 #include <memory>
+#include <vector>
 
 struct packet_flow;
 struct libp0f_context_t;
@@ -45,8 +46,7 @@ struct http_sig {
 
 	int8_t http_ver = 0; // HTTP version (-1 = any)
 
-	struct http_hdr hdr[HTTP_MAX_HDRS] = {}; // Mandatory / discovered headers
-	uint32_t hdr_cnt                   = 0;
+	std::vector<struct http_hdr> hdr; // Mandatory / discovered headers
 
 	uint64_t hdr_bloom4 = 0; // Bloom filter for headers
 

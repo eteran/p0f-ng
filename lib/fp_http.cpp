@@ -127,22 +127,22 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 
 		/* Confirm the ordering and values of headers (this is relatively slow,
 		 * hence the Bloom filter first). */
-		while (rs_hdr < rs->hdr_cnt) {
+		while (rs_hdr < rs->hdr.size()) {
 
 			uint32_t orig_ts = ts_hdr;
 
-			while (ts_hdr < ts->hdr_cnt && rs->hdr[rs_hdr].id != ts->hdr[ts_hdr].id) {
+			while (ts_hdr < ts->hdr.size() && rs->hdr[rs_hdr].id != ts->hdr[ts_hdr].id) {
 				ts_hdr++;
 			}
 
-			if (ts_hdr == ts->hdr_cnt) {
+			if (ts_hdr == ts->hdr.size()) {
 
 				if (!rs->hdr[rs_hdr].optional)
 					goto next_sig;
 
 				/* If this is an optional header, check that it doesn't appear
 				 * anywhere else. */
-				for (ts_hdr = 0; ts_hdr < ts->hdr_cnt; ts_hdr++)
+				for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ts_hdr++)
 					if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id)
 						goto next_sig;
 
@@ -169,7 +169,7 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 				continue;
 
 			// Okay, possible instance of a banned header - scan list...
-			for (ts_hdr = 0; ts_hdr < ts->hdr_cnt; ts_hdr++)
+			for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ts_hdr++)
 				if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id)
 					goto next_sig;
 		}
@@ -239,7 +239,7 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
 	append_format(ss, "%u:", hsig->http_ver);
 
-	for (i = 0; i < hsig->hdr_cnt; i++) {
+	for (i = 0; i < hsig->hdr.size(); i++) {
 
 		if (hsig->hdr[i].id >= 0) {
 
@@ -324,11 +324,11 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 
 	while (list->name) {
 
-		for (i = 0; i < hsig->hdr_cnt; i++)
+		for (i = 0; i < hsig->hdr.size(); i++)
 			if (hsig->hdr[i].id == list->id)
 				break;
 
-		if (i == hsig->hdr_cnt) {
+		if (i == hsig->hdr.size()) {
 			append_format(ss, "%s%s", had_prev ? "," : "", list->name);
 			had_prev = 1;
 		}
@@ -596,17 +596,17 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 		// For server response, always store the signature.
 		f->server->http_resp = std::make_shared<struct http_sig>(f->http_tmp);
 
-		f->server->http_resp->hdr_cnt = 0;
+		f->server->http_resp->hdr.clear();
 		f->server->http_resp->sw      = nullptr;
 		f->server->http_resp->lang    = nullptr;
 		f->server->http_resp->via     = nullptr;
 
 		f->server->http_resp_port = f->srv_port;
 
-		if (lang) f->server->language = lang;
+		if (lang)
+			f->server->language = lang;
 
 		if (m) {
-
 			if (m->class_id != -1) {
 
 				// If this is an OS signature, update host record.
@@ -636,7 +636,7 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 				// Client request - only OS sig is of any note.
 				f->client->http_req_os = std::make_shared<struct http_sig>(f->http_tmp);
 
-				f->client->http_req_os->hdr_cnt = 0;
+				f->client->http_req_os->hdr.clear();
 				f->client->http_req_os->sw      = nullptr;
 				f->client->http_req_os->lang    = nullptr;
 				f->client->http_req_os->via     = nullptr;
@@ -671,9 +671,6 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 
 		const char *const pay = to_srv ? f->request.data() : f->response.data();
 
-		uint32_t nlen, vlen, vstart;
-		uint32_t hcount;
-
 		// Empty line? Dispatch for fingerprinting!
 		if (pay[off] == '\r' || pay[off] == '\n') {
 
@@ -698,16 +695,14 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 		}
 
 		// Looks like we're getting a header value. See if we have room for it.
-		if ((hcount = f->http_tmp.hdr_cnt) >= HTTP_MAX_HDRS) {
-
+		if (f->http_tmp.hdr.size() >= HTTP_MAX_HDRS) {
 			DEBUG("[#] Too many HTTP headers in a %s.\n", to_srv ? "request" : "response");
-
 			f->in_http = -1;
 			return false;
 		}
 
 		// Try to extract header name.
-		nlen = 0;
+		uint32_t nlen = 0;
 
 		while ((isalnum(pay[off]) || pay[off] == '-' || pay[off] == '_') &&
 			   off < plen && nlen <= HTTP_MAX_HDR_NAME) {
@@ -744,8 +739,8 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 
 		if (off < plen && isblank(pay[off])) off++;
 
-		vstart = off;
-		vlen   = 0;
+		uint32_t vstart = off;
+		uint32_t vlen   = 0;
 
 		// Find the next \n.
 		while (off < plen && vlen <= HTTP_MAX_HDR_VAL && pay[off] != '\n') {
@@ -771,17 +766,20 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 		}
 
 		// If party is using \r\n terminators, go back one char.
-		if (pay[off - 1] == '\r') vlen--;
+		if (pay[off - 1] == '\r')
+			vlen--;
 
 		/* Header value starts at vstart, and has vlen bytes (may be zero).
 		 * Record this in the signature. */
 		const int32_t hid = lookup_hdr(std::string(pay + f->http_pos, nlen), 0);
 
-		f->http_tmp.hdr[hcount].id = hid;
+
+		struct http_hdr new_hdr;
+		new_hdr.id = hid;
 
 		if (hid < 0) {
 			// Header ID not found, store literal value.
-			f->http_tmp.hdr[hcount].name = ck_memdup_str(pay + f->http_pos, nlen);
+			new_hdr.name = ck_memdup_str(pay + f->http_pos, nlen);
 		} else {
 			// Found - update Bloom filter.
 			f->http_tmp.hdr_bloom4 |= bloom4_64(hid);
@@ -793,7 +791,7 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 
 			auto val = ck_memdup_str(pay + vstart, vlen);
 
-			f->http_tmp.hdr[hcount].value = val;
+			new_hdr.value = val;
 
 			if (to_srv) {
 				switch (hid) {
@@ -826,7 +824,7 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 		}
 
 		// Moving on...
-		f->http_tmp.hdr_cnt++;
+		f->http_tmp.hdr.push_back(new_hdr);
 		f->http_pos = off + 1;
 	}
 
@@ -923,7 +921,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 	// horder
 	if (in.peek() != ':') {
 		do {
-			if (hsig->hdr_cnt >= HTTP_MAX_HDRS) {
+			if (hsig->hdr.size() >= HTTP_MAX_HDRS) {
 				FATAL("Too many headers listed in line %u.", line_no);
 			}
 
@@ -936,8 +934,11 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 
 			const int32_t id = lookup_hdr(horder_key, 1);
 
-			hsig->hdr[hsig->hdr_cnt].id       = id;
-			hsig->hdr[hsig->hdr_cnt].optional = optional;
+
+			struct http_hdr new_hdr;
+			new_hdr.id = id;
+			new_hdr.optional = optional;
+
 
 			if (!optional) {
 				hsig->hdr_bloom4 |= bloom4_64(id);
@@ -953,14 +954,14 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 					FATAL("Malformed signature in line %u.", line_no);
 				}
 
-				hsig->hdr[hsig->hdr_cnt].value = ck_strdup(horder_value.c_str());
+				new_hdr.value = ck_strdup(horder_value.c_str());
 
 				if (!in.match(']')) {
 					FATAL("Malformed signature in line %u.", line_no);
 				}
 			}
 
-			hsig->hdr_cnt++;
+			hsig->hdr.push_back(new_hdr);
 		} while (in.match(','));
 	}
 
@@ -1069,7 +1070,7 @@ void http_parse_ua(string_view value, uint32_t line_no) {
 
 // Free up any allocated strings in http_sig.
 void free_sig_hdrs(struct http_sig *h) {
-	for (uint32_t i = 0; i < h->hdr_cnt; i++) {
+	for (uint32_t i = 0; i < h->hdr.size(); i++) {
 		if (h->hdr[i].name)
 			free(h->hdr[i].name);
 
