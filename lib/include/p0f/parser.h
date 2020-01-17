@@ -17,7 +17,6 @@ public:
 	void consume(string_view chars);
 	bool match(char ch);
 	bool match(string_view s);
-	bool match_any_of(string_view chars, std::string *match);
 	bool match_any(std::string *match);
 
 	template <class Pred>

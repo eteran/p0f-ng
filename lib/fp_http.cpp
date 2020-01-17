@@ -909,7 +909,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 
 	// http_ver
 	if (in.match('0')) {
-
+		hsig->http_ver = 0;
 	} else if (in.match('1')) {
 		hsig->http_ver = 1;
 	} else if (in.match('*')) {
@@ -923,50 +923,47 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 	}
 
 	// horder
-	while (in.peek() != ':') {
-
-		if (hsig->hdr_cnt >= HTTP_MAX_HDRS) {
-			FATAL("Too many headers listed in line %u.", line_no);
-		}
-
-		bool optional = in.match('?');
-
-		std::string horder_key;
-		if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &horder_key)) {
-			FATAL("Malformed header name in line %u.", line_no);
-		}
-
-		const uint32_t id = lookup_hdr(horder_key, 1);
-
-		hsig->hdr[hsig->hdr_cnt].id       = id;
-		hsig->hdr[hsig->hdr_cnt].optional = optional;
-
-		if (!optional) {
-			hsig->hdr_bloom4 |= bloom4_64(id);
-		}
-
-		if (in.match('=')) {
-			if (!in.match('[')) {
-				FATAL("Missing '[' after '=' in line %u.", line_no);
+	if (in.peek() != ':') {
+		do {
+			if (hsig->hdr_cnt >= HTTP_MAX_HDRS) {
+				FATAL("Too many headers listed in line %u.", line_no);
 			}
 
-			std::string horder_value;
-			if (!in.match([](char ch) { return ch != ']'; }, &horder_value)) {
-				FATAL("Malformed signature in line %u.", line_no);
+			bool optional = in.match('?');
+
+			std::string horder_key;
+			if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &horder_key)) {
+				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			hsig->hdr[hsig->hdr_cnt].value = ck_strdup(horder_value.c_str());
+			const uint32_t id = lookup_hdr(horder_key, 1);
 
-			if (!in.match(']')) {
-				FATAL("Malformed signature in line %u.", line_no);
+			hsig->hdr[hsig->hdr_cnt].id       = id;
+			hsig->hdr[hsig->hdr_cnt].optional = optional;
+
+			if (!optional) {
+				hsig->hdr_bloom4 |= bloom4_64(id);
 			}
-		}
 
-		hsig->hdr_cnt++;
+			if (in.match('=')) {
+				if (!in.match('[')) {
+					FATAL("Missing '[' after '=' in line %u.", line_no);
+				}
 
-		if (in.match(',')) {
-			continue;
-		}
+				std::string horder_value;
+				if (!in.match([](char ch) { return ch != ']'; }, &horder_value)) {
+					FATAL("Malformed signature in line %u.", line_no);
+				}
+
+				hsig->hdr[hsig->hdr_cnt].value = ck_strdup(horder_value.c_str());
+
+				if (!in.match(']')) {
+					FATAL("Malformed signature in line %u.", line_no);
+				}
+			}
+
+			hsig->hdr_cnt++;
+		} while(in.match(','));
 	}
 
 	if (!in.match(':')) {
@@ -974,26 +971,23 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 	}
 
 	// habsent
-	while (in.peek() != ':') {
+	if (in.peek() != ':') {
+		do {
+			if (hsig->miss_cnt >= HTTP_MAX_HDRS) {
+				FATAL("Too many headers listed in line %u.", line_no);
+			}
 
-		if (hsig->miss_cnt >= HTTP_MAX_HDRS) {
-			FATAL("Too many headers listed in line %u.", line_no);
-		}
+			std::string habsent_key;
+			if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &habsent_key)) {
+				FATAL("Malformed header name in line %u.", line_no);
+			}
 
-		std::string habsent_key;
-		if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &habsent_key)) {
-			FATAL("Malformed header name in line %u.", line_no);
-		}
+			uint32_t id = lookup_hdr(habsent_key, 1);
 
-		uint32_t id = lookup_hdr(habsent_key, 1);
+			hsig->miss[hsig->miss_cnt] = id;
 
-		hsig->miss[hsig->miss_cnt] = id;
-
-		hsig->miss_cnt++;
-
-		if (in.match(',')) {
-			continue;
-		}
+			hsig->miss_cnt++;
+		} while(in.match(','));
 	}
 
 	if (!in.match(':')) {

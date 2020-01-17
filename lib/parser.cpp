@@ -92,30 +92,6 @@ bool parser::match_any(std::string *match) {
 }
 
 /**
- * @brief parser::match_any_of
- * @param chars
- * @param match
- * @return
- */
-bool parser::match_any_of(string_view chars, std::string *match) {
-	std::string m;
-	while (true) {
-		const char ch = peek();
-		if (chars.find(ch) == std::string::npos) {
-			break;
-		}
-		m.push_back(read());
-	}
-
-	if (!m.empty()) {
-		*match = m;
-		return true;
-	}
-
-	return false;
-}
-
-/**
  * @brief parser::match
  * @param s
  * @return
