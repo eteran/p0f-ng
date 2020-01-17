@@ -165,13 +165,13 @@ void config_parse_sys(ext::string_view value) {
 		} else {
 
 			for (i = 0; i < fp_context.fp_os_names.size(); i++) {
-				if (!strcasecmp(class_name.c_str(), fp_context.fp_os_names[i])) {
+				if (!strcasecmp(class_name.c_str(), fp_context.fp_os_names[i].c_str())) {
 					break;
 				}
 			}
 
 			if (i == fp_context.fp_os_names.size()) {
-				fp_context.fp_os_names.push_back(ck_memdup_str(class_name.c_str(), class_name.size()));
+				fp_context.fp_os_names.push_back(class_name);
 			}
 		}
 
@@ -365,14 +365,14 @@ int32_t lookup_name_id(const char *name, size_t len) {
 	uint32_t i;
 
 	for (i = 0; i < fp_context.fp_os_names.size(); i++) {
-		if (!strncasecmp(name, fp_context.fp_os_names[i], len) && !fp_context.fp_os_names[i][len]) {
+		if (!strncasecmp(name, fp_context.fp_os_names[i].c_str(), len) && !fp_context.fp_os_names[i][len]) {
 			break;
 		}
 	}
 
 	if (i == fp_context.fp_os_names.size()) {
 		fp_context.sig_name = fp_context.fp_os_names.size();
-		fp_context.fp_os_names.push_back(ck_memdup_str(name, len));
+		fp_context.fp_os_names.push_back(std::string(name, len));
 	}
 
 	return i;

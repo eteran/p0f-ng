@@ -593,7 +593,7 @@ void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
 	r->total_conn = h->total_conn;
 
 	if (h->last_name_id != -1) {
-		strncpy(r->os_name, fp_context.fp_os_names[h->last_name_id], P0F_STR_MAX + 1);
+		strncpy(r->os_name, fp_context.fp_os_names[h->last_name_id].c_str(), P0F_STR_MAX + 1);
 		r->os_name[P0F_STR_MAX] = '\0';
 
 		if (h->last_flavor) {
@@ -603,7 +603,7 @@ void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
 	}
 
 	if (h->http_name_id != -1) {
-		strncpy(r->http_name, fp_context.fp_os_names[h->http_name_id], P0F_STR_MAX + 1);
+		strncpy(r->http_name, fp_context.fp_os_names[h->http_name_id].c_str(), P0F_STR_MAX + 1);
 		r->http_name[P0F_STR_MAX] = '\0';
 
 		if (h->http_flavor) {

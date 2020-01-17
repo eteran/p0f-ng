@@ -1012,7 +1012,8 @@ std::unique_ptr<struct tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data 
 	const struct tcp_sig_record *const m = sig->matched;
 	if (m) {
 		observf(libp0f_context, (m->class_id == -1 || f->sendsyn) ? "app" : "os", "%s%s%s",
-				fp_context.fp_os_names[m->name_id], m->flavor ? " " : "",
+				fp_context.fp_os_names[m->name_id].c_str(),
+				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");
 
 	} else {

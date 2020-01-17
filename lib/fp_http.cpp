@@ -580,7 +580,7 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 	if ((m = f->http_tmp.matched)) {
 
 		observf(libp0f_context, (m->class_id < 0) ? "app" : "os", "%s%s%s",
-				fp_context.fp_os_names[m->name_id],
+				fp_context.fp_os_names[m->name_id].c_str(),
 				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");
 

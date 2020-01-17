@@ -57,7 +57,7 @@ struct fp_context_t {
 
 	// Map of OS classes
 	std::vector<std::string> fp_os_classes;
-	std::vector<char *> fp_os_names;
+	std::vector<std::string> fp_os_names;
 };
 
 extern fp_context_t fp_context;
