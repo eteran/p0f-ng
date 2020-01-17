@@ -153,14 +153,17 @@ void config_parse_sys(string_view value) {
 		uint32_t i;
 		if (is_cl) {
 
-			auto it = std::find_if(fp_context.fp_os_classes.begin(), fp_context.fp_os_classes.end(), [&class_name](const std::string &os_class) {
-				return strcasecmp(class_name.c_str(), os_class.c_str()) == 0;
-			});
+			for (i = 0; i < fp_context.fp_os_classes.size(); i++) {
+				if (!strcasecmp(class_name.c_str(), fp_context.fp_os_classes[i].c_str())) {
+					break;
+				}
+			}
 
-			if (it == fp_context.fp_os_classes.end())
+			if (i == fp_context.fp_os_names.size()) {
 				FATAL("Unknown class '%s' in line %u.", class_name.c_str(), fp_context.line_no);
+			}
 
-			i = std::distance(fp_context.fp_os_classes.begin(), it) | SYS_CLASS_FLAG;
+			i |= SYS_CLASS_FLAG;
 
 		} else {
 
