@@ -1052,7 +1052,7 @@ void http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 		int32_t id = lookup_name_id(system_str);
 
-		char *name = nullptr;
+		ext::optional<std::string> name;
 		if (in.match('=')) {
 
 			if (!in.match('[')) {
@@ -1068,12 +1068,12 @@ void http_parse_ua(ext::string_view value, uint32_t line_no) {
 				FATAL("Malformed signature in line %u.", line_no);
 			}
 
-			name = ck_memdup_str(value_str.c_str(), value_str.size());
+			name = value_str;
 		}
 
 		struct ua_map_record record;
 		record.id   = id;
-		record.name = (!name) ? fp_context.fp_os_names[id] : name;
+		record.name = (!name) ? fp_context.fp_os_names[id] : *name;
 		http_context.ua_map.push_back(record);
 
 	} while (in.match(','));
