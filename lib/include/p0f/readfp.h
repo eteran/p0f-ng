@@ -11,10 +11,10 @@
 #ifndef HAVE_READFP_H_
 #define HAVE_READFP_H_
 
+#include "string_view.h"
 #include <cstdint>
 #include <string>
 #include <vector>
-#include "string_view.h"
 
 // List of fingerprinting modules:
 #define CF_MOD_TCP 0x00  // fp_tcp.c
@@ -46,14 +46,14 @@ struct fp_context_t {
 	uint8_t generic    = 0;            // Generic signature?
 
 	int32_t sig_class = 0;       // Signature class ID (-1 = userland)
-	int32_t sig_name = 0;       // Signature name
+	int32_t sig_name  = 0;       // Signature name
 	char *sig_flavor  = nullptr; // Signature flavor
 
 	uint32_t *cur_sys    = nullptr; // Current 'sys' values
 	uint32_t cur_sys_cnt = 0;       // Number of 'sys' entries
 
 	int32_t label_id = 0; // Current label ID
-	uint32_t line_no  = 0; // Current line number
+	uint32_t line_no = 0; // Current line number
 
 	// Map of OS classes
 	std::vector<std::string> fp_os_classes;

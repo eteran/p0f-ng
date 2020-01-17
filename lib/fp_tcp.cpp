@@ -647,7 +647,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 	int32_t win;
 	int32_t scale;
 	int32_t opt_eol_pad = 0;
-	uint32_t quirks = 0;
+	uint32_t quirks     = 0;
 	uint32_t bucket;
 
 	parser in(value);

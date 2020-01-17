@@ -380,7 +380,7 @@ void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0
 
 	struct http_sig_record *m = f->http_tmp.matched;
 	struct host_data *hd;
-	struct http_sig *ref;
+	std::shared_ptr<struct http_sig> ref;
 
 	uint8_t score        = 0;
 	uint8_t diff_already = 0;
@@ -594,8 +594,7 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 	if (!to_srv) {
 
 		// For server response, always store the signature.
-		free(f->server->http_resp);
-		f->server->http_resp = static_cast<struct http_sig *>(ck_memdup(&f->http_tmp, sizeof(struct http_sig)));
+		f->server->http_resp = std::make_shared<struct http_sig>(f->http_tmp);
 
 		f->server->http_resp->hdr_cnt = 0;
 		f->server->http_resp->sw      = nullptr;
@@ -628,15 +627,14 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 
 	} else {
 
-		if (lang) f->client->language = lang;
+		if (lang)
+			f->client->language = lang;
 
 		if (m) {
-
 			if (m->class_id != -1) {
 
 				// Client request - only OS sig is of any note.
-				free(f->client->http_req_os);
-				f->client->http_req_os = static_cast<struct http_sig *>(ck_memdup(&f->http_tmp, sizeof(struct http_sig)));
+				f->client->http_req_os = std::make_shared<struct http_sig>(f->http_tmp);
 
 				f->client->http_req_os->hdr_cnt = 0;
 				f->client->http_req_os->sw      = nullptr;
@@ -963,7 +961,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 			}
 
 			hsig->hdr_cnt++;
-		} while(in.match(','));
+		} while (in.match(','));
 	}
 
 	if (!in.match(':')) {
@@ -987,7 +985,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 			hsig->miss[hsig->miss_cnt] = id;
 
 			hsig->miss_cnt++;
-		} while(in.match(','));
+		} while (in.match(','));
 	}
 
 	if (!in.match(':')) {
@@ -1062,7 +1060,7 @@ void http_parse_ua(string_view value, uint32_t line_no) {
 		record.name = (!name) ? fp_context.fp_os_names[id] : name;
 		http_context.ua_map.push_back(record);
 
-	} while(in.match(','));
+	} while (in.match(','));
 
 	if (!in.eof()) {
 		FATAL("Malformed signature in line %u.", line_no);

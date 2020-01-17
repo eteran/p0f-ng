@@ -24,15 +24,6 @@ inline char *ck_strdup(const char *str) {
 	return static_cast<char *>(memcpy(ret, str, size));
 }
 
-inline void *ck_memdup(const void *mem, uint32_t size) {
-
-	if (!mem || !size)
-		return nullptr;
-
-	void *ret = malloc(size);
-	return memcpy(ret, mem, size);
-}
-
 inline char *ck_memdup_str(const char *mem, uint32_t size) {
 
 	if (!mem || !size)

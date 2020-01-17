@@ -240,10 +240,6 @@ void destroy_host(struct host_data *h) {
 	else
 		process_context.host_by_age = h->newer;
 
-	// Free memory.
-	free(h->http_resp);
-	free(h->http_req_os);
-
 	delete h;
 
 	process_context.host_cnt--;

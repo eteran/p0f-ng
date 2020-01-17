@@ -18,7 +18,6 @@
 #include "fp_http.h"
 #include "fp_tcp.h"
 
-
 // Parsed information handed over by the pcap callback:
 struct packet_data {
 
@@ -40,7 +39,7 @@ struct packet_data {
 	uint16_t tot_hdr = 0; // Total headers (for MTU calc)
 
 	std::vector<uint8_t> opt_layout; // Ordering of TCP options
-	uint8_t opt_eol_pad             = 0;  // Amount of padding past EOL
+	uint8_t opt_eol_pad = 0;         // Amount of padding past EOL
 
 	uint32_t ts1 = 0; // Own timestamp
 
@@ -96,9 +95,9 @@ struct host_data {
 	std::unique_ptr<struct tcp_sig> last_syn;    // Sig of the most recent SYN
 	std::unique_ptr<struct tcp_sig> last_synack; // Sig of the most recent SYN+ACK
 
-	int32_t last_class_id = 0;       // OS class ID (-1 = not found)
-	int32_t last_name_id  = 0;       // OS name ID (-1 = not found)
-	const char *last_flavor     = nullptr; // Last OS flavor
+	int32_t last_class_id   = 0;       // OS class ID (-1 = not found)
+	int32_t last_name_id    = 0;       // OS name ID (-1 = not found)
+	const char *last_flavor = nullptr; // Last OS flavor
 
 	uint8_t last_quality = 0; // Generic or fuzzy match?
 
@@ -119,11 +118,11 @@ struct host_data {
 	uint32_t up_mod_days = 0; // Uptime modulo (days)
 
 	// HTTP business:
-	struct http_sig *http_req_os = nullptr; // Last request, if class != -1
-	struct http_sig *http_resp   = nullptr; // Last response
+	std::shared_ptr<struct http_sig> http_req_os; // Last request, if class != -1
+	std::shared_ptr<struct http_sig> http_resp;   // Last response
 
-	int32_t http_name_id = 0;       // Client name ID (-1 = not found)
-	const char *http_flavor    = nullptr; // Client flavor
+	int32_t http_name_id    = 0;       // Client name ID (-1 = not found)
+	const char *http_flavor = nullptr; // Client flavor
 
 	const char *language = nullptr; // Detected language
 

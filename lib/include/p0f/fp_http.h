@@ -34,10 +34,10 @@ struct ua_map_record {
 
 // HTTP header field:
 struct http_hdr {
-	char *name = nullptr;       // Text name (nullptr = use lookup ID)
-	char *value = nullptr;      // Value, if any
-	int32_t id;       // Lookup ID (-1 = none)
-	uint8_t optional; // Optional header?
+	char *name    = nullptr; // Text name (nullptr = use lookup ID)
+	char *value   = nullptr; // Value, if any
+	int32_t id    = 0;       // Lookup ID (-1 = none)
+	bool optional = false;   // Optional header?
 };
 
 // Request / response signature collected from the wire:
@@ -53,7 +53,7 @@ struct http_sig {
 	int32_t miss[HTTP_MAX_HDRS] = {}; // Missing headers
 	uint32_t miss_cnt           = 0;
 
-	char *sw   = nullptr; // Software string (U-A or Server)
+	char *sw         = nullptr; // Software string (U-A or Server)
 	const char *lang = nullptr; // Accept-Language
 	const char *via  = nullptr; // Via or X-Forwarded-For
 
@@ -69,9 +69,9 @@ struct http_sig {
 // Record for a HTTP signature read from p0f.fp:
 struct http_sig_record {
 
-	int32_t class_id; // OS class ID (-1 = user)
-	int32_t name_id;  // OS name ID
-	const char *flavor;     // Human-readable flavor string
+	int32_t class_id;   // OS class ID (-1 = user)
+	int32_t name_id;    // OS name ID
+	const char *flavor; // Human-readable flavor string
 
 	int32_t label_id; // Signature label ID
 
