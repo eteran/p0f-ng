@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <memory>
 
 #include <pcap/pcap.h>
 
@@ -77,14 +78,14 @@ libp0f_context_t libp0f_context = {
 };
 
 struct p0f_context_t {
-	char *use_iface   = nullptr; // Interface to listen on
-	char *orig_rule   = nullptr; // Original filter rule
-	char *switch_user = nullptr; // Target username
-	char *log_file    = nullptr; // Binary log file name
-	char *api_sock    = nullptr; // API socket file name
-	char *fp_file     = nullptr; // Location of p0f.fp
+	const char *use_iface   = nullptr; // Interface to listen on
+	const char *orig_rule   = nullptr; // Original filter rule
+	const char *switch_user = nullptr; // Target username
+	const char *log_file    = nullptr; // Binary log file name
+	const char *api_sock    = nullptr; // API socket file name
+	const char *fp_file     = nullptr; // Location of p0f.fp
 
-	struct api_client *api_cl = nullptr; // Array with API client state
+	std::unique_ptr<struct api_client[]> api_cl; // Array with API client state
 	FILE *lf                  = nullptr; // Log file stream
 	pcap_t *pt                = nullptr; // PCAP capture thingy
 
@@ -247,7 +248,7 @@ void open_api() {
 	if (fcntl(p0f_context.api_fd, F_SETFL, O_NONBLOCK))
 		PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
 
-	p0f_context.api_cl = new struct api_client[p0f_context.api_max_conn];
+	p0f_context.api_cl = std::make_unique<struct api_client[]>(p0f_context.api_max_conn);
 
 	for (uint32_t i = 0; i < p0f_context.api_max_conn; i++) {
 		p0f_context.api_cl[i].fd = -1;
@@ -310,7 +311,7 @@ void list_interfaces() {
 void prepare_pcap() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
-	char *orig_iface = p0f_context.use_iface;
+	const char *orig_iface = p0f_context.use_iface;
 
 	if (libp0f_context.read_file) {
 
