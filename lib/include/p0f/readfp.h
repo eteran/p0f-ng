@@ -29,7 +29,7 @@
 #define CF_NEED_SIG 0x03   // Waiting for signatures, if any.
 
 // Flag to distinguish OS class and name IDs
-#define SYS_CLASS_FLAG (1u << 31)
+constexpr uint32_t SYS_CLASS_FLAG = 1u << 31;
 
 constexpr int32_t SYS_NF(uint32_t x) {
 	return (x & ~SYS_CLASS_FLAG);
