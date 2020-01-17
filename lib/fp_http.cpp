@@ -901,7 +901,7 @@ void http_init() {
 }
 
 // Register new HTTP signature.
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t sig_name, char *sig_flavor, uint32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view value, uint32_t line_no) {
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view value, uint32_t line_no) {
 
 	auto hsig = std::make_unique<struct http_sig>();
 
@@ -936,7 +936,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t
 				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			const uint32_t id = lookup_hdr(horder_key, 1);
+			const int32_t id = lookup_hdr(horder_key, 1);
 
 			hsig->hdr[hsig->hdr_cnt].id       = id;
 			hsig->hdr[hsig->hdr_cnt].optional = optional;

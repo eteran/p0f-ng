@@ -52,7 +52,7 @@ struct fp_context_t {
 	uint32_t *cur_sys    = nullptr; // Current 'sys' values
 	uint32_t cur_sys_cnt = 0;       // Number of 'sys' entries
 
-	uint32_t label_id = 0; // Current label ID
+	int32_t label_id = 0; // Current label ID
 	uint32_t line_no  = 0; // Current line number
 
 	// Map of OS classes
