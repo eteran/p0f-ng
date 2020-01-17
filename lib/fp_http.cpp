@@ -918,7 +918,7 @@ void http_init() {
 }
 
 // Register new HTTP signature.
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view value, uint32_t line_no) {
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
 
 	auto hsig = std::make_unique<struct http_sig>();
 
@@ -1040,7 +1040,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 }
 
 // Register new HTTP signature.
-void http_parse_ua(string_view value, uint32_t line_no) {
+void http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 	parser in(value);
 	do {

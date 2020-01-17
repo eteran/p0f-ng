@@ -27,20 +27,20 @@
 #include "p0f/alloc-inl.h"
 #include "p0f/config.h"
 #include "p0f/debug.h"
+#include "p0f/ext/string_view.h"
 #include "p0f/fp_http.h"
 #include "p0f/fp_mtu.h"
 #include "p0f/fp_tcp.h"
 #include "p0f/p0f.h"
 #include "p0f/parser.h"
 #include "p0f/readfp.h"
-#include "p0f/string_view.h"
 
 fp_context_t fp_context;
 
 namespace {
 
 // Parse 'classes' parameter by populating fp_context.fp_os_classes.
-void config_parse_classes(string_view value) {
+void config_parse_classes(ext::string_view value) {
 
 	parser in(value);
 	do {
@@ -132,7 +132,7 @@ void config_parse_label(const std::string &value) {
 }
 
 // Parse 'sys' parameter into fp_context.cur_sys[].
-void config_parse_sys(string_view value) {
+void config_parse_sys(ext::string_view value) {
 
 	fp_context.cur_sys.clear();
 
@@ -186,7 +186,7 @@ void config_parse_sys(string_view value) {
 }
 
 // Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
-void config_parse_line(string_view line) {
+void config_parse_line(ext::string_view line) {
 
 	parser in(line);
 
@@ -380,7 +380,7 @@ int32_t lookup_name_id(const char *name, size_t len) {
 
 }
 
-int32_t lookup_name_id(string_view name) {
+int32_t lookup_name_id(ext::string_view name) {
 	return lookup_name_id(name.data(), name.size());
 }
 
@@ -393,7 +393,7 @@ void read_config(const char *fname) {
 
 		fp_context.line_no++;
 
-		string_view line_view(line);
+		ext::string_view line_view(line);
 		while (!line_view.empty() && isblank(line_view[0])) {
 			line_view.remove_prefix(1);
 		}

@@ -23,8 +23,8 @@ add_library(p0f-engine
     include/p0f/tcp.h
     include/p0f/types.h
     include/p0f/util.h
-	include/p0f/string_view.h
-	include/p0f/optional.h
+	include/p0f/ext/string_view.h
+	include/p0f/ext/optional.h
     parser.cpp
     process.cpp
     readfp.cpp

@@ -634,7 +634,7 @@ log_and_update:
 
 /* Parse TCP-specific bits and register a signature read from p0f.fp.
  * This function is too long. */
-void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view value, uint32_t line_no) {
+void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
 
 	int8_t ver;
 	int8_t win_type;

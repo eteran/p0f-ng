@@ -6,7 +6,7 @@
  * @param source
  * @param input
  */
-parser::parser(string_view input)
+parser::parser(ext::string_view input)
 	: input_(input) {
 }
 
@@ -59,7 +59,7 @@ bool parser::eof() const {
  * @brief parser::consume
  * @param chars
  */
-void parser::consume(string_view chars) {
+void parser::consume(ext::string_view chars) {
 
 	while (!eof()) {
 		char ch = peek();
@@ -96,7 +96,7 @@ bool parser::match_any(std::string *match) {
  * @param s
  * @return
  */
-bool parser::match(string_view s) {
+bool parser::match(ext::string_view s) {
 
 	if (index_ + s.size() > input_.size()) {
 		return false;

@@ -12,8 +12,8 @@
 #define HAVE_FP_HTTP_H_
 
 #include "config.h"
-#include "optional.h"
-#include "string_view.h"
+#include "ext/optional.h"
+#include "ext/string_view.h"
 #include <cstdint>
 #include <ctime>
 #include <memory>
@@ -83,8 +83,8 @@ struct http_sig_record {
 	std::unique_ptr<struct http_sig> sig; // Actual signature data
 };
 
-void http_parse_ua(string_view val, uint32_t line_no);
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, string_view val, uint32_t line_no);
+void http_parse_ua(ext::string_view val, uint32_t line_no);
+void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view val, uint32_t line_no);
 bool process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context);
 void free_sig_hdrs(struct http_sig *h);
 void http_init();

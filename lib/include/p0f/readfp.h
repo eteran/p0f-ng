@@ -11,8 +11,8 @@
 #ifndef HAVE_READFP_H_
 #define HAVE_READFP_H_
 
-#include "optional.h"
-#include "string_view.h"
+#include "ext/optional.h"
+#include "ext/string_view.h"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -36,7 +36,7 @@ constexpr int32_t SYS_NF(uint32_t x) {
 }
 
 void read_config(const char *fname);
-int32_t lookup_name_id(string_view name);
+int32_t lookup_name_id(ext::string_view name);
 
 struct fp_context_t {
 	uint32_t sig_cnt = 0; // Total number of p0f.fp sigs

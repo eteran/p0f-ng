@@ -11,6 +11,8 @@
 #include <stdexcept>
 #include <string>
 
+namespace ext {
+
 template <class Ch, class Tr = std::char_traits<Ch>>
 class basic_string_view {
 public:
@@ -563,69 +565,71 @@ struct hash_constants : hash_constants_impl<sizeof(T)> {
 
 }
 
+}
+
 namespace std {
 
 template <>
-struct hash<string_view> {
-	using argument_type = string_view;
+struct hash<ext::string_view> {
+	using argument_type = ext::string_view;
 	using result_type   = size_t;
 
 	result_type operator()(argument_type key) const {
 
-		result_type h = detail::hash_constants<result_type>::FNV_offset_basis;
+		result_type h = ext::detail::hash_constants<result_type>::FNV_offset_basis;
 		for (char ch : key) {
-			h = (h * detail::hash_constants<result_type>::FNV_prime) ^ static_cast<unsigned char>(ch);
+			h = (h * ext::detail::hash_constants<result_type>::FNV_prime) ^ static_cast<unsigned char>(ch);
 		}
 		return h;
 	}
 };
 
 template <>
-struct hash<wstring_view> {
-	using argument_type = wstring_view;
+struct hash<ext::wstring_view> {
+	using argument_type = ext::wstring_view;
 	using result_type   = size_t;
 
 	result_type operator()(argument_type key) const {
 		auto p    = reinterpret_cast<const char *>(&*key.begin());
 		auto last = reinterpret_cast<const char *>(&*key.end());
 
-		result_type h = detail::hash_constants<result_type>::FNV_offset_basis;
+		result_type h = ext::detail::hash_constants<result_type>::FNV_offset_basis;
 		while (p != last) {
-			h = (h * detail::hash_constants<result_type>::FNV_prime) ^ static_cast<unsigned char>(*p++);
+			h = (h * ext::detail::hash_constants<result_type>::FNV_prime) ^ static_cast<unsigned char>(*p++);
 		}
 		return h;
 	}
 };
 
 template <>
-struct hash<u16string_view> {
-	using argument_type = u16string_view;
+struct hash<ext::u16string_view> {
+	using argument_type = ext::u16string_view;
 	using result_type   = size_t;
 
 	result_type operator()(argument_type key) const {
 		auto p    = reinterpret_cast<const char *>(&*key.begin());
 		auto last = reinterpret_cast<const char *>(&*key.end());
 
-		result_type h = detail::hash_constants<result_type>::FNV_offset_basis;
+		result_type h = ext::detail::hash_constants<result_type>::FNV_offset_basis;
 		while (p != last) {
-			h = (h * detail::hash_constants<result_type>::FNV_prime) ^ static_cast<unsigned char>(*p++);
+			h = (h * ext::detail::hash_constants<result_type>::FNV_prime) ^ static_cast<unsigned char>(*p++);
 		}
 		return h;
 	}
 };
 
 template <>
-struct hash<u32string_view> {
-	using argument_type = u32string_view;
+struct hash<ext::u32string_view> {
+	using argument_type = ext::u32string_view;
 	using result_type   = size_t;
 
 	result_type operator()(argument_type key) const {
 		auto p    = reinterpret_cast<const char *>(&*key.begin());
 		auto last = reinterpret_cast<const char *>(&*key.end());
 
-		result_type h = detail::hash_constants<result_type>::FNV_offset_basis;
+		result_type h = ext::detail::hash_constants<result_type>::FNV_offset_basis;
 		while (p != last) {
-			h = (h * detail::hash_constants<result_type>::FNV_prime) ^ static_cast<unsigned char>(*p++);
+			h = (h * ext::detail::hash_constants<result_type>::FNV_prime) ^ static_cast<unsigned char>(*p++);
 		}
 		return h;
 	}
