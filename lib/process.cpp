@@ -387,7 +387,7 @@ struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_
 // Insert data from a packet into a flow, call handlers as appropriate.
 void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 
-	std::shared_ptr<struct tcp_sig> tsig;
+	std::unique_ptr<struct tcp_sig> tsig;
 	bool to_srv       = false;
 	uint8_t need_more = 0;
 
@@ -432,7 +432,7 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 		if (tsig) {
 			/* This can't be done in fingerprint_tcp because check_ts_tcp()
 			 * depends on having original SYN / SYN+ACK data. */
-			f->client->last_syn = tsig;
+			f->client->last_syn = std::move(tsig);
 		}
 
 		break;
@@ -466,7 +466,7 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 			return;
 		}
 
-		f->acked = 1;
+		f->acked = true;
 
 		tsig = fingerprint_tcp(0, pk, f, libp0f_context);
 
@@ -479,7 +479,7 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 		fingerprint_mtu(0, pk, f, libp0f_context);
 		check_ts_tcp(0, pk, f, libp0f_context);
 
-		f->server->last_synack = tsig;
+		f->server->last_synack = std::move(tsig);
 		f->next_srv_seq        = pk->seq + 1;
 		break;
 
@@ -561,7 +561,8 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 			f->next_srv_seq += pk->pay_len;
 		}
 
-		if (!pk->pay_len) return;
+		if (!pk->pay_len)
+			return;
 
 		need_more |= process_http(to_srv, f, libp0f_context);
 

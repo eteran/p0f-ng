@@ -50,7 +50,7 @@ constexpr uint8_t guess_dist(uint8_t ttl) {
 
 /* Figure out if window size is a multiplier of MSS or MTU. We don't take window
  * scaling into account, because neither do TCP stack developers. */
-int16_t detect_win_multi(const std::shared_ptr<struct tcp_sig> &ts, bool *use_mtu, uint16_t syn_mss) {
+int16_t detect_win_multi(const std::unique_ptr<struct tcp_sig> &ts, bool *use_mtu, uint16_t syn_mss) {
 
 	uint16_t win = ts->win;
 	int32_t mss = ts->mss, mss12 = mss - 12;
@@ -104,7 +104,7 @@ int16_t detect_win_multi(const std::shared_ptr<struct tcp_sig> &ts, bool *use_mt
 }
 
 // See if any of the p0f.fp signatures matches the collected data.
-void tcp_find_match(bool to_srv, const std::shared_ptr<struct tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss) {
+void tcp_find_match(bool to_srv, const std::unique_ptr<struct tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss) {
 
 	struct tcp_sig_record *fmatch = nullptr;
 	struct tcp_sig_record *gmatch = nullptr;
@@ -117,7 +117,7 @@ void tcp_find_match(bool to_srv, const std::shared_ptr<struct tcp_sig> &ts, uint
 	for (size_t i = 0; i < tcp_context.sigs[to_srv][bucket].size(); i++) {
 
 		struct tcp_sig_record *ref                  = &tcp_context.sigs[to_srv][bucket][i];
-		const std::shared_ptr<struct tcp_sig> &refs = ref->sig;
+		const std::unique_ptr<struct tcp_sig> &refs = ref->sig;
 
 		uint8_t fuzzy       = 0;
 		uint32_t ref_quirks = refs->quirks;
@@ -246,7 +246,7 @@ void tcp_find_match(bool to_srv, const std::shared_ptr<struct tcp_sig> &ts, uint
 
 /* Convert struct packet_data to a simplified struct tcp_sig representation
    suitable for signature matching. Compute hashes. */
-void packet_to_sig(struct packet_data *pk, const std::shared_ptr<struct tcp_sig> &ts) {
+void packet_to_sig(struct packet_data *pk, const std::unique_ptr<struct tcp_sig> &ts) {
 
 	ts->opt_hash = hash32(pk->opt_layout, pk->opt_cnt);
 
@@ -269,7 +269,7 @@ void packet_to_sig(struct packet_data *pk, const std::shared_ptr<struct tcp_sig>
 }
 
 // Dump unknown signature.
-std::string dump_sig(const struct packet_data *pk, const std::shared_ptr<struct tcp_sig> &ts, uint16_t syn_mss) {
+std::string dump_sig(const struct packet_data *pk, const std::unique_ptr<struct tcp_sig> &ts, uint16_t syn_mss) {
 
 	std::ostringstream ss;
 
@@ -384,7 +384,7 @@ std::string dump_sig(const struct packet_data *pk, const std::shared_ptr<struct 
 }
 
 // Dump signature-related flags.
-std::string dump_flags(struct packet_data *pk, const std::shared_ptr<struct tcp_sig> &ts) {
+std::string dump_flags(struct packet_data *pk, const std::unique_ptr<struct tcp_sig> &ts) {
 
 	std::ostringstream ss;
 
@@ -417,28 +417,21 @@ std::string dump_flags(struct packet_data *pk, const std::shared_ptr<struct tcp_
 
 /* Compare current signature with historical data, draw conclusions. This
    is called only for OS sigs. */
-void score_nat(bool to_srv, const std::shared_ptr<struct tcp_sig> &sig, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void score_nat(bool to_srv, const std::unique_ptr<struct tcp_sig> &sig, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
-	struct host_data *hd;
-	std::shared_ptr<struct tcp_sig> ref;
 	uint8_t score        = 0;
 	uint8_t diff_already = 0;
 	uint16_t reason      = 0;
 	int32_t ttl_diff;
 
-	if (to_srv) {
-		hd  = f->client;
-		ref = hd->last_syn;
-	} else {
-		hd  = f->server;
-		ref = hd->last_synack;
-	}
+	struct host_data *hd                 = (to_srv) ? f->client : f->server;
+	std::unique_ptr<struct tcp_sig> &ref = (to_srv) ? hd->last_syn : hd->last_synack;
 
 	if (!ref) {
 
-		/* No previous signature of matching type at all. We can perhaps still check
-	   if class / name is the same as on file, as that data might have been
-	   obtained from other types of sigs. */
+		/* No previous signature of matching type at all. We can perhaps still
+		 * check if class / name is the same as on file, as that data might
+		 * have been obtained from other types of sigs. */
 
 		if (sig->matched && hd->last_class_id != -1) {
 
@@ -458,11 +451,10 @@ void score_nat(bool to_srv, const std::shared_ptr<struct tcp_sig> &sig, struct p
 	if (!sig->matched || !ref->matched) {
 
 		/* One or both of the signatures are unknown. Let's see if they differ.
-	   The scoring here isn't too strong, because we don't know if the
-	   unrecognized signature isn't originating from userland tools. */
+		 * The scoring here isn't too strong, because we don't know if the
+		 * unrecognized signature isn't originating from userland tools. */
 
-		if ((sig->quirks ^ ref->quirks) & ~(QUIRK_ECN | QUIRK_DF | QUIRK_NZ_ID |
-											QUIRK_ZERO_ID)) {
+		if ((sig->quirks ^ ref->quirks) & ~(QUIRK_ECN | QUIRK_DF | QUIRK_NZ_ID | QUIRK_ZERO_ID)) {
 
 			DEBUG("[#] Non-fuzzy quirks changed compared to previous sig.\n");
 
@@ -472,8 +464,8 @@ void score_nat(bool to_srv, const std::shared_ptr<struct tcp_sig> &sig, struct p
 		} else if (to_srv && sig->opt_hash != ref->opt_hash) {
 
 			/* We only match option layout for SYNs; it may change on SYN+ACK,
-		 and the user may have gaps in SYN+ACK sigs if he ignored our
-		 advice on using p0f-sendsyn. */
+			 * and the user may have gaps in SYN+ACK sigs if he ignored our
+			 * advice on using p0f-sendsyn. */
 
 			DEBUG("[#] SYN option layout changed compared to previous sig.\n");
 
@@ -507,8 +499,9 @@ void score_nat(bool to_srv, const std::shared_ptr<struct tcp_sig> &sig, struct p
 			// SYN signatures match superficially, but...
 			if (ref->matched->label_id != sig->matched->label_id) {
 
-				/* SYN label changes are a weak but useful signal. SYN+ACK signatures
-		   may need less intuitive groupings, so we don't check that. */
+				/* SYN label changes are a weak but useful signal. SYN+ACK
+				 * signatures may need less intuitive groupings, so we don't
+				 * check that. */
 
 				DEBUG("[#] SYN signature label different on previous sig.\n");
 				score += 2;
@@ -516,8 +509,8 @@ void score_nat(bool to_srv, const std::shared_ptr<struct tcp_sig> &sig, struct p
 
 			} else if (ref->matched->line_no != sig->matched->line_no) {
 
-				/* Change in line number is an extremely weak but still noteworthy
-		   signal. */
+				/* Change in line number is an extremely weak but still
+				 * noteworthy signal. */
 
 				DEBUG("[#] SYN signature changes within the same label.\n");
 				score += 1;
@@ -965,7 +958,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 		FATAL("Malformed payload class in line %u.", line_no);
 
 	// Phew, okay, we're done. Now, create tcp_sig...
-	auto tsig = std::make_shared<struct tcp_sig>();
+	auto tsig = std::make_unique<struct tcp_sig>();
 
 	tsig->opt_hash    = opt_hash;
 	tsig->opt_eol_pad = opt_eol_pad;
@@ -1006,9 +999,9 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, uint32_t 
 }
 
 // Fingerprint SYN or SYN+ACK.
-std::shared_ptr<struct tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+std::unique_ptr<struct tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
 
-	auto sig = std::make_shared<struct tcp_sig>();
+	auto sig = std::make_unique<struct tcp_sig>();
 	packet_to_sig(pk, sig);
 
 	/* Detect packets generated by p0f-sendsyn; they require special

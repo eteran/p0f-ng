@@ -14,10 +14,10 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <string>
 #include <unistd.h>
 #include <vector>
-#include <fstream>
 
 #include <netinet/in.h>
 #include <sys/fcntl.h>
@@ -385,16 +385,16 @@ void read_config(const char *fname) {
 
 	// If you put NUL in your p0f.fp... Well, sucks to be you.
 	std::ifstream file(fname);
-	for(std::string line; std::getline(file, line); ) {
+	for (std::string line; std::getline(file, line);) {
 
 		fp_context.line_no++;
 
 		string_view line_view(line);
-		while(!line_view.empty() && isblank(line_view[0])) {
+		while (!line_view.empty() && isblank(line_view[0])) {
 			line_view.remove_prefix(1);
 		}
 
-		if(line_view.empty() || line_view[0] == ';') {
+		if (line_view.empty() || line_view[0] == ';') {
 			continue;
 		}
 

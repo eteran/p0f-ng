@@ -20,37 +20,37 @@
 // Parsed information handed over by the pcap callback:
 struct packet_data {
 
-	uint8_t ip_ver;   // IP_VER4, IP_VER6
-	uint8_t tcp_type; // TCP_SYN, ACK, FIN, RST
+	uint8_t ip_ver   = 0; // IP_VER4, IP_VER6
+	uint8_t tcp_type = 0; // TCP_SYN, ACK, FIN, RST
 
-	uint8_t src[16]; // Source address (left-aligned)
-	uint8_t dst[16]; // Destination address (left-aligned
+	uint8_t src[16] = {}; // Source address (left-aligned)
+	uint8_t dst[16] = {}; // Destination address (left-aligned
 
-	uint16_t sport; // Source port
-	uint16_t dport; // Destination port
+	uint16_t sport = 0; // Source port
+	uint16_t dport = 0; // Destination port
 
-	uint8_t ttl; // Observed TTL
-	uint8_t tos; // IP ToS value
+	uint8_t ttl = 0; // Observed TTL
+	uint8_t tos = 0; // IP ToS value
 
-	uint16_t mss;     // Maximum segment size
-	uint16_t win;     // Window size
-	uint8_t wscale;   // Window scaling
-	uint16_t tot_hdr; // Total headers (for MTU calc)
+	uint16_t mss     = 0; // Maximum segment size
+	uint16_t win     = 0; // Window size
+	uint8_t wscale   = 0; // Window scaling
+	uint16_t tot_hdr = 0; // Total headers (for MTU calc)
 
-	uint8_t opt_layout[MAX_TCP_OPT]; // Ordering of TCP options
-	uint8_t opt_cnt;                 // Count of TCP options
-	uint8_t opt_eol_pad;             // Amount of padding past EOL
+	uint8_t opt_layout[MAX_TCP_OPT] = {}; // Ordering of TCP options
+	uint8_t opt_cnt                 = 0;  // Count of TCP options
+	uint8_t opt_eol_pad             = 0;  // Amount of padding past EOL
 
-	uint32_t ts1; // Own timestamp
+	uint32_t ts1 = 0; // Own timestamp
 
-	uint32_t quirks; // QUIRK_*
+	uint32_t quirks = 0; // QUIRK_*
 
-	uint8_t ip_opt_len; // Length of IP options
+	uint8_t ip_opt_len = 0; // Length of IP options
 
-	uint8_t *payload; // TCP payload
-	uint16_t pay_len; // Length of TCP payload
+	uint8_t *payload = nullptr; // TCP payload
+	uint16_t pay_len = 0;       // Length of TCP payload
 
-	uint32_t seq; // seq value seen
+	uint32_t seq = 0; // seq value seen
 };
 
 // IP-level quirks:
@@ -92,8 +92,8 @@ struct host_data {
 	uint8_t ip_ver   = 0;  // Address type
 	uint8_t addr[16] = {}; // Host address data
 
-	std::shared_ptr<struct tcp_sig> last_syn;    // Sig of the most recent SYN
-	std::shared_ptr<struct tcp_sig> last_synack; // Sig of the most recent SYN+ACK
+	std::unique_ptr<struct tcp_sig> last_syn;    // Sig of the most recent SYN
+	std::unique_ptr<struct tcp_sig> last_synack; // Sig of the most recent SYN+ACK
 
 	int32_t last_class_id = 0;       // OS class ID (-1 = not found)
 	int32_t last_name_id  = 0;       // OS name ID (-1 = not found)
@@ -132,19 +132,21 @@ struct host_data {
 };
 
 // Reasons for NAT detection:
-#define NAT_APP_SIG 0x0001  // App signature <-> OS mismatch
-#define NAT_OS_SIG 0x0002   // OS detection mismatch
-#define NAT_UNK_DIFF 0x0004 // Current sig unknown, but different
-#define NAT_TO_UNK 0x0008   // Sig changed from known to unknown
-#define NAT_TS 0x0010       // Timestamp goes back
-#define NAT_PORT 0x0020     // Source port goes back
-#define NAT_TTL 0x0040      // TTL changes unexpectedly
-#define NAT_FUZZY 0x0080    // Signature fuzziness changes
-#define NAT_MSS 0x0100      // MSS changes
-#define NAT_APP_LB 0x0200   // Server signature changes
-#define NAT_APP_VIA 0x0400  // Via / X-Forwarded-For seen
-#define NAT_APP_DATE 0x0800 // Date changes in a weird way
-#define NAT_APP_UA 0x1000   // User-Agent OS inconsistency
+enum Reasons : uint16_t {
+	NAT_APP_SIG  = 0x0001, // App signature <-> OS mismatch
+	NAT_OS_SIG   = 0x0002, // OS detection mismatch
+	NAT_UNK_DIFF = 0x0004, // Current sig unknown, but different
+	NAT_TO_UNK   = 0x0008, // Sig changed from known to unknown
+	NAT_TS       = 0x0010, // Timestamp goes back
+	NAT_PORT     = 0x0020, // Source port goes back
+	NAT_TTL      = 0x0040, // TTL changes unexpectedly
+	NAT_FUZZY    = 0x0080, // Signature fuzziness changes
+	NAT_MSS      = 0x0100, // MSS changes
+	NAT_APP_LB   = 0x0200, // Server signature changes
+	NAT_APP_VIA  = 0x0400, // Via / X-Forwarded-For seen
+	NAT_APP_DATE = 0x0800, // Date changes in a weird way
+	NAT_APP_UA   = 0x1000, // User-Agent OS inconsistency
+};
 
 // TCP flow record, maintained until all fingerprinting modules are happy:
 struct packet_flow {
@@ -160,8 +162,8 @@ struct packet_flow {
 	uint16_t cli_port = 0; // Client port
 	uint16_t srv_port = 0; // Server port
 
-	uint8_t acked   = 0; // SYN+ACK received?
-	uint8_t sendsyn = 0; // Created by p0f-sendsyn?
+	bool acked      = false; // SYN+ACK received?
+	uint8_t sendsyn = 0;     // Created by p0f-sendsyn?
 
 	int16_t srv_tps = 0; // Computed TS divisor (-1 = bad)
 	int16_t cli_tps = 0;
@@ -179,9 +181,9 @@ struct packet_flow {
 
 	int8_t in_http = 0; // 0 = tbd, 1 = yes, -1 = no
 
-	uint8_t http_req_done = 0; // Done collecting req headers?
-	uint32_t http_pos     = 0; // Current parsing offset
-	uint8_t http_gotresp1 = 0; // Got initial line of a response?
+	bool http_req_done = false; // Done collecting req headers?
+	uint32_t http_pos  = 0;     // Current parsing offset
+	bool http_gotresp1 = false; // Got initial line of a response?
 
 	struct http_sig http_tmp = {}; // Temporary signature
 };

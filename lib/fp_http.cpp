@@ -1038,12 +1038,11 @@ void http_parse_ua(string_view value, uint32_t line_no) {
 	while (!in.eof()) {
 
 		std::string system_str;
-		if(!in.match([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); }, &system_str)) {
+		if (!in.match([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); }, &system_str)) {
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
 		uint32_t id = lookup_name_id(system_str.c_str(), system_str.size());
-
 
 		char *name = nullptr;
 		if (in.match('=')) {
@@ -1053,7 +1052,7 @@ void http_parse_ua(string_view value, uint32_t line_no) {
 			}
 
 			std::string value_str;
-			if(!in.match([](char ch) { return ch != ']'; }, &value_str)) {
+			if (!in.match([](char ch) { return ch != ']'; }, &value_str)) {
 				FATAL("Malformed signature in line %u.", line_no);
 			}
 
