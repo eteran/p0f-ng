@@ -12,10 +12,12 @@
 #define HAVE_PROCESS_H_
 
 #include <pcap/pcap.h>
+#include <string>
+#include <vector>
 
 #include "fp_http.h"
 #include "fp_tcp.h"
-#include <string>
+
 
 // Parsed information handed over by the pcap callback:
 struct packet_data {
@@ -37,8 +39,7 @@ struct packet_data {
 	uint8_t wscale   = 0; // Window scaling
 	uint16_t tot_hdr = 0; // Total headers (for MTU calc)
 
-	uint8_t opt_layout[MAX_TCP_OPT] = {}; // Ordering of TCP options
-	uint8_t opt_cnt                 = 0;  // Count of TCP options
+	std::vector<uint8_t> opt_layout; // Ordering of TCP options
 	uint8_t opt_eol_pad             = 0;  // Amount of padding past EOL
 
 	uint32_t ts1 = 0; // Own timestamp
@@ -97,11 +98,11 @@ struct host_data {
 
 	int32_t last_class_id = 0;       // OS class ID (-1 = not found)
 	int32_t last_name_id  = 0;       // OS name ID (-1 = not found)
-	char *last_flavor     = nullptr; // Last OS flavor
+	const char *last_flavor     = nullptr; // Last OS flavor
 
 	uint8_t last_quality = 0; // Generic or fuzzy match?
 
-	char *link_type = nullptr; // MTU-derived link type
+	const char *link_type = nullptr; // MTU-derived link type
 
 	uint8_t cli_scores[NAT_SCORES] = {}; // Scoreboard for client NAT
 	uint8_t srv_scores[NAT_SCORES] = {}; // Scoreboard for server NAT
@@ -122,7 +123,7 @@ struct host_data {
 	struct http_sig *http_resp   = nullptr; // Last response
 
 	int32_t http_name_id = 0;       // Client name ID (-1 = not found)
-	char *http_flavor    = nullptr; // Client flavor
+	const char *http_flavor    = nullptr; // Client flavor
 
 	const char *language = nullptr; // Detected language
 

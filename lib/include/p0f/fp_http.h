@@ -71,7 +71,7 @@ struct http_sig_record {
 
 	int32_t class_id; // OS class ID (-1 = user)
 	int32_t name_id;  // OS name ID
-	char *flavor;     // Human-readable flavor string
+	const char *flavor;     // Human-readable flavor string
 
 	int32_t label_id; // Signature label ID
 

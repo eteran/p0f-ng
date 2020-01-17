@@ -248,7 +248,7 @@ void tcp_find_match(bool to_srv, const std::unique_ptr<struct tcp_sig> &ts, uint
    suitable for signature matching. Compute hashes. */
 void packet_to_sig(struct packet_data *pk, const std::unique_ptr<struct tcp_sig> &ts) {
 
-	ts->opt_hash = hash32(pk->opt_layout, pk->opt_cnt);
+	ts->opt_hash = hash32(pk->opt_layout.data(), pk->opt_layout.size());
 
 	ts->quirks      = pk->quirks;
 	ts->opt_eol_pad = pk->opt_eol_pad;
@@ -300,7 +300,7 @@ std::string dump_sig(const struct packet_data *pk, const std::unique_ptr<struct 
 
 	append_format(ss, ",%u:", pk->wscale);
 
-	for (i = 0; i < pk->opt_cnt; i++) {
+	for (i = 0; i < pk->opt_layout.size(); i++) {
 
 		switch (pk->opt_layout[i]) {
 
@@ -636,12 +636,19 @@ log_and_update:
  * This function is too long. */
 void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, char *sig_flavor, int32_t label_id, uint32_t *sys, uint32_t sys_cnt, string_view value, uint32_t line_no) {
 
-	int8_t ver, win_type, pay_class;
-	uint8_t opt_layout[MAX_TCP_OPT];
-	uint8_t opt_cnt = 0, bad_ttl = 0;
+	int8_t ver;
+	int8_t win_type;
+	int8_t pay_class;
+	std::vector<uint8_t> opt_layout;
+	uint8_t bad_ttl = 0;
 
-	int32_t olen, mss, win, scale, opt_eol_pad = 0;
-	uint32_t quirks = 0, bucket, opt_hash;
+	int32_t olen;
+	int32_t mss;
+	int32_t win;
+	int32_t scale;
+	int32_t opt_eol_pad = 0;
+	uint32_t quirks = 0;
+	uint32_t bucket;
 
 	parser in(value);
 
@@ -792,15 +799,13 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 	}
 
 	// Option layout
-	memset(opt_layout, 0, sizeof(opt_layout));
-
 	while (in.peek() != ':') {
 
-		if (opt_cnt >= MAX_TCP_OPT)
+		if (opt_layout.size() >= MAX_TCP_OPT)
 			FATAL("Too many TCP options in line %u.", line_no);
 
 		if (in.match("eol")) {
-			opt_layout[opt_cnt++] = TCPOPT_EOL;
+			opt_layout.push_back(TCPOPT_EOL);
 
 			if (!in.match('+')) {
 				FATAL("Malformed EOL option in line %u.", line_no);
@@ -820,17 +825,17 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 				FATAL("EOL must be the last option in line %u.", line_no);
 			}
 		} else if (in.match("nop")) {
-			opt_layout[opt_cnt++] = TCPOPT_NOP;
+			opt_layout.push_back(TCPOPT_NOP);
 		} else if (in.match("mss")) {
-			opt_layout[opt_cnt++] = TCPOPT_MAXSEG;
+			opt_layout.push_back(TCPOPT_MAXSEG);
 		} else if (in.match("ws")) {
-			opt_layout[opt_cnt++] = TCPOPT_WSCALE;
+			opt_layout.push_back(TCPOPT_WSCALE);
 		} else if (in.match("sok")) {
-			opt_layout[opt_cnt++] = TCPOPT_SACKOK;
+			opt_layout.push_back(TCPOPT_SACKOK);
 		} else if (in.match("sack")) {
-			opt_layout[opt_cnt++] = TCPOPT_SACK;
+			opt_layout.push_back(TCPOPT_SACK);
 		} else if (in.match("ts")) {
-			opt_layout[opt_cnt++] = TCPOPT_TSTAMP;
+			opt_layout.push_back(TCPOPT_TSTAMP);
 		} else if (in.match('?')) {
 
 			std::string opt_str;
@@ -842,7 +847,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 			if (optno < 0 || optno > 255)
 				FATAL("Bogus '?' option in line %u.", line_no);
 
-			opt_layout[opt_cnt++] = optno;
+			opt_layout.push_back(optno);
 
 			if (in.peek() != ':' && in.peek() != ',') {
 				FATAL("Malformed '?' option in line %u.", line_no);
@@ -865,7 +870,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 
-	opt_hash = hash32(opt_layout, opt_cnt);
+	const uint32_t opt_hash = hash32(opt_layout.data(), opt_layout.size());
 
 	// Quirks
 	while (in.peek() != ':') {

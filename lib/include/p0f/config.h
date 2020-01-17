@@ -56,9 +56,6 @@
  * Really obscure stuff *
  * ---------------------*/
 
-// Maximum allocator request size (keep well under INT_MAX):
-#define MAX_ALLOC 0x40000000
-
 // Percentage of host entries / flows to prune when limits exceeded:
 #define KILL_PERCENT 10
 

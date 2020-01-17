@@ -1019,7 +1019,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	opt_end = data + tcp_doff; // First byte of non-option data
 	data    = reinterpret_cast<const uint8_t *>(tcp + 1);
 
-	pk.opt_cnt     = 0;
+	pk.opt_layout.clear();
 	pk.opt_eol_pad = 0;
 	pk.mss         = 0;
 	pk.wscale      = 0;
@@ -1028,9 +1028,9 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	/* Option parsing problems are non-fatal, but we want to keep track of
 	 them to spot buggy TCP stacks. */
 
-	while (data < opt_end && pk.opt_cnt < MAX_TCP_OPT) {
+	while (data < opt_end) {
 
-		pk.opt_layout[pk.opt_cnt++] = *data;
+		pk.opt_layout.push_back(*data);
 
 		switch (*data++) {
 
@@ -1202,8 +1202,8 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 	abort_options:
 
-		DEBUG("[#] Option parsing aborted (cnt = %u, remainder = %ld).\n",
-			  pk.opt_cnt, opt_end - data);
+		DEBUG("[#] Option parsing aborted (cnt = %lu, remainder = %ld).\n",
+			  pk.opt_layout.size(), opt_end - data);
 
 		pk.quirks |= QUIRK_OPT_BAD;
 	}

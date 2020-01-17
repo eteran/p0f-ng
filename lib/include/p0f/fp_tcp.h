@@ -18,7 +18,7 @@
 // Simplified data for signature matching and NAT detection:
 struct tcp_sig {
 
-	uint32_t opt_hash = 0; // Hash of opt_layout & opt_cnt
+	uint32_t opt_hash = 0; // Hash of opt_layout
 	uint32_t quirks   = 0; // Quirks
 
 	uint8_t opt_eol_pad = 0; // Amount of padding past EOL

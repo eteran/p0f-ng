@@ -20,7 +20,7 @@ struct packet_flow;
 
 // Record for a TCP signature read from p0f.fp:
 struct mtu_sig_record {
-	char *name;
+	const char *name;
 	uint16_t mtu;
 };
 
