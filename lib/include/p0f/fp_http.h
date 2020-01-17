@@ -50,8 +50,7 @@ struct http_sig {
 
 	uint64_t hdr_bloom4 = 0; // Bloom filter for headers
 
-	int32_t miss[HTTP_MAX_HDRS] = {}; // Missing headers
-	uint32_t miss_cnt           = 0;
+	std::vector<int32_t> miss; // Missing headers
 
 	char *sw         = nullptr; // Software string (U-A or Server)
 	const char *lang = nullptr; // Accept-Language

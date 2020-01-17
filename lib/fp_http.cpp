@@ -161,7 +161,7 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 		/* Check that the headers forbidden in p0f.fp don't appear in the traffic.
 		 * We first check if they seem to appear in ts->hdr_bloom4, and only if so,
 		 * we do a full check. */
-		for (rs_hdr = 0; rs_hdr < rs->miss_cnt; rs_hdr++) {
+		for (rs_hdr = 0; rs_hdr < rs->miss.size(); rs_hdr++) {
 
 			uint64_t miss_bloom4 = bloom4_64(rs->miss[rs_hdr]);
 
@@ -179,17 +179,17 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 		 * or with a different set. */
 		if (dupe_det) {
 
-			if (rs->miss_cnt > ts->miss_cnt)
+			if (rs->miss.size() > ts->miss.size())
 				goto next_sig;
 
-			for (rs_hdr = 0; rs_hdr < rs->miss_cnt; rs_hdr++) {
+			for (rs_hdr = 0; rs_hdr < rs->miss.size(); rs_hdr++) {
 
-				for (ts_hdr = 0; ts_hdr < ts->miss_cnt; ts_hdr++)
+				for (ts_hdr = 0; ts_hdr < ts->miss.size(); ts_hdr++)
 					if (rs->miss[rs_hdr] == ts->miss[ts_hdr])
 						break;
 
 				// One of the reference headers doesn't appear in current sig!
-				if (ts_hdr == ts->miss_cnt)
+				if (ts_hdr == ts->miss.size())
 					goto next_sig;
 			}
 		}
@@ -972,7 +972,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 	// habsent
 	if (in.peek() != ':') {
 		do {
-			if (hsig->miss_cnt >= HTTP_MAX_HDRS) {
+			if (hsig->miss.size() >= HTTP_MAX_HDRS) {
 				FATAL("Too many headers listed in line %u.", line_no);
 			}
 
@@ -981,11 +981,8 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			uint32_t id = lookup_hdr(habsent_key, 1);
-
-			hsig->miss[hsig->miss_cnt] = id;
-
-			hsig->miss_cnt++;
+			int32_t id = lookup_hdr(habsent_key, 1);
+			hsig->miss.push_back(id);
 		} while (in.match(','));
 	}
 
