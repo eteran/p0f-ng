@@ -863,7 +863,7 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 
 	const tcp_sig_record *const m = sig->matched;
 	if (m) {
-		observf(libp0f_context, (m->class_id == InvalidId || f->sendsyn) ? "app" : "os", "%s%s%s",
+		report_observation(libp0f_context, (m->class_id == InvalidId || f->sendsyn) ? "app" : "os", "%s%s%s",
 				fp_context.fp_os_names_[m->name_id].c_str(),
 				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");
@@ -873,14 +873,14 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 	}
 
 	if (m && m->bad_ttl) {
-		observf(libp0f_context, "dist", "<= %u", sig->dist);
+		report_observation(libp0f_context, "dist", "<= %u", sig->dist);
 	} else {
 		if (to_srv)
 			f->client->distance = sig->dist;
 		else
 			f->server->distance = sig->dist;
 
-		observf(libp0f_context, "dist", "%u", sig->dist);
+		report_observation(libp0f_context, "dist", "%u", sig->dist);
 	}
 
 	libp0f_context->observation_field("params", dump_flags(pk, sig).c_str());
@@ -1008,11 +1008,11 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, l
 		f->server->up_mod_days = up_mod_days;
 	}
 
-	observf(libp0f_context, "uptime", "%u days %u hrs %u min (modulo %u days)",
+	report_observation(libp0f_context, "uptime", "%u days %u hrs %u min (modulo %u days)",
 			(up_min / 60 / 24), (up_min / 60) % 24, up_min % 60,
 			up_mod_days);
 
-	observf(libp0f_context, "raw_freq", "%.02f Hz", ffreq);
+	report_observation(libp0f_context, "raw_freq", "%.02f Hz", ffreq);
 }
 
 // See if any of the p0f.fp signatures matches the collected data.

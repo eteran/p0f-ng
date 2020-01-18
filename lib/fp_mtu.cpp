@@ -85,5 +85,5 @@ void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f
 			f->server->link_type = sigs_[bucket][i].name;
 	}
 
-	observf(libp0f_context, "raw_mtu", "%u", mtu);
+	report_observation(libp0f_context, "raw_mtu", "%u", mtu);
 }

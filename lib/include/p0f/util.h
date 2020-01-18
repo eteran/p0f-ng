@@ -29,7 +29,7 @@ void append_format(std::ostream &os, const char *fmt, T &&... args) {
 }
 
 template <class... T>
-void observf(libp0f_context_t *libp0f_context, const char *key, const char *fmt, T &&... args) {
+void report_observation(libp0f_context_t *libp0f_context, const char *key, const char *fmt, T &&... args) {
 	char *ptr = nullptr;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"

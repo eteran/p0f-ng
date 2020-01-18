@@ -561,7 +561,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_contex
 
 	if ((m = f->http_tmp.matched)) {
 
-		observf(libp0f_context, (m->class_id == InvalidId) ? "app" : "os", "%s%s%s",
+		report_observation(libp0f_context, (m->class_id == InvalidId) ? "app" : "os", "%s%s%s",
 				fp_context.fp_os_names_[m->name_id].c_str(),
 				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");

@@ -1242,7 +1242,7 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 
 	libp0f_context->observation_field("reason", !rea.empty() ? (rea.c_str() + 1) : nullptr);
 
-	observf(libp0f_context, "raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
+	report_observation(libp0f_context, "raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
 }
 
 // Verify if tool class (called from modules).
