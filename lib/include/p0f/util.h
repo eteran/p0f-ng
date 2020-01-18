@@ -61,4 +61,6 @@ inline char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 	return tmp;
 }
 
+constexpr uint32_t InvalidId = static_cast<uint32_t>(-1);
+
 #endif

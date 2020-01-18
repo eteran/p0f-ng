@@ -100,8 +100,8 @@ struct host_data {
 	std::unique_ptr<tcp_sig> last_syn;    // Sig of the most recent SYN
 	std::unique_ptr<tcp_sig> last_synack; // Sig of the most recent SYN+ACK
 
-	int32_t last_class_id = 0;              // OS class ID (-1 = not found)
-	int32_t last_name_id  = 0;              // OS name ID (-1 = not found)
+	uint32_t last_class_id = 0;             // OS class ID (-1 = not found)
+	uint32_t last_name_id  = 0;             // OS name ID (-1 = not found)
 	ext::optional<std::string> last_flavor; // Last OS flavor
 
 	uint8_t last_quality = 0; // Generic or fuzzy match?
@@ -112,8 +112,8 @@ struct host_data {
 	uint8_t srv_scores[NAT_SCORES] = {}; // Scoreboard for server NAT
 	uint16_t nat_reasons           = 0;  // NAT complaints
 
-	uint32_t last_nat = 0; // Last NAT detection time
-	time_t last_chg   = 0; // Last OS change detection time
+	time_t last_nat = 0; // Last NAT detection time
+	time_t last_chg = 0; // Last OS change detection time
 
 	uint16_t last_port = 0; // Source port on last SYN
 
@@ -126,7 +126,7 @@ struct host_data {
 	std::shared_ptr<http_sig> http_req_os; // Last request, if class != -1
 	std::shared_ptr<http_sig> http_resp;   // Last response
 
-	int32_t http_name_id = 0;               // Client name ID (-1 = not found)
+	uint32_t http_name_id = 0;              // Client name ID (-1 = not found)
 	ext::optional<std::string> http_flavor; // Client flavor
 
 	const char *language = nullptr; // Detected language
@@ -195,7 +195,7 @@ struct packet_flow {
 
 struct process_context_t {
 public:
-	void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data);
+	void parse_packet(libp0f_context_t *libp0f_context, const pcap_pkthdr *hdr, const uint8_t *data);
 	uint64_t get_unix_time_ms();
 	time_t get_unix_time();
 	void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context);

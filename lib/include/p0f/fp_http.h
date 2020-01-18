@@ -27,14 +27,14 @@ struct http_sig_record;
 // Another internal structure for UA -> OS maps:
 struct ua_map_record {
 	std::string name;
-	int32_t id;
+	uint32_t id;
 };
 
 // HTTP header field:
 struct http_hdr {
 	ext::optional<std::string> name;  // Text name (nullptr = use lookup ID)
 	ext::optional<std::string> value; // Value, if any
-	int32_t id    = 0;                // Lookup ID (-1 = none)
+	uint32_t id   = 0;                // Lookup ID (-1 = none)
 	bool optional = false;            // Optional header?
 };
 
@@ -47,7 +47,7 @@ struct http_sig {
 
 	uint64_t hdr_bloom4 = 0; // Bloom filter for headers
 
-	std::vector<int32_t> miss; // Missing headers
+	std::vector<uint32_t> miss; // Missing headers
 
 	ext::optional<std::string> sw;   // Software string (U-A or Server)
 	ext::optional<std::string> lang; // Accept-Language
@@ -65,11 +65,11 @@ struct http_sig {
 // Record for a HTTP signature read from p0f.fp:
 struct http_sig_record {
 
-	int32_t class_id = 0;              // OS class ID (-1 = user)
-	int32_t name_id  = 0;              // OS name ID
+	uint32_t class_id = 0;             // OS class ID (-1 = user)
+	uint32_t name_id  = 0;             // OS name ID
 	ext::optional<std::string> flavor; // Human-readable flavor string
 
-	int32_t label_id = 0; // Signature label ID
+	uint32_t label_id = 0; // Signature label ID
 
 	std::vector<uint32_t> sys; // OS class / name IDs for user apps
 
@@ -86,10 +86,10 @@ public:
 public:
 	bool process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context);
 	void http_parse_ua(ext::string_view value, uint32_t line_no);
-	void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
+	void http_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
 
 private:
-	int32_t lookup_hdr(const std::string &name, bool create);
+	uint32_t lookup_hdr(const std::string &name, bool create);
 	void http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det);
 	void http_find_match(bool to_srv, const std::unique_ptr<http_sig> &ts, uint8_t dupe_det);
 	std::string dump_sig(bool to_srv, const http_sig *hsig);

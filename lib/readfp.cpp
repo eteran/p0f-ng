@@ -33,6 +33,7 @@
 #include "p0f/p0f.h"
 #include "p0f/parser.h"
 #include "p0f/readfp.h"
+#include "p0f/util.h"
 
 fp_context_t fp_context;
 
@@ -280,7 +281,7 @@ void config_parse_line(ext::string_view line) {
 
 		config_parse_label(value);
 
-		if (fp_context.mod_type != CF_MOD_MTU && fp_context.sig_class < 0)
+		if (fp_context.mod_type != CF_MOD_MTU && fp_context.sig_class == InvalidId)
 			fp_context.state = CF_NEED_SYS;
 		else
 			fp_context.state = CF_NEED_SIG;
@@ -359,7 +360,7 @@ void config_parse_line(ext::string_view line) {
 }
 
 // Look up or create OS or application id.
-int32_t lookup_name_id(const char *name, size_t len) {
+uint32_t lookup_name_id(const char *name, size_t len) {
 
 	uint32_t i;
 
@@ -379,7 +380,7 @@ int32_t lookup_name_id(const char *name, size_t len) {
 
 }
 
-int32_t lookup_name_id(ext::string_view name) {
+uint32_t lookup_name_id(ext::string_view name) {
 	return lookup_name_id(name.data(), name.size());
 }
 

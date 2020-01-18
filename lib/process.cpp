@@ -669,9 +669,7 @@ time_t process_context_t::get_unix_time() {
 
 /* Parse PCAP input, with plenty of sanity checking. Store interesting details
  * in a protocol-agnostic buffer that will be then examined upstream. */
-void process_context_t::parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
-
-	auto libp0f_context = reinterpret_cast<libp0f_context_t *>(junk);
+void process_context_t::parse_packet(libp0f_context_t *libp0f_context, const pcap_pkthdr *hdr, const uint8_t *data) {
 
 	const tcp_hdr *tcp = nullptr;
 	packet_data pk     = {};
@@ -1259,7 +1257,7 @@ void process_context_t::verify_tool_class(bool to_srv, const packet_flow *f, con
 	/* No existing data; although there is perhaps some value in detecting
 	 * app-only conflicts in absence of other info, it's probably OK to just
 	 * wait until more data becomes available. */
-	if (hd->last_class_id == -1)
+	if (hd->last_class_id == InvalidId)
 		return;
 
 	uint32_t i = 0;

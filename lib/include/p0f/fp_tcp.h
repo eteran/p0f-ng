@@ -63,9 +63,9 @@ constexpr uint8_t WIN_TYPE_MTU    = 0x04; // Window size MTU multiplier
 // Record for a TCP signature read from p0f.fp:
 struct tcp_sig_record {
 
-	uint8_t generic  = 0;              // Generic entry?
-	int32_t class_id = 0;              // OS class ID (-1 = user)
-	int32_t name_id  = 0;              // OS name ID
+	uint8_t generic   = 0;             // Generic entry?
+	uint32_t class_id = 0;             // OS class ID (-1 = user)
+	uint32_t name_id  = 0;             // OS name ID
 	ext::optional<std::string> flavor; // Human-readable flavor string
 
 	uint32_t label_id = 0; // Signature label ID
@@ -81,7 +81,7 @@ struct tcp_sig_record {
 
 struct tcp_context_t {
 public:
-	void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
+	void tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
 	std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context);
 	void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context);
 

@@ -12,6 +12,7 @@
 #define HAVE_API_H_
 
 #include <cstdint>
+#include <ctime>
 
 constexpr uint32_t P0F_QUERY_MAGIC = 0x50304601;
 constexpr uint32_t P0F_RESP_MAGIC  = 0x50304602;
@@ -39,15 +40,15 @@ struct p0f_api_response {
 	uint32_t magic;  // Must be P0F_RESP_MAGIC
 	uint32_t status; // P0F_STATUS_*
 
-	uint32_t first_seen; // First seen (unix time)
-	uint32_t last_seen;  // Last seen (unix time)
+	time_t first_seen;   // First seen (unix time)
+	time_t last_seen;    // Last seen (unix time)
 	uint32_t total_conn; // Total connections seen
 
 	uint32_t uptime_min;  // Last uptime (minutes)
 	uint32_t up_mod_days; // Uptime modulo (days)
 
-	uint32_t last_nat; // NAT / LB last detected (unix time)
-	uint32_t last_chg; // OS chg last detected (unix time)
+	time_t last_nat; // NAT / LB last detected (unix time)
+	time_t last_chg; // OS chg last detected (unix time)
 
 	int16_t distance; // System distance
 

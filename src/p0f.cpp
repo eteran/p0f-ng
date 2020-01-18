@@ -91,8 +91,8 @@ struct p0f_context_t {
 	uint32_t api_max_conn = API_MAX_CONN; // Maximum number of API connections
 	int32_t null_fd       = -1;           // File descriptor of /dev/null
 	int32_t api_fd        = -1;           // API socket descriptor
-	bool stop_soon     = false;            // Ctrl-C or so pressed?
-	bool set_promisc   = false;            // Use promiscuous mode?
+	bool stop_soon        = false;        // Ctrl-C or so pressed?
+	bool set_promisc      = false;        // Use promiscuous mode?
 	uint8_t obs_fields    = 0;            // No of pending observation fields
 	uint8_t daemon_mode   = 0;            // Running in daemon mode?
 };
@@ -563,7 +563,8 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 }
 
 void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
-	process_context.parse_packet(junk, hdr, data);
+	auto ctx = reinterpret_cast<libp0f_context_t *>(junk);
+	process_context.parse_packet(ctx, hdr, data);
 }
 
 // Process API queries.
@@ -600,7 +601,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	r->last_seen  = h->last_seen;
 	r->total_conn = h->total_conn;
 
-	if (h->last_name_id != -1) {
+	if (h->last_name_id != InvalidId) {
 		strncpy(r->os_name, fp_context.fp_os_names[h->last_name_id].c_str(), P0F_STR_MAX + 1);
 		r->os_name[P0F_STR_MAX] = '\0';
 
@@ -610,7 +611,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 		}
 	}
 
-	if (h->http_name_id != -1) {
+	if (h->http_name_id != InvalidId) {
 		strncpy(r->http_name, fp_context.fp_os_names[h->http_name_id].c_str(), P0F_STR_MAX + 1);
 		r->http_name[P0F_STR_MAX] = '\0';
 

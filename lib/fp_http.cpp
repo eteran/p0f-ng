@@ -70,13 +70,13 @@ time_t parse_date(const char *str) {
 }
 
 // Look up or register new header
-int32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
+uint32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
 
 	std::hash<std::string> hasher;
 	uint32_t bucket = hasher(name) % SIG_BUCKETS;
 
 	uint32_t *p = &hdr_by_hash_[bucket][0];
-	uint32_t i  = hdr_by_hash_[bucket].size();
+	size_t i    = hdr_by_hash_[bucket].size();
 
 	while (i--) {
 		if (hdr_names_[*p] == name) {
@@ -87,7 +87,7 @@ int32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
 
 	// Not found!
 	if (!create)
-		return -1;
+		return InvalidId;
 
 	const size_t index = hdr_names_.size();
 
@@ -228,7 +228,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 	for (size_t i = 0; i < hsig->hdr.size(); i++) {
 
-		if (hsig->hdr[i].id >= 0) {
+		if (hsig->hdr[i].id != InvalidId) {
 
 			bool optional = false;
 
@@ -428,7 +428,7 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f, libp0f_context
 		goto header_check;
 	}
 
-	if (m->class_id == -1) {
+	if (m->class_id == InvalidId) {
 		/* Got a match for an application signature. Make sure it runs on the
 		 * OS we have on file... */
 		process_context.verify_tool_class(to_srv, f, m->sys, libp0f_context);
@@ -488,7 +488,7 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f, libp0f_context
 
 	/* If we have determined that U-A looks legit, but the OS doesn't match,
 	 * that's a clear sign of trouble. */
-	if (to_srv && m->class_id == -1 && f->http_tmp.sw && !f->http_tmp.dishonest) {
+	if (to_srv && m->class_id == InvalidId && f->http_tmp.sw && !f->http_tmp.dishonest) {
 
 		size_t i;
 
@@ -561,7 +561,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_contex
 
 	if ((m = f->http_tmp.matched)) {
 
-		observf(libp0f_context, (m->class_id == -1) ? "app" : "os", "%s%s%s",
+		observf(libp0f_context, (m->class_id == InvalidId) ? "app" : "os", "%s%s%s",
 				fp_context.fp_os_names[m->name_id].c_str(),
 				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");
@@ -614,7 +614,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_contex
 			f->server->language = lang;
 
 		if (m) {
-			if (m->class_id != -1) {
+			if (m->class_id != InvalidId) {
 
 				// If this is an OS signature, update host record.
 				f->server->last_class_id = m->class_id;
@@ -638,7 +638,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_contex
 			f->client->language = lang;
 
 		if (m) {
-			if (m->class_id != -1) {
+			if (m->class_id != InvalidId) {
 
 				// Client request - only OS sig is of any note.
 				f->client->http_req_os = std::make_shared<http_sig>(f->http_tmp);
@@ -775,12 +775,12 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more,
 
 		/* Header value starts at vstart, and has vlen bytes (may be zero).
 		 * Record this in the signature. */
-		const int32_t hid = lookup_hdr(std::string(pay + f->http_pos, nlen), false);
+		const uint32_t hid = lookup_hdr(std::string(pay + f->http_pos, nlen), false);
 
 		http_hdr new_hdr;
 		new_hdr.id = hid;
 
-		if (hid == -1) {
+		if (hid == InvalidId) {
 			// Header ID not found, store literal value.
 			new_hdr.name = std::string(pay + f->http_pos, nlen);
 		} else {
@@ -897,7 +897,7 @@ http_context_t::http_context_t() {
 }
 
 // Register new HTTP signature.
-void http_context_t::http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
+void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
 
 	auto hsig = std::make_unique<http_sig>();
 
@@ -932,7 +932,7 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, int32_t sig
 				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			const int32_t id = lookup_hdr(horder_key, true);
+			const uint32_t id = lookup_hdr(horder_key, true);
 
 			http_hdr new_hdr;
 			new_hdr.id       = id;
@@ -979,7 +979,7 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, int32_t sig
 				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			int32_t id = lookup_hdr(habsent_key, true);
+			uint32_t id = lookup_hdr(habsent_key, true);
 			hsig->miss.push_back(id);
 		} while (in.match(','));
 	}
@@ -1029,7 +1029,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
-		int32_t id = lookup_name_id(system_str);
+		uint32_t id = lookup_name_id(system_str);
 
 		ext::optional<std::string> name;
 		if (in.match('=')) {

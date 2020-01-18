@@ -37,7 +37,7 @@ void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext
 	if (!in.match([](char ch) { return isdigit(ch); }, &mtu_str)) {
 		FATAL("Malformed MTU value in line %u.", line_no);
 	}
-	const int32_t mtu = stoi(mtu_str);
+	const int mtu = stoi(mtu_str);
 
 	if (mtu <= 0 || mtu > 65535)
 		FATAL("Malformed MTU value in line %u.", line_no);
@@ -45,7 +45,7 @@ void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext
 	const uint32_t bucket = mtu % SIG_BUCKETS;
 
 	mtu_sig_record sig;
-	sig.mtu  = mtu;
+	sig.mtu  = static_cast<uint16_t>(mtu);
 	sig.name = name;
 
 	sigs_[bucket].push_back(sig);

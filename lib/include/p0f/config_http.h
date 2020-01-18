@@ -11,7 +11,7 @@
 // A structure used for looking up various headers internally in fp_http.c:
 struct http_id {
 	const char *name;
-	int32_t id;
+	uint32_t id;
 };
 
 constexpr http_id req_optional_init[] = {

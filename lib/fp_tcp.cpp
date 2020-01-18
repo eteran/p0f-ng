@@ -47,8 +47,9 @@ constexpr uint8_t guess_dist(uint8_t ttl) {
  * scaling into account, because neither do TCP stack developers. */
 int16_t detect_win_multi(const std::unique_ptr<tcp_sig> &ts, bool *use_mtu, uint16_t syn_mss) {
 
-	uint16_t win = ts->win;
-	int32_t mss = ts->mss, mss12 = mss - 12;
+	uint16_t win  = ts->win;
+	int32_t mss   = ts->mss;
+	int32_t mss12 = mss - 12;
 
 	if (!win || mss < 100 || ts->win_type != WIN_TYPE_NORMAL)
 		return -1;
@@ -287,7 +288,7 @@ void score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, packet_flow *f,
 		 * check if class / name is the same as on file, as that data might
 		 * have been obtained from other types of sigs. */
 
-		if (sig->matched && hd->last_class_id != -1) {
+		if (sig->matched && hd->last_class_id != InvalidId) {
 
 			if (hd->last_name_id != sig->matched->name_id) {
 
@@ -382,7 +383,7 @@ void score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, packet_flow *f,
 
 	/* Unless the signatures are already known to differ radically, mismatch
 	 * between host data and current sig is of additional note. */
-	if (!diff_already && sig->matched && hd->last_class_id != -1 && hd->last_name_id != sig->matched->name_id) {
+	if (!diff_already && sig->matched && hd->last_class_id != InvalidId && hd->last_name_id != sig->matched->name_id) {
 
 		DEBUG("[#] New OS signature different OS type than host data.\n");
 		score += 8;
@@ -488,7 +489,7 @@ log_and_update:
 
 /* Parse TCP-specific bits and register a signature read from p0f.fp.
  * This function is too long. */
-void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
+void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
 
 	int8_t ver;
 	int8_t win_type;
@@ -628,7 +629,6 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	if (!in.match(','))
 		FATAL("Malformed signature in line %u.", line_no);
 
-
 	// Window scale
 	int scale;
 	if (in.match('*')) {
@@ -724,7 +724,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	const uint32_t opt_hash = hash32(opt_layout.data(), opt_layout.size());
 
 	// Quirks
-	uint32_t quirks     = 0;
+	uint32_t quirks = 0;
 	while (in.peek() != ':') {
 		if (in.match("df")) {
 			if (ver == IP_VER6)
@@ -863,7 +863,7 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 
 	const tcp_sig_record *const m = sig->matched;
 	if (m) {
-		observf(libp0f_context, (m->class_id == -1 || f->sendsyn) ? "app" : "os", "%s%s%s",
+		observf(libp0f_context, (m->class_id == InvalidId || f->sendsyn) ? "app" : "os", "%s%s%s",
 				fp_context.fp_os_names[m->name_id].c_str(),
 				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");
@@ -891,7 +891,7 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 		f->syn_mss = pk->mss;
 
 	// That's about as far as we go with non-OS signatures.
-	if (m && m->class_id == -1) {
+	if (m && m->class_id == InvalidId) {
 		process_context.verify_tool_class(to_srv, f, m->sys, libp0f_context);
 		return nullptr;
 	}
@@ -1145,7 +1145,8 @@ void tcp_context_t::tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &
 	}
 
 	// No fuzzy matching for userland tools.
-	if (fmatch && fmatch->class_id == -1) return;
+	if (fmatch && fmatch->class_id == InvalidId)
+		return;
 
 	/* Let's try to guess distance if no match; or if match TTL out of
 	 range. */

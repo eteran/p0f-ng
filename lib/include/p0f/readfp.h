@@ -35,12 +35,12 @@ enum States : uint8_t {
 // Flag to distinguish OS class and name IDs
 constexpr uint32_t SYS_CLASS_FLAG = 1u << 31;
 
-constexpr int32_t SYS_NF(uint32_t x) {
+constexpr uint32_t SYS_NF(uint32_t x) {
 	return (x & ~SYS_CLASS_FLAG);
 }
 
 void read_config(const char *fname);
-int32_t lookup_name_id(ext::string_view name);
+uint32_t lookup_name_id(ext::string_view name);
 
 struct fp_context_t {
 	uint32_t sig_cnt = 0; // Total number of p0f.fp sigs
@@ -50,14 +50,14 @@ struct fp_context_t {
 	uint8_t mod_to_srv = 0;            // Traffic direction
 	uint8_t generic    = 0;            // Generic signature?
 
-	int32_t sig_class = 0;                 // Signature class ID (-1 = userland)
-	int32_t sig_name  = 0;                 // Signature name
+	uint32_t sig_class = 0;                // Signature class ID (-1 = userland)
+	uint32_t sig_name  = 0;                // Signature name
 	ext::optional<std::string> sig_flavor; // Signature flavor
 
 	std::vector<uint32_t> cur_sys; // Current 'sys' values
 
-	int32_t label_id = 0; // Current label ID
-	uint32_t line_no = 0; // Current line number
+	uint32_t label_id = 0; // Current label ID
+	uint32_t line_no  = 0; // Current line number
 
 	// Map of OS classes
 	std::vector<std::string> fp_os_classes;
