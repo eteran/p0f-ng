@@ -11,6 +11,8 @@
 #ifndef HAVE_CONFIG_H_
 #define HAVE_CONFIG_H_
 
+#include <cstddef>
+
 /* ------------------------------------------
  * Things you may reasonably want to change *
  * -----------------------------------------*/
@@ -63,7 +65,7 @@ constexpr int KILL_PERCENT = 10;
 constexpr int SNAPLEN = 65535;
 
 // Maximum request, response size to keep per flow:
-constexpr int MAX_FLOW_DATA = 8192;
+constexpr size_t MAX_FLOW_DATA = 8192;
 
 // Maximum number of TCP options we will process (< 256):
 constexpr int MAX_TCP_OPT = 24;

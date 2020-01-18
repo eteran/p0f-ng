@@ -12,7 +12,7 @@
 #ifndef HAVE_HASH_H_
 #define HAVE_HASH_H_
 
-#include "types.h"
+#include "memory.h"
 
 constexpr uint32_t ROL32(uint32_t value, unsigned r) {
 	return (value << r) | (value >> (32 - r));

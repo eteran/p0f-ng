@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_TYPES_H_
-#define HAVE_TYPES_H_
+#ifndef HAVE_MEMORY_H_
+#define HAVE_MEMORY_H_
 
 #include <cstdint>
 #include <cstring>

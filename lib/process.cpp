@@ -481,18 +481,14 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 	case TCP_RST:
 	case TCP_FIN | TCP_ACK:
 	case TCP_FIN:
-
 		if (f) {
-
 			check_ts_tcp(to_srv, pk, f, libp0f_context);
 			destroy_flow(f);
 		}
-
 		break;
-
 	case TCP_ACK:
-
-		if (!f) return;
+		if (!f)
+			return;
 
 		// Stop there, you criminal scum!
 		if (f->sendsyn) {
@@ -501,7 +497,6 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 		}
 
 		if (!f->acked) {
-
 			DEBUG("[#] Never received SYN+ACK to complete handshake, huh.\n");
 			destroy_flow(f);
 			return;
@@ -509,9 +504,8 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 
 		if (to_srv) {
 
-			/* We don't do stream reassembly, so if something arrives out of order,
-		   we won't catch it. Oh well. */
-
+			/* We don't do stream reassembly, so if something arrives out of
+			 * order, we won't catch it. Oh well. */
 			if (f->next_cli_seq != pk->seq) {
 
 				// Not a simple dupe?
@@ -523,8 +517,8 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 
 			// Append data
 			if (f->request.size() < MAX_FLOW_DATA && pk->pay_len) {
-				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->request.size());
-				f->request.append(reinterpret_cast<char *>(pk->payload), read_amt);
+				const size_t read_amt = std::min<size_t>(pk->pay_len, MAX_FLOW_DATA - f->request.size());
+				f->request.append(reinterpret_cast<const char *>(pk->payload), read_amt);
 			}
 
 			check_ts_tcp(1, pk, f, libp0f_context);
@@ -545,9 +539,8 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 
 			// Append data
 			if (f->response.size() < MAX_FLOW_DATA && pk->pay_len) {
-
-				uint32_t read_amt = std::min<uint32_t>(pk->pay_len, MAX_FLOW_DATA - f->response.size());
-				f->response.append(reinterpret_cast<char *>(pk->payload), read_amt);
+				const size_t read_amt = std::min<size_t>(pk->pay_len, MAX_FLOW_DATA - f->response.size());
+				f->response.append(reinterpret_cast<const char *>(pk->payload), read_amt);
 			}
 
 			check_ts_tcp(0, pk, f, libp0f_context);
@@ -575,21 +568,23 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 
 // Go through host and flow cache, expire outdated items.
 void expire_cache(libp0f_context_t *libp0f_context) {
-	host_data *target;
-	static time_t pt;
 
+	static time_t pt;
 	const time_t ct = get_unix_time();
 
-	if (ct == pt)
+	if (ct == pt) {
 		return;
+	}
+
 	pt = ct;
 
 	DEBUG("[#] Cache expiration kicks in...\n");
 
-	while (process_context.flow_by_age && ct - process_context.flow_by_age->created > libp0f_context->conn_max_age)
+	while (process_context.flow_by_age && ct - process_context.flow_by_age->created > libp0f_context->conn_max_age) {
 		destroy_flow(process_context.flow_by_age);
+	}
 
-	target = process_context.host_by_age;
+	host_data *target = process_context.host_by_age;
 
 	while (target && ct - target->last_seen > libp0f_context->host_idle_limit * 60) {
 		host_data *newer = target->newer;
@@ -1002,8 +997,7 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 		pk.payload = nullptr;
 		pk.pay_len = 0;
 	} else {
-
-		pk.payload = const_cast<uint8_t *>(data) + tcp_doff;
+		pk.payload = data + tcp_doff;
 		pk.pay_len = packet_len - tcp_doff;
 	}
 
@@ -1020,19 +1014,18 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 	pk.ts1         = 0;
 
 	/* Option parsing problems are non-fatal, but we want to keep track of
-	 them to spot buggy TCP stacks. */
+	 * them to spot buggy TCP stacks. */
 
 	while (data < opt_end) {
 
 		pk.opt_layout.push_back(*data);
 
 		switch (*data++) {
-
 		case TCPOPT_EOL:
 
 			/* EOL is a single-byte option that aborts further option parsing.
-		   Take note of how many bytes of option data are left, and if any of
-		   them are non-zero. */
+			 * Take note of how many bytes of option data are left, and if any
+			 * of them are non-zero. */
 
 			pk.opt_eol_pad = opt_end - data;
 
@@ -1045,14 +1038,10 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 			}
 
 			break;
-
 		case TCPOPT_NOP:
-
 			// NOP is a single-byte option that does nothing.
 			break;
-
 		case TCPOPT_MAXSEG:
-
 			// MSS is a four-byte option with specified size.
 			if (data + 3 > opt_end) {
 				DEBUG("[#] MSS option would end past end of header (%ld left).\n",
@@ -1066,13 +1055,9 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 			}
 
 			pk.mss = ntohs(RD16p(data + 1));
-
 			data += 3;
-
 			break;
-
 		case TCPOPT_WSCALE:
-
 			// WS is a three-byte option with specified size.
 			if (data + 2 > opt_end) {
 				DEBUG("[#] WS option would end past end of header (%ld left).\n",
@@ -1087,12 +1072,11 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 
 			pk.wscale = data[1];
 
-			if (pk.wscale > 14) pk.quirks |= QUIRK_OPT_EXWS;
+			if (pk.wscale > 14)
+				pk.quirks |= QUIRK_OPT_EXWS;
 
 			data += 2;
-
 			break;
-
 		case TCPOPT_SACKOK:
 
 			// SACKOK is a two-byte option with specified size.
@@ -1106,16 +1090,12 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 				DEBUG("[#] SACKOK option expected to have 2 bytes, not %u.\n", *data);
 				pk.quirks |= QUIRK_OPT_BAD;
 			}
-
 			data++;
-
 			break;
-
 		case TCPOPT_SACK:
-
-			/* SACK is a variable-length option of 10 to 34 bytes. Because we don't
-		   know the size any better, we need to bail out if it looks wonky. */
-
+			/* SACK is a variable-length option of 10 to 34 bytes.
+			 * Because we don't know the size any better, we need to bail out
+			 * if it looks wonky. */
 			if (data == opt_end) {
 				DEBUG("[#] SACK option without room for length field.");
 				goto abort_options;
@@ -1131,11 +1111,8 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 					  *data, opt_end - data);
 				goto abort_options;
 			}
-
 			data += *data - 1;
-
 			break;
-
 		case TCPOPT_TSTAMP:
 
 			// Timestamp is a ten-byte option with specified size.
@@ -1153,7 +1130,8 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 
 			pk.ts1 = ntohl(RD32p(data + 1));
 
-			if (!pk.ts1) pk.quirks |= QUIRK_OPT_ZERO_TS1;
+			if (!pk.ts1)
+				pk.quirks |= QUIRK_OPT_ZERO_TS1;
 
 			if (pk.tcp_type == TCP_SYN && RD32p(data + 5)) {
 
@@ -1164,11 +1142,8 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 			}
 
 			data += 9;
-
 			break;
-
 		default:
-
 			// Unknown option, presumably with specified size.
 			if (data == opt_end) {
 				DEBUG("[#] Unknown option 0x%02x without room for length field.",
@@ -1193,7 +1168,6 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 	}
 
 	if (data != opt_end) {
-
 	abort_options:
 
 		DEBUG("[#] Option parsing aborted (cnt = %lu, remainder = %ld).\n",

@@ -22,7 +22,7 @@ add_library(p0f-engine
     include/p0f/process.h
     include/p0f/readfp.h
     include/p0f/tcp.h
-    include/p0f/types.h
+	include/p0f/memory.h
     include/p0f/util.h
 	include/p0f/engine.h
 	include/p0f/config_http.h

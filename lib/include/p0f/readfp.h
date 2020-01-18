@@ -18,15 +18,19 @@
 #include <vector>
 
 // List of fingerprinting modules:
-#define CF_MOD_TCP 0x00  // fp_tcp.c
-#define CF_MOD_MTU 0x01  // fp_mtu.c
-#define CF_MOD_HTTP 0x02 // fp_http.c
+enum Modules : uint8_t {
+	CF_MOD_TCP  = 0x00, // fp_tcp.c
+	CF_MOD_MTU  = 0x01, // fp_mtu.c
+	CF_MOD_HTTP = 0x02, // fp_http.c
+};
 
 // Parser states:
-#define CF_NEED_SECT 0x00  // Waiting for [...] or 'classes'
-#define CF_NEED_LABEL 0x01 // Waiting for 'label'
-#define CF_NEED_SYS 0x02   // Waiting for 'sys'
-#define CF_NEED_SIG 0x03   // Waiting for signatures, if any.
+enum States : uint8_t {
+	CF_NEED_SECT  = 0x00, // Waiting for [...] or 'classes'
+	CF_NEED_LABEL = 0x01, // Waiting for 'label'
+	CF_NEED_SYS   = 0x02, // Waiting for 'sys'
+	CF_NEED_SIG   = 0x03, // Waiting for signatures, if any.
+};
 
 // Flag to distinguish OS class and name IDs
 constexpr uint32_t SYS_CLASS_FLAG = 1u << 31;

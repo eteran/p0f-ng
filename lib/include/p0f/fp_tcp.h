@@ -54,11 +54,11 @@ struct tcp_sig {
 };
 
 // Methods for matching window size in tcp_sig:
-#define WIN_TYPE_NORMAL 0x00 // Literal value
-#define WIN_TYPE_ANY 0x01    // Wildcard (p0f.fp sigs only)
-#define WIN_TYPE_MOD 0x02    // Modulo check (p0f.fp sigs only)
-#define WIN_TYPE_MSS 0x03    // Window size MSS multiplier
-#define WIN_TYPE_MTU 0x04    // Window size MTU multiplier
+constexpr uint8_t WIN_TYPE_NORMAL = 0x00; // Literal value
+constexpr uint8_t WIN_TYPE_ANY    = 0x01; // Wildcard (p0f.fp sigs only)
+constexpr uint8_t WIN_TYPE_MOD    = 0x02; // Modulo check (p0f.fp sigs only)
+constexpr uint8_t WIN_TYPE_MSS    = 0x03; // Window size MSS multiplier
+constexpr uint8_t WIN_TYPE_MTU    = 0x04; // Window size MTU multiplier
 
 // Record for a TCP signature read from p0f.fp:
 struct tcp_sig_record {

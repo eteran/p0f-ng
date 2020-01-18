@@ -37,7 +37,6 @@ enum IP_VER {
  * IPv4 *
  * -----*/
 struct ipv4_hdr {
-
 	uint8_t ver_hlen;   // IP version (4), IP hdr len in dwords (4)
 	uint8_t tos_ecn;    // ToS field (6), ECN flags (2)
 	uint16_t tot_len;   // Total packet length, in bytes
@@ -60,9 +59,7 @@ struct ipv4_hdr {
 /********
  * IPv6 *
  ********/
-
 struct ipv6_hdr {
-
 	uint32_t ver_tos; // Version (4), ToS (6), ECN (2), flow (20)
 	uint16_t pay_len; // Total payload length, in bytes
 	uint8_t proto;    // Next protocol
@@ -80,7 +77,6 @@ struct ipv6_hdr {
  * TCP *
  * ----*/
 struct tcp_hdr {
-
 	uint16_t sport;    // Source port
 	uint16_t dport;    // Destination port
 	uint32_t seq;      // Sequence number

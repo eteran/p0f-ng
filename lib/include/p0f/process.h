@@ -50,34 +50,36 @@ struct packet_data {
 
 	uint8_t ip_opt_len = 0; // Length of IP options
 
-	uint8_t *payload = nullptr; // TCP payload
-	uint16_t pay_len = 0;       // Length of TCP payload
+	const uint8_t *payload = nullptr; // TCP payload
+	uint32_t pay_len = 0;       // Length of TCP payload
 
 	uint32_t seq = 0; // seq value seen
 };
 
 // IP-level quirks:
-#define QUIRK_ECN 0x00000001     // ECN supported
-#define QUIRK_DF 0x00000002      // DF used (probably PMTUD)
-#define QUIRK_NZ_ID 0x00000004   // Non-zero IDs when DF set
-#define QUIRK_ZERO_ID 0x00000008 // Zero IDs when DF not set
-#define QUIRK_NZ_MBZ 0x00000010  // IP "must be zero" field isn't
-#define QUIRK_FLOW 0x00000020    // IPv6 flows used
+enum Quirks : uint32_t {
+	QUIRK_ECN     = 0x00000001, // ECN supported
+	QUIRK_DF      = 0x00000002, // DF used (probably PMTUD)
+	QUIRK_NZ_ID   = 0x00000004, // Non-zero IDs when DF set
+	QUIRK_ZERO_ID = 0x00000008, // Zero IDs when DF not set
+	QUIRK_NZ_MBZ  = 0x00000010, // IP "must be zero" field isn't
+	QUIRK_FLOW    = 0x00000020, // IPv6 flows used
 
-// Core TCP quirks:
-#define QUIRK_ZERO_SEQ 0x00001000 // SEQ is zero
-#define QUIRK_NZ_ACK 0x00002000   // ACK non-zero when ACK flag not set
-#define QUIRK_ZERO_ACK 0x00004000 // ACK is zero when ACK flag set
-#define QUIRK_NZ_URG 0x00008000   // URG non-zero when URG flag not set
-#define QUIRK_URG 0x00010000      // URG flag set
-#define QUIRK_PUSH 0x00020000     // PUSH flag on a control packet
+	// Core TCP quirks:
+	QUIRK_ZERO_SEQ = 0x00001000, // SEQ is zero
+	QUIRK_NZ_ACK   = 0x00002000, // ACK non-zero when ACK flag not set
+	QUIRK_ZERO_ACK = 0x00004000, // ACK is zero when ACK flag set
+	QUIRK_NZ_URG   = 0x00008000, // URG non-zero when URG flag not set
+	QUIRK_URG      = 0x00010000, // URG flag set
+	QUIRK_PUSH     = 0x00020000, // PUSH flag on a control packet
 
-// TCP option quirks:
-#define QUIRK_OPT_ZERO_TS1 0x01000000 // Own timestamp set to zero
-#define QUIRK_OPT_NZ_TS2 0x02000000   // Peer timestamp non-zero on SYN
-#define QUIRK_OPT_EOL_NZ 0x04000000   // Non-zero padding past EOL
-#define QUIRK_OPT_EXWS 0x08000000     // Excessive window scaling
-#define QUIRK_OPT_BAD 0x10000000      // Problem parsing TCP options
+	// TCP option quirks:
+	QUIRK_OPT_ZERO_TS1 = 0x01000000, // Own timestamp set to zero
+	QUIRK_OPT_NZ_TS2   = 0x02000000, // Peer timestamp non-zero on SYN
+	QUIRK_OPT_EOL_NZ   = 0x04000000, // Non-zero padding past EOL
+	QUIRK_OPT_EXWS     = 0x08000000, // Excessive window scaling
+	QUIRK_OPT_BAD      = 0x10000000, // Problem parsing TCP options
+};
 
 // Host record with persistent fingerprinting data:
 struct host_data {
