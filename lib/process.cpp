@@ -176,7 +176,7 @@ void touch_host(host_data *h) {
 		process_context.newest_host = h;
 
 		/* This wasn't the only entry on the list, so there is no
-	   need to update the tail (process_context.host_by_age). */
+		 * need to update the tail (process_context.host_by_age). */
 	}
 
 	// Update last seen time.
@@ -184,7 +184,7 @@ void touch_host(host_data *h) {
 }
 
 // Indiscriminately kill some of the oldest flows.
-void nuke_flows(uint8_t silent, libp0f_context_t *libp0f_context) {
+void nuke_flows(bool silent, libp0f_context_t *libp0f_context) {
 
 	uint32_t kcnt = 1 + (process_context.flow_cnt * KILL_PERCENT / 100);
 
@@ -210,17 +210,17 @@ uint32_t get_host_bucket(const uint8_t *addr, uint8_t ip_ver) {
 // Destroy host data.
 void destroy_host(host_data *h) {
 
-	uint32_t bucket;
+	const uint32_t bucket = get_host_bucket(h->addr, h->ip_ver);
 
-	bucket = get_host_bucket(h->addr, h->ip_ver);
-
-	if (h->use_cnt) FATAL("Attempt to destroy used host data.");
+	if (h->use_cnt)
+		FATAL("Attempt to destroy used host data.");
 
 	DEBUG("[#] Destroying host data: %s (bucket %d)\n",
 		  addr_to_str(h->addr, h->ip_ver), bucket);
 
 	// Remove it from the bucketed linked list.
-	if (h->next) h->next->prev = h->prev;
+	if (h->next)
+		h->next->prev = h->prev;
 
 	if (h->prev)
 		h->prev->next = h->next;
@@ -252,7 +252,7 @@ void nuke_hosts(libp0f_context_t *libp0f_context) {
 	if (!libp0f_context->read_file)
 		WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
 
-	nuke_flows(1, libp0f_context);
+	nuke_flows(true, libp0f_context);
 
 	while (kcnt && target) {
 		host_data *next = target->older;
@@ -318,7 +318,7 @@ packet_flow *create_flow_from_syn(packet_data *pk, libp0f_context_t *libp0f_cont
 	uint32_t bucket = get_flow_bucket(pk);
 
 	if (process_context.flow_cnt > libp0f_context->max_conn) {
-		nuke_flows(0, libp0f_context);
+		nuke_flows(false, libp0f_context);
 	}
 
 	DEBUG("[#] Creating flow from SYN: %s/%u -> ",
