@@ -31,14 +31,9 @@
 #include "p0f/tcp.h"
 #include "p0f/util.h"
 
-namespace {
-
-struct tcp_context_t {
-	// TCP signature buckets:
-	std::vector<tcp_sig_record> sigs[2][SIG_BUCKETS];
-};
-
 tcp_context_t tcp_context;
+
+namespace {
 
 // Figure out what the TTL distance might have been for an unknown sig.
 constexpr uint8_t guess_dist(uint8_t ttl) {
@@ -103,147 +98,6 @@ int16_t detect_win_multi(const std::unique_ptr<tcp_sig> &ts, bool *use_mtu, uint
 	return -1;
 }
 
-// See if any of the p0f.fp signatures matches the collected data.
-void tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss) {
-
-	tcp_sig_record *fmatch = nullptr;
-	tcp_sig_record *gmatch = nullptr;
-
-	uint32_t bucket = ts->opt_hash % SIG_BUCKETS;
-
-	bool use_mtu      = false;
-	int16_t win_multi = detect_win_multi(ts, &use_mtu, syn_mss);
-
-	for (size_t i = 0; i < tcp_context.sigs[to_srv][bucket].size(); i++) {
-
-		tcp_sig_record *ref                  = &tcp_context.sigs[to_srv][bucket][i];
-		const std::unique_ptr<tcp_sig> &refs = ref->sig;
-
-		uint8_t fuzzy       = 0;
-		uint32_t ref_quirks = refs->quirks;
-
-		if (ref->sig->opt_hash != ts->opt_hash) continue;
-
-		/* If the p0f.fp signature has no IP version specified, we need
-		 * to remove IPv6-specific quirks from it when matching IPv4
-		 * packets, and vice versa. */
-		if (refs->ip_ver == -1)
-			ref_quirks &= ((ts->ip_ver == IP_VER4) ? ~(QUIRK_FLOW) : ~(QUIRK_DF | QUIRK_NZ_ID | QUIRK_ZERO_ID));
-
-		if (ref_quirks != ts->quirks) {
-
-			uint32_t deleted = (ref_quirks ^ ts->quirks) & ref_quirks,
-					 added   = (ref_quirks ^ ts->quirks) & ts->quirks;
-
-			/* If there is a difference in quirks, but it amounts to 'df' or
-			 * 'id+' disappearing, or 'id-' or 'ecn' appearing, allow a fuzzy match. */
-			if (fmatch || (deleted & ~(QUIRK_DF | QUIRK_NZ_ID)) ||
-				(added & ~(QUIRK_ZERO_ID | QUIRK_ECN))) continue;
-
-			fuzzy = 1;
-		}
-
-		// Fixed parameters.
-		if (refs->opt_eol_pad != ts->opt_eol_pad ||
-			refs->ip_opt_len != ts->ip_opt_len) continue;
-
-		// TTL matching, with a provision to allow fuzzy match.
-		if (ref->bad_ttl) {
-			if (refs->ttl < ts->ttl) continue;
-
-		} else {
-			if (refs->ttl < ts->ttl || refs->ttl - ts->ttl > MAX_DIST) fuzzy = 1;
-		}
-
-		// Simple wildcards.
-		if (refs->mss != -1 && refs->mss != ts->mss) continue;
-		if (refs->wscale != -1 && refs->wscale != ts->wscale) continue;
-		if (refs->pay_class != -1 && refs->pay_class != ts->pay_class) continue;
-
-		// Window size.
-		if (ts->win_type != WIN_TYPE_NORMAL) {
-
-			// Comparing two p0f.fp signatures.
-			if (refs->win_type != ts->win_type || refs->win != ts->win) continue;
-
-		} else {
-
-			// Comparing real-world stuff.
-			switch (refs->win_type) {
-
-			case WIN_TYPE_NORMAL:
-
-				if (refs->win != ts->win) continue;
-				break;
-
-			case WIN_TYPE_MOD:
-
-				if (ts->win % refs->win) continue;
-				break;
-
-			case WIN_TYPE_MSS:
-
-				if (use_mtu || refs->win != win_multi) continue;
-				break;
-
-			case WIN_TYPE_MTU:
-
-				if (!use_mtu || refs->win != win_multi) continue;
-				break;
-
-				// WIN_TYPE_ANY
-			}
-		}
-
-		// Got a match? If not fuzzy, return. If fuzzy, keep looking.
-		if (!fuzzy) {
-
-			if (!ref->generic) {
-
-				ts->matched = ref;
-				ts->fuzzy   = 0;
-				ts->dist    = refs->ttl - ts->ttl;
-				return;
-
-			} else if (!gmatch)
-				gmatch = ref;
-
-		} else if (!fmatch)
-			fmatch = ref;
-	}
-
-	// OK, no definitive match so far...
-	if (dupe_det) return;
-
-	/* If we found a generic signature, and nothing better, let's just use
-	 that. */
-
-	if (gmatch) {
-
-		ts->matched = gmatch;
-		ts->fuzzy   = 0;
-		ts->dist    = gmatch->sig->ttl - ts->ttl;
-		return;
-	}
-
-	// No fuzzy matching for userland tools.
-	if (fmatch && fmatch->class_id == -1) return;
-
-	/* Let's try to guess distance if no match; or if match TTL out of
-	 range. */
-
-	if (!fmatch || fmatch->sig->ttl < ts->ttl ||
-		(!fmatch->bad_ttl && fmatch->sig->ttl - ts->ttl > MAX_DIST))
-		ts->dist = guess_dist(ts->ttl);
-	else
-		ts->dist = fmatch->sig->ttl - ts->ttl;
-
-	// Record the outcome.
-	ts->matched = fmatch;
-
-	if (fmatch) ts->fuzzy = 1;
-}
-
 /* Convert packet_data to a simplified tcp_sig representation
    suitable for signature matching. Compute hashes. */
 void packet_to_sig(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
@@ -262,7 +116,7 @@ void packet_to_sig(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
 	ts->pay_class   = !!pk->pay_len;
 	ts->tot_hdr     = pk->tot_hdr;
 	ts->ts1         = pk->ts1;
-	ts->recv_ms     = get_unix_time_ms();
+	ts->recv_ms     = process_context.get_unix_time_ms();
 	ts->matched     = nullptr;
 	ts->fuzzy       = 0;
 	ts->dist        = 0;
@@ -617,7 +471,7 @@ void score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, packet_flow *f,
 
 log_and_update:
 
-	add_nat_score(to_srv, f, reason, score, libp0f_context);
+	process_context.add_nat_score(to_srv, f, reason, score, libp0f_context);
 
 	// Update some of the essential records.
 	if (sig->matched) {
@@ -634,7 +488,7 @@ log_and_update:
 
 /* Parse TCP-specific bits and register a signature read from p0f.fp.
  * This function is too long. */
-void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
+void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
 
 	int8_t ver;
 	int8_t win_type;
@@ -985,13 +839,13 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 	trec.line_no  = line_no;
 	trec.sig      = std::move(tsig);
 	trec.bad_ttl  = bad_ttl;
-	tcp_context.sigs[to_srv][bucket].push_back(std::move(trec));
+	sigs_[to_srv][bucket].push_back(std::move(trec));
 
 	// All done, phew.
 }
 
 // Fingerprint SYN or SYN+ACK.
-std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
+std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	auto sig = std::make_unique<tcp_sig>();
 	packet_to_sig(pk, sig);
@@ -1040,7 +894,7 @@ std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_fl
 
 	// That's about as far as we go with non-OS signatures.
 	if (m && m->class_id == -1) {
-		verify_tool_class(to_srv, f, m->sys, libp0f_context);
+		process_context.verify_tool_class(to_srv, f, m->sys, libp0f_context);
 		return nullptr;
 	}
 
@@ -1054,7 +908,7 @@ std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_fl
 
 /* Perform uptime detection. This is the only FP function that gets called not
    only on SYN or SYN+ACK, but also on ACK traffic. */
-void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
+void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	uint32_t ts_diff;
 	uint64_t ms_diff;
@@ -1065,25 +919,24 @@ void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t
 
 	double ffreq;
 
-	if (!pk->ts1 || f->sendsyn) return;
+	if (!pk->ts1 || f->sendsyn)
+		return;
 
 	/* If we're getting SYNs very rapidly, last_syn may be changing too quickly
 	 to be of any use. Perhaps lock into an older value? */
 
 	if (to_srv) {
-
 		if (f->cli_tps || !f->client->last_syn || !f->client->last_syn->ts1)
 			return;
 
-		ms_diff = get_unix_time_ms() - f->client->last_syn->recv_ms;
+		ms_diff = process_context.get_unix_time_ms() - f->client->last_syn->recv_ms;
 		ts_diff = pk->ts1 - f->client->last_syn->ts1;
 
 	} else {
-
 		if (f->srv_tps || !f->server->last_synack || !f->server->last_synack->ts1)
 			return;
 
-		ms_diff = get_unix_time_ms() - f->server->last_synack->recv_ms;
+		ms_diff = process_context.get_unix_time_ms() - f->server->last_synack->recv_ms;
 		ts_diff = pk->ts1 - f->server->last_synack->ts1;
 	}
 
@@ -1162,4 +1015,151 @@ void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t
 			up_mod_days);
 
 	observf(libp0f_context, "raw_freq", "%.02f Hz", ffreq);
+}
+
+// See if any of the p0f.fp signatures matches the collected data.
+void tcp_context_t::tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss) {
+
+	tcp_sig_record *fmatch = nullptr;
+	tcp_sig_record *gmatch = nullptr;
+
+	uint32_t bucket = ts->opt_hash % SIG_BUCKETS;
+
+	bool use_mtu      = false;
+	int16_t win_multi = detect_win_multi(ts, &use_mtu, syn_mss);
+
+	for (size_t i = 0; i < sigs_[to_srv][bucket].size(); i++) {
+
+		tcp_sig_record *ref                  = &sigs_[to_srv][bucket][i];
+		const std::unique_ptr<tcp_sig> &refs = ref->sig;
+
+		uint8_t fuzzy       = 0;
+		uint32_t ref_quirks = refs->quirks;
+
+		if (ref->sig->opt_hash != ts->opt_hash) continue;
+
+		/* If the p0f.fp signature has no IP version specified, we need
+		 * to remove IPv6-specific quirks from it when matching IPv4
+		 * packets, and vice versa. */
+		if (refs->ip_ver == -1)
+			ref_quirks &= ((ts->ip_ver == IP_VER4) ? ~(QUIRK_FLOW) : ~(QUIRK_DF | QUIRK_NZ_ID | QUIRK_ZERO_ID));
+
+		if (ref_quirks != ts->quirks) {
+
+			uint32_t deleted = (ref_quirks ^ ts->quirks) & ref_quirks,
+					 added   = (ref_quirks ^ ts->quirks) & ts->quirks;
+
+			/* If there is a difference in quirks, but it amounts to 'df' or
+			 * 'id+' disappearing, or 'id-' or 'ecn' appearing, allow a fuzzy match. */
+			if (fmatch || (deleted & ~(QUIRK_DF | QUIRK_NZ_ID)) ||
+				(added & ~(QUIRK_ZERO_ID | QUIRK_ECN))) continue;
+
+			fuzzy = 1;
+		}
+
+		// Fixed parameters.
+		if (refs->opt_eol_pad != ts->opt_eol_pad ||
+			refs->ip_opt_len != ts->ip_opt_len)
+			continue;
+
+		// TTL matching, with a provision to allow fuzzy match.
+		if (ref->bad_ttl) {
+			if (refs->ttl < ts->ttl)
+				continue;
+
+		} else {
+			if (refs->ttl < ts->ttl || refs->ttl - ts->ttl > MAX_DIST) fuzzy = 1;
+		}
+
+		// Simple wildcards.
+		if (refs->mss != -1 && refs->mss != ts->mss)
+			continue;
+		if (refs->wscale != -1 && refs->wscale != ts->wscale)
+			continue;
+		if (refs->pay_class != -1 && refs->pay_class != ts->pay_class)
+			continue;
+
+		// Window size.
+		if (ts->win_type != WIN_TYPE_NORMAL) {
+
+			// Comparing two p0f.fp signatures.
+			if (refs->win_type != ts->win_type || refs->win != ts->win)
+				continue;
+
+		} else {
+
+			// Comparing real-world stuff.
+			switch (refs->win_type) {
+
+			case WIN_TYPE_NORMAL:
+
+				if (refs->win != ts->win) continue;
+				break;
+
+			case WIN_TYPE_MOD:
+
+				if (ts->win % refs->win) continue;
+				break;
+
+			case WIN_TYPE_MSS:
+
+				if (use_mtu || refs->win != win_multi) continue;
+				break;
+
+			case WIN_TYPE_MTU:
+
+				if (!use_mtu || refs->win != win_multi) continue;
+				break;
+
+				// WIN_TYPE_ANY
+			}
+		}
+
+		// Got a match? If not fuzzy, return. If fuzzy, keep looking.
+		if (!fuzzy) {
+
+			if (!ref->generic) {
+
+				ts->matched = ref;
+				ts->fuzzy   = 0;
+				ts->dist    = refs->ttl - ts->ttl;
+				return;
+
+			} else if (!gmatch)
+				gmatch = ref;
+
+		} else if (!fmatch)
+			fmatch = ref;
+	}
+
+	// OK, no definitive match so far...
+	if (dupe_det) return;
+
+	/* If we found a generic signature, and nothing better, let's just use
+	 that. */
+
+	if (gmatch) {
+
+		ts->matched = gmatch;
+		ts->fuzzy   = 0;
+		ts->dist    = gmatch->sig->ttl - ts->ttl;
+		return;
+	}
+
+	// No fuzzy matching for userland tools.
+	if (fmatch && fmatch->class_id == -1) return;
+
+	/* Let's try to guess distance if no match; or if match TTL out of
+	 range. */
+
+	if (!fmatch || fmatch->sig->ttl < ts->ttl ||
+		(!fmatch->bad_ttl && fmatch->sig->ttl - ts->ttl > MAX_DIST))
+		ts->dist = guess_dist(ts->ttl);
+	else
+		ts->dist = fmatch->sig->ttl - ts->ttl;
+
+	// Record the outcome.
+	ts->matched = fmatch;
+
+	if (fmatch) ts->fuzzy = 1;
 }

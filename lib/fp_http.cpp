@@ -430,7 +430,7 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f, libp0f_context
 	if (m->class_id == -1) {
 		/* Got a match for an application signature. Make sure it runs on the
 		 * OS we have on file... */
-		verify_tool_class(to_srv, f, m->sys, libp0f_context);
+		process_context.verify_tool_class(to_srv, f, m->sys, libp0f_context);
 
 		// ...and check for inconsistencies in server behavior.
 		if (!to_srv && ref && ref->matched) {
@@ -545,7 +545,7 @@ header_check:
 		}
 	}
 
-	add_nat_score(to_srv, f, reason, score, libp0f_context);
+	process_context.add_nat_score(to_srv, f, reason, score, libp0f_context);
 }
 
 // Look up HTTP signature, create an observation.
@@ -679,7 +679,7 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more,
 		// Empty line? Dispatch for fingerprinting!
 		if (pay[off] == '\r' || pay[off] == '\n') {
 
-			f->http_tmp.recv_date = get_unix_time();
+			f->http_tmp.recv_date = process_context.get_unix_time();
 
 			fingerprint_http(to_srv, f, libp0f_context);
 

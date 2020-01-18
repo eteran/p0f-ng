@@ -320,7 +320,7 @@ void config_parse_line(ext::string_view line) {
 
 		switch (fp_context.mod_type) {
 		case CF_MOD_TCP:
-			tcp_register_sig(
+			tcp_context.tcp_register_sig(
 				fp_context.mod_to_srv,
 				fp_context.generic,
 				fp_context.sig_class,

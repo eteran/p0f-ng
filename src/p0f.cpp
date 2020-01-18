@@ -292,9 +292,9 @@ void list_interfaces() {
 
 		if (a) {
 			if (a->addr->sa_family == PF_INET)
-				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 4, IP_VER4));
+				SAYF("     IP address  : %s\n", process_context_t::addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 4, IP_VER4));
 			else
-				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 8, IP_VER6));
+				SAYF("     IP address  : %s\n", process_context_t::addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 8, IP_VER6));
 
 		} else
 			SAYF("     IP address  : (none)\n");
@@ -560,6 +560,10 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 	return count;
 }
 
+void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
+	process_context.parse_packet(junk, hdr, data);
+}
+
 // Process API queries.
 void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 
@@ -576,7 +580,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	switch (q->addr_type) {
 	case P0F_ADDR_IPV4:
 	case P0F_ADDR_IPV6:
-		h = lookup_host(q->addr, q->addr_type);
+		h = process_context.lookup_host(q->addr, q->addr_type);
 		break;
 	default:
 		WARN("Query with unknown address type %u.\n", q->addr_type);
@@ -828,33 +832,33 @@ void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, cons
 
 	if (!p0f_context.daemon_mode) {
 		SAYF(".-[ %s/%u -> ",
-			 addr_to_str(f->client->addr, f->client->ip_ver),
+			 process_context_t::addr_to_str(f->client->addr, f->client->ip_ver),
 			 f->cli_port);
 
 		SAYF("%s/%u (%s) ]-\n|\n",
-			 addr_to_str(f->server->addr, f->client->ip_ver),
+			 process_context_t::addr_to_str(f->server->addr, f->client->ip_ver),
 			 f->srv_port,
 			 keyword);
 
 		SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server",
-			 addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
+			 process_context_t::addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
 			 to_srv ? f->cli_port : f->srv_port);
 	}
 
 	if (p0f_context.log_file) {
 		char tmp[64];
 
-		const time_t ut = get_unix_time();
+		const time_t ut = process_context.get_unix_time();
 		strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", localtime(&ut));
 
 		LOGF("[%s] mod=%s|cli=%s/%u|",
 			 tmp,
 			 keyword,
-			 addr_to_str(f->client->addr, f->client->ip_ver),
+			 process_context_t::addr_to_str(f->client->addr, f->client->ip_ver),
 			 f->cli_port);
 
 		LOGF("srv=%s/%u|subj=%s",
-			 addr_to_str(f->server->addr, f->server->ip_ver),
+			 process_context_t::addr_to_str(f->server->addr, f->server->ip_ver),
 			 f->srv_port,
 			 to_srv ? "cli" : "srv");
 	}

@@ -8,5 +8,5 @@ engine::engine(const char *fp_database) {
 }
 
 engine::~engine() {
-	destroy_all_hosts();
+	process_context.destroy_all_hosts();
 }

@@ -193,13 +193,53 @@ struct packet_flow {
 	http_sig http_tmp = {}; // Temporary signature
 };
 
-void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data);
-char *addr_to_str(uint8_t *data, uint8_t ip_ver);
-uint64_t get_unix_time_ms();
-time_t get_unix_time();
-void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context);
-void verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys, libp0f_context_t *libp0f_context);
-host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver);
-void destroy_all_hosts();
+struct process_context_t {
+public:
+	void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data);
+	uint64_t get_unix_time_ms();
+	time_t get_unix_time();
+	void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context);
+	void verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys, libp0f_context_t *libp0f_context);
+	host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver);
+	void destroy_all_hosts();
+
+public:
+	static char *addr_to_str(uint8_t *data, uint8_t ip_ver);
+
+private:
+	packet_flow *lookup_flow(packet_data *pk, bool *to_srv);
+	void destroy_flow(packet_flow *f);
+	void touch_host(host_data *h);
+	void nuke_flows(bool silent, libp0f_context_t *libp0f_context);
+	void destroy_host(host_data *h);
+	void find_offset(const uint8_t *data, uint32_t total_len, libp0f_context_t *libp0f_context);
+	void nuke_hosts(libp0f_context_t *libp0f_context);
+	host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *libp0f_context);
+	void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context);
+	packet_flow *create_flow_from_syn(packet_data *pk, libp0f_context_t *libp0f_context);
+	void expire_cache(libp0f_context_t *libp0f_context);
+
+public:
+	host_data *host_by_age_ = nullptr; // All host entries, by last mod
+	host_data *newest_host_ = nullptr; // Tail of the list
+
+	packet_flow *flow_by_age_ = nullptr; // All flows, by creation time
+	packet_flow *newest_flow_ = nullptr; // Tail of the list
+
+	struct timeval cur_time_ = {}; // Current time, courtesy of pcap
+
+	// Bucketed hosts and flows:
+	host_data *host_b_[HOST_BUCKETS]   = {};
+	packet_flow *flow_b_[FLOW_BUCKETS] = {};
+
+	// Counters for bookkeeping purposes
+	uint32_t host_cnt_ = 0;
+	uint32_t flow_cnt_ = 0;
+
+	int8_t link_off_     = -1; // Link-specific IP header offset
+	uint8_t bad_packets_ = 0;  // Seen non-IP packets?
+};
+
+extern process_context_t process_context;
 
 #endif
