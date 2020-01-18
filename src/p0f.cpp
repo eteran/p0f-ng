@@ -43,7 +43,6 @@
 #include <pcap-bpf.h>
 #endif
 
-#include "p0f/alloc-inl.h"
 #include "p0f/api.h"
 #include "p0f/api_client.h"
 #include "p0f/debug.h"
@@ -78,7 +77,7 @@ libp0f_context_t libp0f_context = {
 };
 
 struct p0f_context_t {
-	const char *use_iface   = nullptr; // Interface to listen on
+	std::string use_iface;             // Interface to listen on
 	const char *orig_rule   = nullptr; // Original filter rule
 	const char *switch_user = nullptr; // Target username
 	const char *log_file    = nullptr; // Binary log file name
@@ -311,14 +310,14 @@ void list_interfaces() {
 void prepare_pcap() {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
-	const char *orig_iface = p0f_context.use_iface;
+	const std::string orig_iface = p0f_context.use_iface;
 
 	if (libp0f_context.read_file) {
 
 		if (p0f_context.set_promisc)
 			FATAL("Dude, how am I supposed to make a file promiscuous?");
 
-		if (p0f_context.use_iface)
+		if (!p0f_context.use_iface.empty())
 			FATAL("Options -i and -r are mutually exclusive.");
 
 		if (access(libp0f_context.read_file, R_OK))
@@ -326,12 +325,13 @@ void prepare_pcap() {
 
 		p0f_context.pt = pcap_open_offline(libp0f_context.read_file, pcap_err);
 
-		if (!p0f_context.pt) FATAL("pcap_open_offline: %s", pcap_err);
+		if (!p0f_context.pt)
+			FATAL("pcap_open_offline: %s", pcap_err);
 
 		SAYF("[+] Will read pcap data from file '%s'.\n", libp0f_context.read_file);
 
 	} else {
-		if (!p0f_context.use_iface) {
+		if (p0f_context.use_iface.empty()) {
 			/* See the earlier note on libpcap SEGV - same problem here.
 			 * Also, this returns something stupid on Windows, but hey... */
 			if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT) {
@@ -341,25 +341,28 @@ void prepare_pcap() {
 					FATAL("pcap_findalldevs: %s\n", error);
 				}
 
-				p0f_context.use_iface = ck_strdup(alldevs->name);
+				p0f_context.use_iface = alldevs->name;
 				pcap_freealldevs(alldevs);
 			}
 
-			if (!p0f_context.use_iface) {
+			if (p0f_context.use_iface.empty()) {
 				FATAL("libpcap is out of ideas; use -i to specify interface.");
 			}
 		}
 
 		/* PCAP timeouts tend to be broken, so we'll use a very small value
 		 * and rely on select() instead. */
-		p0f_context.pt = pcap_open_live(p0f_context.use_iface, SNAPLEN, p0f_context.set_promisc, 5, pcap_err);
+		p0f_context.pt = pcap_open_live(p0f_context.use_iface.c_str(), SNAPLEN, p0f_context.set_promisc, 5, pcap_err);
 
-		if (!orig_iface)
-			SAYF("[+] Intercepting traffic on default interface '%s'.\n", p0f_context.use_iface);
-		else
-			SAYF("[+] Intercepting traffic on interface '%s'.\n", p0f_context.use_iface);
+		if (orig_iface.empty()) {
+			SAYF("[+] Intercepting traffic on default interface '%s'.\n", p0f_context.use_iface.c_str());
+		} else {
+			SAYF("[+] Intercepting traffic on interface '%s'.\n", p0f_context.use_iface.c_str());
+		}
 
-		if (!p0f_context.pt) FATAL("pcap_open_live: %s", pcap_err);
+		if (!p0f_context.pt) {
+			FATAL("pcap_open_live: %s", pcap_err);
+		}
 	}
 
 	libp0f_context.link_type = pcap_datalink(p0f_context.pt);
@@ -927,7 +930,7 @@ int main(int argc, char *argv[]) {
 			p0f_context.fp_file = optarg;
 			break;
 		case 'i':
-			if (p0f_context.use_iface)
+			if (!p0f_context.use_iface.empty())
 				FATAL("Multiple -i options not supported (try '-i any').");
 
 			p0f_context.use_iface = optarg;

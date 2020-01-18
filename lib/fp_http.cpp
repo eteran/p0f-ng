@@ -22,7 +22,6 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "p0f/alloc-inl.h"
 #include "p0f/api.h"
 #include "p0f/config.h"
 #include "p0f/debug.h"
