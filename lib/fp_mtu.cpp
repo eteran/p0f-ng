@@ -29,7 +29,7 @@
 namespace {
 
 struct mtu_context_t {
-	std::vector<struct mtu_sig_record> sigs[SIG_BUCKETS];
+	std::vector<mtu_sig_record> sigs[SIG_BUCKETS];
 };
 
 mtu_context_t mtu_context;
@@ -52,14 +52,14 @@ void mtu_register_sig(const ext::optional<std::string> &name, ext::string_view v
 
 	uint32_t bucket = mtu % SIG_BUCKETS;
 
-	struct mtu_sig_record sig;
+	mtu_sig_record sig;
 	sig.mtu  = mtu;
 	sig.name = name;
 
 	mtu_context.sigs[bucket].push_back(sig);
 }
 
-void fingerprint_mtu(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	uint32_t bucket;
 	uint32_t i;

@@ -35,7 +35,7 @@ namespace {
 
 struct tcp_context_t {
 	// TCP signature buckets:
-	std::vector<struct tcp_sig_record> sigs[2][SIG_BUCKETS];
+	std::vector<tcp_sig_record> sigs[2][SIG_BUCKETS];
 };
 
 tcp_context_t tcp_context;
@@ -50,7 +50,7 @@ constexpr uint8_t guess_dist(uint8_t ttl) {
 
 /* Figure out if window size is a multiplier of MSS or MTU. We don't take window
  * scaling into account, because neither do TCP stack developers. */
-int16_t detect_win_multi(const std::unique_ptr<struct tcp_sig> &ts, bool *use_mtu, uint16_t syn_mss) {
+int16_t detect_win_multi(const std::unique_ptr<tcp_sig> &ts, bool *use_mtu, uint16_t syn_mss) {
 
 	uint16_t win = ts->win;
 	int32_t mss = ts->mss, mss12 = mss - 12;
@@ -104,10 +104,10 @@ int16_t detect_win_multi(const std::unique_ptr<struct tcp_sig> &ts, bool *use_mt
 }
 
 // See if any of the p0f.fp signatures matches the collected data.
-void tcp_find_match(bool to_srv, const std::unique_ptr<struct tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss) {
+void tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss) {
 
-	struct tcp_sig_record *fmatch = nullptr;
-	struct tcp_sig_record *gmatch = nullptr;
+	tcp_sig_record *fmatch = nullptr;
+	tcp_sig_record *gmatch = nullptr;
 
 	uint32_t bucket = ts->opt_hash % SIG_BUCKETS;
 
@@ -116,8 +116,8 @@ void tcp_find_match(bool to_srv, const std::unique_ptr<struct tcp_sig> &ts, uint
 
 	for (size_t i = 0; i < tcp_context.sigs[to_srv][bucket].size(); i++) {
 
-		struct tcp_sig_record *ref                  = &tcp_context.sigs[to_srv][bucket][i];
-		const std::unique_ptr<struct tcp_sig> &refs = ref->sig;
+		tcp_sig_record *ref                  = &tcp_context.sigs[to_srv][bucket][i];
+		const std::unique_ptr<tcp_sig> &refs = ref->sig;
 
 		uint8_t fuzzy       = 0;
 		uint32_t ref_quirks = refs->quirks;
@@ -244,9 +244,9 @@ void tcp_find_match(bool to_srv, const std::unique_ptr<struct tcp_sig> &ts, uint
 	if (fmatch) ts->fuzzy = 1;
 }
 
-/* Convert struct packet_data to a simplified struct tcp_sig representation
+/* Convert packet_data to a simplified tcp_sig representation
    suitable for signature matching. Compute hashes. */
-void packet_to_sig(struct packet_data *pk, const std::unique_ptr<struct tcp_sig> &ts) {
+void packet_to_sig(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
 
 	ts->opt_hash = hash32(pk->opt_layout.data(), pk->opt_layout.size());
 
@@ -269,7 +269,7 @@ void packet_to_sig(struct packet_data *pk, const std::unique_ptr<struct tcp_sig>
 }
 
 // Dump unknown signature.
-std::string dump_sig(const struct packet_data *pk, const std::unique_ptr<struct tcp_sig> &ts, uint16_t syn_mss) {
+std::string dump_sig(const packet_data *pk, const std::unique_ptr<tcp_sig> &ts, uint16_t syn_mss) {
 
 	std::ostringstream ss;
 
@@ -384,7 +384,7 @@ std::string dump_sig(const struct packet_data *pk, const std::unique_ptr<struct 
 }
 
 // Dump signature-related flags.
-std::string dump_flags(struct packet_data *pk, const std::unique_ptr<struct tcp_sig> &ts) {
+std::string dump_flags(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
 
 	std::ostringstream ss;
 
@@ -417,15 +417,15 @@ std::string dump_flags(struct packet_data *pk, const std::unique_ptr<struct tcp_
 
 /* Compare current signature with historical data, draw conclusions. This
    is called only for OS sigs. */
-void score_nat(bool to_srv, const std::unique_ptr<struct tcp_sig> &sig, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	uint8_t score        = 0;
 	uint8_t diff_already = 0;
 	uint16_t reason      = 0;
 	int32_t ttl_diff;
 
-	struct host_data *hd                 = (to_srv) ? f->client : f->server;
-	std::unique_ptr<struct tcp_sig> &ref = (to_srv) ? hd->last_syn : hd->last_synack;
+	host_data *hd                 = (to_srv) ? f->client : f->server;
+	std::unique_ptr<tcp_sig> &ref = (to_srv) ? hd->last_syn : hd->last_synack;
 
 	if (!ref) {
 
@@ -951,7 +951,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 		FATAL("Malformed payload class in line %u.", line_no);
 
 	// Phew, okay, we're done. Now, create tcp_sig...
-	auto tsig = std::make_unique<struct tcp_sig>();
+	auto tsig = std::make_unique<tcp_sig>();
 
 	tsig->opt_hash    = opt_hash;
 	tsig->opt_eol_pad = opt_eol_pad;
@@ -975,7 +975,7 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 	// Everything checks out, so let's register it.
 	bucket = opt_hash % SIG_BUCKETS;
 
-	struct tcp_sig_record trec;
+	tcp_sig_record trec;
 	trec.generic  = generic;
 	trec.class_id = sig_class;
 	trec.name_id  = sig_name;
@@ -991,9 +991,9 @@ void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t s
 }
 
 // Fingerprint SYN or SYN+ACK.
-std::unique_ptr<struct tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
 
-	auto sig = std::make_unique<struct tcp_sig>();
+	auto sig = std::make_unique<tcp_sig>();
 	packet_to_sig(pk, sig);
 
 	/* Detect packets generated by p0f-sendsyn; they require special
@@ -1009,7 +1009,7 @@ std::unique_ptr<struct tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data 
 
 	tcp_find_match(to_srv, sig, 0, f->syn_mss);
 
-	const struct tcp_sig_record *const m = sig->matched;
+	const tcp_sig_record *const m = sig->matched;
 	if (m) {
 		observf(libp0f_context, (m->class_id == -1 || f->sendsyn) ? "app" : "os", "%s%s%s",
 				fp_context.fp_os_names[m->name_id].c_str(),
@@ -1054,7 +1054,7 @@ std::unique_ptr<struct tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data 
 
 /* Perform uptime detection. This is the only FP function that gets called not
    only on SYN or SYN+ACK, but also on ACK traffic. */
-void check_ts_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	uint32_t ts_diff;
 	uint64_t ms_diff;

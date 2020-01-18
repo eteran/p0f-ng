@@ -18,6 +18,9 @@
 #include "fp_http.h"
 #include "fp_tcp.h"
 
+struct tcp_sig;
+struct libp0f_context_t;
+
 // Parsed information handed over by the pcap callback:
 struct packet_data {
 
@@ -79,11 +82,11 @@ struct packet_data {
 // Host record with persistent fingerprinting data:
 struct host_data {
 
-	struct host_data *prev  = nullptr;
-	struct host_data *next  = nullptr; // Linked lists
-	struct host_data *older = nullptr;
-	struct host_data *newer = nullptr;
-	uint32_t use_cnt        = 0; // Number of packet_flows attached
+	host_data *prev  = nullptr;
+	host_data *next  = nullptr; // Linked lists
+	host_data *older = nullptr;
+	host_data *newer = nullptr;
+	uint32_t use_cnt = 0; // Number of packet_flows attached
 
 	time_t first_seen   = 0; // Record created (unix time)
 	time_t last_seen    = 0; // Host last seen (unix time)
@@ -92,8 +95,8 @@ struct host_data {
 	uint8_t ip_ver   = 0;  // Address type
 	uint8_t addr[16] = {}; // Host address data
 
-	std::unique_ptr<struct tcp_sig> last_syn;    // Sig of the most recent SYN
-	std::unique_ptr<struct tcp_sig> last_synack; // Sig of the most recent SYN+ACK
+	std::unique_ptr<tcp_sig> last_syn;    // Sig of the most recent SYN
+	std::unique_ptr<tcp_sig> last_synack; // Sig of the most recent SYN+ACK
 
 	int32_t last_class_id = 0;              // OS class ID (-1 = not found)
 	int32_t last_name_id  = 0;              // OS name ID (-1 = not found)
@@ -118,8 +121,8 @@ struct host_data {
 	uint32_t up_mod_days = 0; // Uptime modulo (days)
 
 	// HTTP business:
-	std::shared_ptr<struct http_sig> http_req_os; // Last request, if class != -1
-	std::shared_ptr<struct http_sig> http_resp;   // Last response
+	std::shared_ptr<http_sig> http_req_os; // Last request, if class != -1
+	std::shared_ptr<http_sig> http_resp;   // Last response
 
 	int32_t http_name_id = 0;               // Client name ID (-1 = not found)
 	ext::optional<std::string> http_flavor; // Client flavor
@@ -150,14 +153,14 @@ enum Reasons : uint16_t {
 
 // TCP flow record, maintained until all fingerprinting modules are happy:
 struct packet_flow {
-	struct packet_flow *prev  = nullptr;
-	struct packet_flow *next  = nullptr; // Linked lists
-	struct packet_flow *older = nullptr;
-	struct packet_flow *newer = nullptr;
-	uint32_t bucket           = 0; // Bucket this flow belongs to
+	packet_flow *prev  = nullptr;
+	packet_flow *next  = nullptr; // Linked lists
+	packet_flow *older = nullptr;
+	packet_flow *newer = nullptr;
+	uint32_t bucket    = 0; // Bucket this flow belongs to
 
-	struct host_data *client = nullptr; // Requesting client
-	struct host_data *server = nullptr; // Target server
+	host_data *client = nullptr; // Requesting client
+	host_data *server = nullptr; // Target server
 
 	uint16_t cli_port = 0; // Client port
 	uint16_t srv_port = 0; // Server port
@@ -185,18 +188,16 @@ struct packet_flow {
 	uint32_t http_pos  = 0;     // Current parsing offset
 	bool http_gotresp1 = false; // Got initial line of a response?
 
-	struct http_sig http_tmp = {}; // Temporary signature
+	http_sig http_tmp = {}; // Temporary signature
 };
 
-struct libp0f_context_t;
-
-void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *data);
+void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data);
 char *addr_to_str(uint8_t *data, uint8_t ip_ver);
 uint64_t get_unix_time_ms();
 time_t get_unix_time();
 void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context);
 void verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys, libp0f_context_t *libp0f_context);
-struct host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver);
+host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver);
 void destroy_all_hosts();
 
 #endif

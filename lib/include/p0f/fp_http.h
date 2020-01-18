@@ -21,6 +21,7 @@
 
 struct packet_flow;
 struct libp0f_context_t;
+struct http_sig_record;
 
 // A structure used for looking up various headers internally in fp_http.c:
 struct http_id {
@@ -47,7 +48,7 @@ struct http_sig {
 
 	int8_t http_ver = 0; // HTTP version (-1 = any)
 
-	std::vector<struct http_hdr> hdr; // Mandatory / discovered headers
+	std::vector<http_hdr> hdr; // Mandatory / discovered headers
 
 	uint64_t hdr_bloom4 = 0; // Bloom filter for headers
 
@@ -62,8 +63,8 @@ struct http_sig {
 
 	// Information used for matching with p0f.fp:
 
-	struct http_sig_record *matched = nullptr; // nullptr = no match
-	uint8_t dishonest               = 0;       // "sw" looks forged?
+	http_sig_record *matched = nullptr; // nullptr = no match
+	uint8_t dishonest        = 0;       // "sw" looks forged?
 };
 
 // Record for a HTTP signature read from p0f.fp:
@@ -80,13 +81,13 @@ struct http_sig_record {
 	uint32_t line_no = 0; // Line number in p0f.fp
 	uint8_t generic  = 0; // Generic signature?
 
-	std::unique_ptr<struct http_sig> sig; // Actual signature data
+	std::unique_ptr<http_sig> sig; // Actual signature data
 };
 
 void http_parse_ua(ext::string_view val, uint32_t line_no);
 void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view val, uint32_t line_no);
-bool process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context);
-void free_sig_hdrs(struct http_sig *h);
+bool process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context);
+void free_sig_hdrs(http_sig *h);
 void http_init();
 
 #endif

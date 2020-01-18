@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	struct p0f_api_query q;
+	p0f_api_query q;
 	q.magic = P0F_QUERY_MAGIC;
 
 	if (strchr(argv[2], ':')) {
@@ -121,12 +121,12 @@ int main(int argc, char **argv) {
 	if (connect(sock, reinterpret_cast<struct sockaddr *>(&sun), sizeof(sun)))
 		PFATAL("Can't connect to API socket.");
 
-	if (write(sock, &q, sizeof(struct p0f_api_query)) !=
-		sizeof(struct p0f_api_query)) FATAL("Short write to API socket.");
+	if (write(sock, &q, sizeof(p0f_api_query)) != sizeof(p0f_api_query))
+		FATAL("Short write to API socket.");
 
-	struct p0f_api_response r;
-	if (read(sock, &r, sizeof(struct p0f_api_response)) !=
-		sizeof(struct p0f_api_response)) FATAL("Short read from API socket.");
+	p0f_api_response r;
+	if (read(sock, &r, sizeof(p0f_api_response)) != sizeof(p0f_api_response))
+		FATAL("Short read from API socket.");
 
 	close(sock);
 

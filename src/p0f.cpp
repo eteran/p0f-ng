@@ -44,12 +44,12 @@
 #include "p0f/api.h"
 #include "p0f/api_client.h"
 #include "p0f/debug.h"
+#include "p0f/engine.h"
 #include "p0f/fp_http.h"
 #include "p0f/p0f.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
-#include "p0f/engine.h"
 
 #ifndef PF_INET6
 #define PF_INET6 10
@@ -67,7 +67,7 @@
 
 namespace {
 
-void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const struct packet_flow *f);
+void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
 void add_observation_field(const char *key, const char *value);
 
 libp0f_context_t libp0f_context = {
@@ -83,9 +83,9 @@ struct p0f_context_t {
 	const char *api_sock    = nullptr; // API socket file name
 	const char *fp_file     = nullptr; // Location of p0f.fp
 
-	std::unique_ptr<struct api_client[]> api_cl; // Array with API client state
-	FILE *lf   = nullptr;                        // Log file stream
-	pcap_t *pt = nullptr;                        // PCAP capture thingy
+	std::unique_ptr<api_client[]> api_cl; // Array with API client state
+	FILE *lf   = nullptr;                 // Log file stream
+	pcap_t *pt = nullptr;                 // PCAP capture thingy
 
 	uint32_t api_max_conn = API_MAX_CONN; // Maximum number of API connections
 	int32_t null_fd       = -1;           // File descriptor of /dev/null
@@ -246,7 +246,7 @@ void open_api() {
 	if (fcntl(p0f_context.api_fd, F_SETFL, O_NONBLOCK))
 		PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
 
-	p0f_context.api_cl = std::make_unique<struct api_client[]>(p0f_context.api_max_conn);
+	p0f_context.api_cl = std::make_unique<api_client[]>(p0f_context.api_max_conn);
 
 	for (uint32_t i = 0; i < p0f_context.api_max_conn; i++) {
 		p0f_context.api_cl[i].fd = -1;
@@ -526,7 +526,7 @@ void abort_handler(int sig) {
 }
 
 // Regenerate pollfd data for poll()
-uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::unique_ptr<struct api_client *[]> &ctable) {
+uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::unique_ptr<api_client *[]> &ctable) {
 
 	pfds[0].fd     = pcap_fileno(p0f_context.pt);
 	pfds[0].events = (POLLIN | POLLERR | POLLHUP);
@@ -549,7 +549,7 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 
 		/* If we haven't received a complete query yet, wait for POLLIN.
 		 * Otherwise, we want to write stuff. */
-		if (p0f_context.api_cl[i].in_off < sizeof(struct p0f_api_query))
+		if (p0f_context.api_cl[i].in_off < sizeof(p0f_api_query))
 			pfds[count].events = (POLLIN | POLLERR | POLLHUP);
 		else
 			pfds[count].events = (POLLOUT | POLLERR | POLLHUP);
@@ -561,7 +561,7 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 }
 
 // Process API queries.
-void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
+void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 
 	r        = {};
 	r->magic = P0F_RESP_MAGIC;
@@ -572,7 +572,7 @@ void handle_query(const struct p0f_api_query *q, struct p0f_api_response *r) {
 		return;
 	}
 
-	const struct host_data *h = nullptr;
+	const host_data *h = nullptr;
 	switch (q->addr_type) {
 	case P0F_ADDR_IPV4:
 	case P0F_ADDR_IPV6:
@@ -651,7 +651,7 @@ void live_event_loop() {
 	// We need room for pcap, and possibly p0f_context.api_fd + api_clients.
 	const size_t clients = 1 + (p0f_context.api_sock ? (1 + p0f_context.api_max_conn) : 0);
 	auto pfds            = std::make_unique<struct pollfd[]>(clients);
-	auto ctable          = std::make_unique<struct api_client *[]>(clients);
+	auto ctable          = std::make_unique<api_client *[]>(clients);
 
 	uint32_t pfd_count = regen_pfds(pfds, ctable);
 
@@ -709,17 +709,17 @@ void live_event_loop() {
 				default: {
 
 					// Write API response, restart state when complete.
-					if (ctable[cur]->in_off < sizeof(struct p0f_api_query))
+					if (ctable[cur]->in_off < sizeof(p0f_api_query))
 						FATAL("Inconsistent p0f_api_response state.\n");
 
-					ssize_t i = write(pfds[cur].fd, (&ctable[cur]->out_data) + ctable[cur]->out_off, sizeof(struct p0f_api_response) - ctable[cur]->out_off);
+					ssize_t i = write(pfds[cur].fd, (&ctable[cur]->out_data) + ctable[cur]->out_off, sizeof(p0f_api_response) - ctable[cur]->out_off);
 
 					if (i <= 0) PFATAL("write() on API socket fails despite POLLOUT.");
 
 					ctable[cur]->out_off += i;
 
 					// All done? Back to square zero then!
-					if (ctable[cur]->out_off == sizeof(struct p0f_api_response)) {
+					if (ctable[cur]->out_off == sizeof(p0f_api_response)) {
 
 						ctable[cur]->in_off = ctable[cur]->out_off = 0;
 						pfds[cur].events                           = (POLLIN | POLLERR | POLLHUP);
@@ -773,12 +773,10 @@ void live_event_loop() {
 
 				default: {
 					// Receive API query, dispatch when complete.
-					if (ctable[cur]->in_off >= sizeof(struct p0f_api_query))
+					if (ctable[cur]->in_off >= sizeof(p0f_api_query))
 						FATAL("Inconsistent p0f_api_query state.\n");
 
-					ssize_t i = read(pfds[cur].fd,
-									 (&ctable[cur]->in_data) + ctable[cur]->in_off,
-									 sizeof(struct p0f_api_query) - ctable[cur]->in_off);
+					ssize_t i = read(pfds[cur].fd, (&ctable[cur]->in_data) + ctable[cur]->in_off, sizeof(p0f_api_query) - ctable[cur]->in_off);
 
 					if (i < 0)
 						PFATAL("read() on API socket fails despite POLLIN.");
@@ -786,7 +784,7 @@ void live_event_loop() {
 					ctable[cur]->in_off += i;
 
 					// Query in place? Compute response and prepare to send it back.
-					if (ctable[cur]->in_off == sizeof(struct p0f_api_query)) {
+					if (ctable[cur]->in_off == sizeof(p0f_api_query)) {
 
 						handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
 						pfds[cur].events = (POLLOUT | POLLERR | POLLHUP);
@@ -822,7 +820,7 @@ void offline_event_loop() {
 }
 
 // Open log entry.
-void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const struct packet_flow *f) {
+void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {
 
 	if (p0f_context.obs_fields) {
 		FATAL("Premature end of observation.");

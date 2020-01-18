@@ -34,18 +34,18 @@
 namespace {
 
 /* Do a basic IPv4 TCP checksum. */
-void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
+void tcp_cksum(uint8_t *src, uint8_t *dst, tcp_hdr *t, uint8_t opt_len) {
 
 	if (opt_len % 4)
 		FATAL("Packet size not aligned to 4.");
 
 	t->cksum = 0;
 
-	uint32_t sum = PROTO_TCP + sizeof(struct tcp_hdr) + opt_len;
+	uint32_t sum = PROTO_TCP + sizeof(tcp_hdr) + opt_len;
 
 	auto p = reinterpret_cast<uint8_t *>(t);
 
-	for (uint32_t i = 0; i < sizeof(struct tcp_hdr) + opt_len; i += 2, p += 2)
+	for (uint32_t i = 0; i < sizeof(tcp_hdr) + opt_len; i += 2, p += 2)
 		sum += (*p << 8) + p[1];
 
 	p = src;
@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
 	uint8_t work_buf[MIN_TCP4 + 24];
 
 	auto ip4      = reinterpret_cast<struct ipv4_hdr *>(work_buf);
-	auto tcp      = reinterpret_cast<struct tcp_hdr *>(ip4 + 1);
+	auto tcp      = reinterpret_cast<tcp_hdr *>(ip4 + 1);
 	uint8_t *opts = work_buf + MIN_TCP4;
 
 	if (argc != 4) {
@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
 
 	tcp->dport     = htons(atoi(argv[3]));
 	tcp->seq       = htonl(0x12345678);
-	tcp->doff_rsvd = ((sizeof(struct tcp_hdr) + 24) / 4) << 4;
+	tcp->doff_rsvd = ((sizeof(tcp_hdr) + 24) / 4) << 4;
 	tcp->flags     = TCP_SYN;
 	tcp->win       = htons(SPECIAL_WIN);
 

@@ -39,7 +39,7 @@
 namespace {
 
 /* Do a basic IPv6 TCP checksum. */
-void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
+void tcp_cksum(uint8_t *src, uint8_t *dst, tcp_hdr *t, uint8_t opt_len) {
 
 	uint32_t sum, i;
 
@@ -48,11 +48,11 @@ void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
 
 	t->cksum = 0;
 
-	sum = PROTO_TCP + sizeof(struct tcp_hdr) + opt_len;
+	sum = PROTO_TCP + sizeof(tcp_hdr) + opt_len;
 
 	auto p = reinterpret_cast<uint8_t *>(t);
 
-	for (i = 0; i < sizeof(struct tcp_hdr) + opt_len; i += 2, p += 2)
+	for (i = 0; i < sizeof(tcp_hdr) + opt_len; i += 2, p += 2)
 		sum += (*p << 8) + p[1];
 
 	p = src;
@@ -69,7 +69,7 @@ void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
 }
 
 /* Parse IPv6 address into a buffer. */
-void parse_addr(char *str, uint8_t *ret) {
+void parse_addr(const char *str, uint8_t *ret) {
 
 	uint32_t seg = 0;
 	uint32_t val;
@@ -135,8 +135,8 @@ int main(int argc, char **argv) {
 
 	uint8_t work_buf[MIN_TCP6 + 24];
 
-	auto ip6      = reinterpret_cast<struct ipv6_hdr *>(work_buf);
-	auto tcp      = reinterpret_cast<struct tcp_hdr *>(ip6 + 1);
+	auto ip6      = reinterpret_cast<ipv6_hdr *>(work_buf);
+	auto tcp      = reinterpret_cast<tcp_hdr *>(ip6 + 1);
 	uint8_t *opts = work_buf + MIN_TCP6;
 
 	if (argc != 4) {
@@ -160,13 +160,13 @@ int main(int argc, char **argv) {
 	memcpy(&sin.sin6_addr, ip6->dst, 16);
 
 	ip6->ver_tos = ntohl(6 << 24);
-	ip6->pay_len = ntohs(sizeof(struct tcp_hdr) + 24);
+	ip6->pay_len = ntohs(sizeof(tcp_hdr) + 24);
 	ip6->proto   = PROTO_TCP;
 	ip6->ttl     = 192;
 
 	tcp->dport     = htons(atoi(argv[3]));
 	tcp->seq       = htonl(0x12345678);
-	tcp->doff_rsvd = ((sizeof(struct tcp_hdr) + 24) / 4) << 4;
+	tcp->doff_rsvd = ((sizeof(tcp_hdr) + 24) / 4) << 4;
 	tcp->flags     = TCP_SYN;
 	tcp->win       = htons(SPECIAL_WIN);
 

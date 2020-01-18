@@ -40,17 +40,17 @@
 namespace {
 
 struct process_context_t {
-	struct host_data *host_by_age = nullptr; // All host entries, by last mod
-	struct host_data *newest_host = nullptr; // Tail of the list
+	host_data *host_by_age = nullptr; // All host entries, by last mod
+	host_data *newest_host = nullptr; // Tail of the list
 
-	struct packet_flow *flow_by_age = nullptr; // All flows, by creation time
-	struct packet_flow *newest_flow = nullptr; // Tail of the list
+	packet_flow *flow_by_age = nullptr; // All flows, by creation time
+	packet_flow *newest_flow = nullptr; // Tail of the list
 
 	struct timeval cur_time = {}; // Current time, courtesy of pcap
 
 	// Bucketed hosts and flows:
-	struct host_data *host_b[HOST_BUCKETS]   = {};
-	struct packet_flow *flow_b[FLOW_BUCKETS] = {};
+	host_data *host_b[HOST_BUCKETS]   = {};
+	packet_flow *flow_b[FLOW_BUCKETS] = {};
 
 	// Counters for bookkeeping purposes
 	uint32_t host_cnt = 0;
@@ -64,7 +64,7 @@ process_context_t process_context;
 
 /* Calculate hash bucket for packet_flow. Keep the hash symmetrical: switching
  * source and dest should have no effect. */
-uint32_t get_flow_bucket(struct packet_data *pk) {
+uint32_t get_flow_bucket(packet_data *pk) {
 
 	uint32_t bucket;
 
@@ -84,11 +84,11 @@ bool compare_ips(uint8_t lhs[16], uint8_t rhs[16], uint8_t ip_ver) {
 }
 
 // Look up an existing flow.
-struct packet_flow *lookup_flow(struct packet_data *pk, bool *to_srv) {
+packet_flow *lookup_flow(packet_data *pk, bool *to_srv) {
 
 	uint32_t bucket = get_flow_bucket(pk);
 
-	for (struct packet_flow *f = process_context.flow_b[bucket]; f; f = f->next) {
+	for (packet_flow *f = process_context.flow_b[bucket]; f; f = f->next) {
 
 		if (pk->ip_ver != f->client->ip_ver) {
 			continue;
@@ -109,7 +109,7 @@ struct packet_flow *lookup_flow(struct packet_data *pk, bool *to_srv) {
 }
 
 // Destroy a flow.
-void destroy_flow(struct packet_flow *f) {
+void destroy_flow(packet_flow *f) {
 
 	DEBUG("[#] Destroying flow: %s/%u -> ",
 		  addr_to_str(f->client->addr, f->client->ip_ver),
@@ -154,7 +154,7 @@ void destroy_flow(struct packet_flow *f) {
 }
 
 // Touch host data to make it more recent.
-void touch_host(struct host_data *h) {
+void touch_host(host_data *h) {
 
 	DEBUG("[#] Refreshing host data: %s\n", addr_to_str(h->addr, h->ip_ver));
 
@@ -208,7 +208,7 @@ uint32_t get_host_bucket(const uint8_t *addr, uint8_t ip_ver) {
 }
 
 // Destroy host data.
-void destroy_host(struct host_data *h) {
+void destroy_host(host_data *h) {
 
 	uint32_t bucket;
 
@@ -246,8 +246,8 @@ void destroy_host(struct host_data *h) {
 // Indiscriminately kill some of the older hosts.
 void nuke_hosts(libp0f_context_t *libp0f_context) {
 
-	uint32_t kcnt            = 1 + (process_context.host_cnt * KILL_PERCENT / 100);
-	struct host_data *target = process_context.host_by_age;
+	uint32_t kcnt     = 1 + (process_context.host_cnt * KILL_PERCENT / 100);
+	host_data *target = process_context.host_by_age;
 
 	if (!libp0f_context->read_file)
 		WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
@@ -255,7 +255,7 @@ void nuke_hosts(libp0f_context_t *libp0f_context) {
 	nuke_flows(1, libp0f_context);
 
 	while (kcnt && target) {
-		struct host_data *next = target->older;
+		host_data *next = target->older;
 		if (!target->use_cnt) {
 			kcnt--;
 			destroy_host(target);
@@ -265,7 +265,7 @@ void nuke_hosts(libp0f_context_t *libp0f_context) {
 }
 
 // Create a minimal host data.
-struct host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *libp0f_context) {
+host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *libp0f_context) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
 
@@ -275,7 +275,7 @@ struct host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *l
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
 
-	auto nh = new struct host_data;
+	auto nh = new host_data;
 
 	// Insert into the bucketed linked list.
 	if (process_context.host_b[bucket]) {
@@ -313,7 +313,7 @@ struct host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *l
 }
 
 // Create flow, and host data if necessary. If counts exceeded, prune old.
-struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_t *libp0f_context) {
+packet_flow *create_flow_from_syn(packet_data *pk, libp0f_context_t *libp0f_context) {
 
 	uint32_t bucket = get_flow_bucket(pk);
 
@@ -327,7 +327,7 @@ struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_
 	DEBUG("%s/%u (bucket %u)\n",
 		  addr_to_str(pk->dst, pk->ip_ver), pk->dport, bucket);
 
-	auto nf = new struct packet_flow;
+	auto nf = new packet_flow;
 
 	nf->client = lookup_host(pk->src, pk->ip_ver);
 
@@ -379,9 +379,9 @@ struct packet_flow *create_flow_from_syn(struct packet_data *pk, libp0f_context_
 }
 
 // Insert data from a packet into a flow, call handlers as appropriate.
-void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
+void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 
-	std::unique_ptr<struct tcp_sig> tsig;
+	std::unique_ptr<tcp_sig> tsig;
 	bool to_srv       = false;
 	uint8_t need_more = 0;
 
@@ -395,7 +395,7 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 		  pk->tcp_type,
 		  pk->pay_len);
 
-	struct packet_flow *f = lookup_flow(pk, &to_srv);
+	packet_flow *f = lookup_flow(pk, &to_srv);
 
 	switch (pk->tcp_type) {
 	case TCP_SYN:
@@ -575,7 +575,7 @@ void flow_dispatch(struct packet_data *pk, libp0f_context_t *libp0f_context) {
 
 // Go through host and flow cache, expire outdated items.
 void expire_cache(libp0f_context_t *libp0f_context) {
-	struct host_data *target;
+	host_data *target;
 	static time_t pt;
 
 	const time_t ct = get_unix_time();
@@ -592,7 +592,7 @@ void expire_cache(libp0f_context_t *libp0f_context) {
 	target = process_context.host_by_age;
 
 	while (target && ct - target->last_seen > libp0f_context->host_idle_limit * 60) {
-		struct host_data *newer = target->newer;
+		host_data *newer = target->newer;
 		if (!target->use_cnt) {
 			destroy_host(target);
 		}
@@ -649,7 +649,7 @@ void find_offset(const uint8_t *data, uint32_t total_len, libp0f_context_t *libp
 		 * total length sufficient to accommodate IPv6 and TCP headers; and the
 		 * "next protocol" field equal to PROTO_TCP. */
 		if (total_len >= MIN_TCP6 && (data[i] >> 4) == IP_VER6) {
-			auto hdr = reinterpret_cast<const struct ipv6_hdr *>(data + i);
+			auto hdr = reinterpret_cast<const ipv6_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
 				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, libp0f_context->link_type);
 				process_context.link_off = i;
@@ -661,7 +661,7 @@ void find_offset(const uint8_t *data, uint32_t total_len, libp0f_context_t *libp
 		 * packet size must be just enough to accommodate IPv4 + TCP
 		 * (already checked). */
 		if ((data[i] >> 4) == IP_VER4) {
-			auto hdr = reinterpret_cast<const struct ipv4_hdr *>(data + i);
+			auto hdr = reinterpret_cast<const ipv4_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
 				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, libp0f_context->link_type);
 				process_context.link_off = i;
@@ -715,12 +715,12 @@ char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
 
 /* Parse PCAP input, with plenty of sanity checking. Store interesting details
  * in a protocol-agnostic buffer that will be then examined upstream. */
-void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *data) {
+void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 
 	auto libp0f_context = reinterpret_cast<libp0f_context_t *>(junk);
 
-	const struct tcp_hdr *tcp = nullptr;
-	struct packet_data pk     = {};
+	const tcp_hdr *tcp = nullptr;
+	packet_data pk     = {};
 
 	uint32_t tcp_doff;
 
@@ -765,7 +765,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		/* ----------------------
 		 * IPv4 header parsing. *
 		 * ---------------------*/
-		auto ip4 = reinterpret_cast<const struct ipv4_hdr *>(data);
+		auto ip4 = reinterpret_cast<const ipv4_hdr *>(data);
 
 		uint32_t hdr_len   = (ip4->ver_hlen & 0x0F) * 4;
 		uint16_t flags_off = ntohs(RD16(ip4->flags_off));
@@ -786,7 +786,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		}
 
 		// Bail out if the declared length of IPv4 headers is nonsensical.
-		if (hdr_len < sizeof(struct ipv4_hdr)) {
+		if (hdr_len < sizeof(ipv4_hdr)) {
 			DEBUG("[#] ipv4.hdr_len = %u. Too short for IPv4, giving up!\n",
 				  hdr_len);
 			return;
@@ -802,7 +802,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		/* And finally, bail out if after skipping the IPv4 header as specified
 		 * (including options), there wouldn't be enough room for TCP. */
-		if (hdr_len + sizeof(struct tcp_hdr) > packet_len) {
+		if (hdr_len + sizeof(tcp_hdr) > packet_len) {
 			DEBUG("[#] ipv4.hdr_len = %u, packet_len = %d, no room for TCP!\n",
 				  hdr_len, packet_len);
 			return;
@@ -850,7 +850,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		pk.tot_hdr = hdr_len;
 
-		tcp = reinterpret_cast<const struct tcp_hdr *>(data + hdr_len);
+		tcp = reinterpret_cast<const tcp_hdr *>(data + hdr_len);
 		packet_len -= hdr_len;
 
 	} else if ((*data >> 4) == IP_VER6) {
@@ -858,9 +858,9 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 		/* ----------------------
 		 * IPv6 header parsing. *
 		 * ---------------------*/
-		auto ip6         = reinterpret_cast<const struct ipv6_hdr *>(data);
+		auto ip6         = reinterpret_cast<const ipv6_hdr *>(data);
 		uint32_t ver_tos = ntohl(RD32(ip6->ver_tos));
-		uint32_t tot_len = ntohs(RD16(ip6->pay_len)) + sizeof(struct ipv6_hdr);
+		uint32_t tot_len = ntohs(RD16(ip6->pay_len)) + sizeof(ipv6_hdr);
 
 		/* If the packet claims to be shorter than what we received off the wire,
 		 * honor this claim to account for etherleak-type bugs. */
@@ -908,10 +908,10 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 
 		if ((ver_tos >> 20) & (IP_TOS_CE | IP_TOS_ECT)) pk.quirks |= QUIRK_ECN;
 
-		pk.tot_hdr = sizeof(struct ipv6_hdr);
+		pk.tot_hdr = sizeof(ipv6_hdr);
 
-		tcp = reinterpret_cast<const struct tcp_hdr *>(ip6 + 1);
-		packet_len -= sizeof(struct ipv6_hdr);
+		tcp = reinterpret_cast<const tcp_hdr *>(ip6 + 1);
+		packet_len -= sizeof(ipv6_hdr);
 
 	} else {
 
@@ -931,7 +931,7 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 	tcp_doff = (tcp->doff_rsvd >> 4) * 4;
 
 	// As usual, let's start with sanity checks.
-	if (tcp_doff < sizeof(struct tcp_hdr)) {
+	if (tcp_doff < sizeof(tcp_hdr)) {
 		DEBUG("[#] tcp.hdr_len = %u, not enough for TCP!\n", tcp_doff);
 		return;
 	}
@@ -1206,10 +1206,10 @@ void parse_packet(u_char *junk, const struct pcap_pkthdr *hdr, const u_char *dat
 }
 
 // Look up host data.
-struct host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver) {
+host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver) {
 
-	uint32_t bucket     = get_host_bucket(addr, ip_ver);
-	struct host_data *h = process_context.host_b[bucket];
+	uint32_t bucket = get_host_bucket(addr, ip_ver);
+	host_data *h    = process_context.host_b[bucket];
 
 	while (h) {
 
@@ -1224,15 +1224,15 @@ struct host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver) {
 }
 
 // Add NAT score, check if alarm due.
-void add_nat_score(bool to_srv, const struct packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context) {
+void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context) {
 
-	struct host_data *hd = nullptr;
-	uint8_t *scores      = nullptr;
-	uint32_t i           = 0;
-	uint8_t over_5       = 0;
-	uint8_t over_2       = 0;
-	uint8_t over_1       = 0;
-	uint8_t over_0       = 0;
+	host_data *hd   = nullptr;
+	uint8_t *scores = nullptr;
+	uint32_t i      = 0;
+	uint8_t over_5  = 0;
+	uint8_t over_2  = 0;
+	uint8_t over_1  = 0;
+	uint8_t over_0  = 0;
 
 	if (to_srv) {
 
@@ -1315,9 +1315,9 @@ void add_nat_score(bool to_srv, const struct packet_flow *f, uint16_t reason, ui
 }
 
 // Verify if tool class (called from modules).
-void verify_tool_class(bool to_srv, const struct packet_flow *f, const std::vector<uint32_t> &sys, libp0f_context_t *libp0f_context) {
+void verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys, libp0f_context_t *libp0f_context) {
 
-	struct host_data *hd = nullptr;
+	host_data *hd = nullptr;
 	if (to_srv)
 		hd = f->client;
 	else

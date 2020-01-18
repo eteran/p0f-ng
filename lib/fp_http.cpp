@@ -22,6 +22,7 @@
 
 #include "p0f/api.h"
 #include "p0f/config.h"
+#include "p0f/config_http.h"
 #include "p0f/debug.h"
 #include "p0f/fp_http.h"
 #include "p0f/hash.h"
@@ -32,7 +33,6 @@
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
-#include "p0f/config_http.h"
 
 namespace {
 
@@ -44,21 +44,21 @@ constexpr int HDR_XFF = 4;
 constexpr int HDR_DAT = 5;
 
 struct http_context_t {
-	struct http_id req_optional[sizeof(req_optional_init) / sizeof(http_id)];
-	struct http_id resp_optional[sizeof(resp_optional_init) / sizeof(http_id)];
-	struct http_id req_common[sizeof(req_common_init) / sizeof(http_id)];
-	struct http_id resp_common[sizeof(resp_common_init) / sizeof(http_id)];
-	struct http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
-	struct http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
+	http_id req_optional[sizeof(req_optional_init) / sizeof(http_id)];
+	http_id resp_optional[sizeof(resp_optional_init) / sizeof(http_id)];
+	http_id req_common[sizeof(req_common_init) / sizeof(http_id)];
+	http_id resp_common[sizeof(resp_common_init) / sizeof(http_id)];
+	http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
+	http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
 
 	std::vector<std::string> hdr_names;             // List of header names by ID
 	std::vector<uint32_t> hdr_by_hash[SIG_BUCKETS]; // Hashed header names
 
 	/* Signatures aren't bucketed due to the complex matching used; but we use
 	 * Bloom filters to go through them quickly. */
-	std::vector<struct http_sig_record> sigs[2];
+	std::vector<http_sig_record> sigs[2];
 
-	std::vector<struct ua_map_record> ua_map; // Mappings between U-A and OS
+	std::vector<ua_map_record> ua_map; // Mappings between U-A and OS
 };
 
 http_context_t http_context;
@@ -103,17 +103,17 @@ int32_t lookup_hdr(const std::string &name, uint8_t create) {
 }
 
 // Find match for a signature.
-void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
+void http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det) {
 
-	struct http_sig_record *gmatch = nullptr;
-	struct http_sig_record *ref    = &http_context.sigs[to_srv][0];
-	size_t cnt                     = http_context.sigs[to_srv].size();
+	http_sig_record *gmatch = nullptr;
+	http_sig_record *ref    = &http_context.sigs[to_srv][0];
+	size_t cnt              = http_context.sigs[to_srv].size();
 
 	while (cnt--) {
 
-		std::unique_ptr<struct http_sig> &rs = ref->sig;
-		uint32_t ts_hdr                      = 0;
-		uint32_t rs_hdr                      = 0;
+		std::unique_ptr<http_sig> &rs = ref->sig;
+		uint32_t ts_hdr               = 0;
+		uint32_t rs_hdr               = 0;
 
 		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver)
 			goto next_sig;
@@ -218,15 +218,15 @@ void http_find_match(bool to_srv, struct http_sig *ts, uint8_t dupe_det) {
 	}
 }
 
-void http_find_match(bool to_srv, const std::unique_ptr<struct http_sig> &ts, uint8_t dupe_det) {
+void http_find_match(bool to_srv, const std::unique_ptr<http_sig> &ts, uint8_t dupe_det) {
 	http_find_match(to_srv, ts.get(), dupe_det);
 }
 
 // Dump a HTTP signature.
-std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
+std::string dump_sig(bool to_srv, const http_sig *hsig) {
 
 	bool had_prev = false;
-	struct http_id *list;
+	http_id *list;
 
 	std::stringstream ss;
 	append_format(ss, "%u:", hsig->http_ver);
@@ -373,7 +373,7 @@ std::string dump_sig(bool to_srv, const struct http_sig *hsig) {
 }
 
 // Dump signature flags.
-std::string dump_flags(const struct http_sig *hsig, const struct http_sig_record *m) {
+std::string dump_flags(const http_sig *hsig, const http_sig_record *m) {
 
 	std::stringstream ss;
 
@@ -397,11 +397,11 @@ std::string dump_flags(const struct http_sig *hsig, const struct http_sig_record
 
 /* Score signature differences. For unknown signatures, the presumption is that
  * they identify apps, so the logic is quite different from TCP. */
-void score_nat(bool to_srv, const struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void score_nat(bool to_srv, const packet_flow *f, libp0f_context_t *libp0f_context) {
 
-	struct http_sig_record *m = f->http_tmp.matched;
-	struct host_data *hd;
-	std::shared_ptr<struct http_sig> ref;
+	http_sig_record *m = f->http_tmp.matched;
+	host_data *hd;
+	std::shared_ptr<http_sig> ref;
 
 	uint8_t score        = 0;
 	uint8_t diff_already = 0;
@@ -566,9 +566,9 @@ time_t parse_date(const char *str) {
 }
 
 // Look up HTTP signature, create an observation.
-void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+void fingerprint_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context) {
 
-	struct http_sig_record *m;
+	http_sig_record *m;
 	const char *lang = nullptr;
 
 	http_find_match(to_srv, &f->http_tmp, 0);
@@ -617,7 +617,7 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 	if (!to_srv) {
 
 		// For server response, always store the signature.
-		f->server->http_resp = std::make_shared<struct http_sig>(f->http_tmp);
+		f->server->http_resp = std::make_shared<http_sig>(f->http_tmp);
 
 		f->server->http_resp->hdr.clear();
 		f->server->http_resp->sw   = {};
@@ -657,7 +657,7 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 			if (m->class_id != -1) {
 
 				// Client request - only OS sig is of any note.
-				f->client->http_req_os = std::make_shared<struct http_sig>(f->http_tmp);
+				f->client->http_req_os = std::make_shared<http_sig>(f->http_tmp);
 
 				f->client->http_req_os->hdr.clear();
 				f->client->http_req_os->sw   = {};
@@ -682,7 +682,7 @@ void fingerprint_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp
 }
 
 // Parse name=value pairs into a signature.
-bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context) {
+bool parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context) {
 
 	size_t plen = to_srv ? f->request.size() : f->response.size();
 
@@ -793,7 +793,7 @@ bool parse_pairs(bool to_srv, struct packet_flow *f, bool can_get_more, libp0f_c
 		 * Record this in the signature. */
 		const int32_t hid = lookup_hdr(std::string(pay + f->http_pos, nlen), 0);
 
-		struct http_hdr new_hdr;
+		http_hdr new_hdr;
 		new_hdr.id = hid;
 
 		if (hid < 0) {
@@ -918,7 +918,7 @@ void http_init() {
 // Register new HTTP signature.
 void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
 
-	auto hsig = std::make_unique<struct http_sig>();
+	auto hsig = std::make_unique<http_sig>();
 
 	parser in(value);
 
@@ -953,7 +953,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 
 			const int32_t id = lookup_hdr(horder_key, 1);
 
-			struct http_hdr new_hdr;
+			http_hdr new_hdr;
 			new_hdr.id       = id;
 			new_hdr.optional = optional;
 
@@ -1024,7 +1024,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 			  hsig->matched->line_no);
 	}
 
-	struct http_sig_record hrec;
+	http_sig_record hrec;
 	hrec.class_id = sig_class;
 	hrec.name_id  = sig_name;
 	hrec.flavor   = sig_flavor;
@@ -1069,7 +1069,7 @@ void http_parse_ua(ext::string_view value, uint32_t line_no) {
 			name = value_str;
 		}
 
-		struct ua_map_record record;
+		ua_map_record record;
 		record.id   = id;
 		record.name = (!name) ? fp_context.fp_os_names[id] : *name;
 		http_context.ua_map.push_back(record);
@@ -1083,7 +1083,7 @@ void http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 /* Examine request or response; returns 1 if more data needed and plausibly
  * can be read. Note that the buffer is always NUL-terminated. */
-bool process_http(bool to_srv, struct packet_flow *f, libp0f_context_t *libp0f_context) {
+bool process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	// Already decided this flow is not worth tracking?
 	if (f->in_http < 0)

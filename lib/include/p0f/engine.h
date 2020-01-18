@@ -6,7 +6,6 @@ class engine {
 public:
 	engine(const char *fp_database);
 	~engine();
-
 };
 
 #endif

@@ -13,9 +13,14 @@
 
 #include "ext/optional.h"
 #include "ext/string_view.h"
+#include "process.h"
 #include <cstdint>
 #include <memory>
 #include <vector>
+
+struct packet_data;
+struct packet_flow;
+struct tcp_sig_record;
 
 // Simplified data for signature matching and NAT detection:
 struct tcp_sig {
@@ -43,9 +48,9 @@ struct tcp_sig {
 
 	// Information used for matching with p0f.fp:
 
-	struct tcp_sig_record *matched = nullptr; // nullptr = no match
-	uint8_t fuzzy                  = 0;       // Approximate match?
-	uint8_t dist                   = 0;       // Distance
+	tcp_sig_record *matched = nullptr; // nullptr = no match
+	uint8_t fuzzy           = 0;       // Approximate match?
+	uint8_t dist            = 0;       // Distance
 };
 
 // Methods for matching window size in tcp_sig:
@@ -71,16 +76,11 @@ struct tcp_sig_record {
 
 	uint8_t bad_ttl = 0; // TTL is generated randomly
 
-	std::unique_ptr<struct tcp_sig> sig; // Actual signature data
+	std::unique_ptr<tcp_sig> sig; // Actual signature data
 };
 
-#include "process.h"
-
-struct packet_data;
-struct packet_flow;
-
 void tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
-std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
-void check_ts_tcp(bool to_srv, struct packet_data *pk, struct packet_flow *f, libp0f_context_t *libp0f_context);
+std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context);
+void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context);
 
 #endif
