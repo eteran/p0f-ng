@@ -51,6 +51,7 @@
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
+#include "p0f/engine.h"
 
 #ifndef PF_INET6
 #define PF_INET6 10
@@ -1022,41 +1023,44 @@ int main(int argc, char *argv[]) {
 	close_spare_fds();
 
 	// Initialize the p0f library
-	http_init();
-	read_config(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE);
+	auto p0f_engine = std::make_unique<engine>(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE);
 
 	prepare_pcap();
 	prepare_bpf();
 
-	if (p0f_context.log_file)
+	if (p0f_context.log_file) {
 		open_log();
+	}
 
-	if (p0f_context.api_sock)
+	if (p0f_context.api_sock) {
 		open_api();
+	}
 
 	if (p0f_context.daemon_mode) {
 		p0f_context.null_fd = open("/dev/null", O_RDONLY);
-		if (p0f_context.null_fd < 0) PFATAL("Cannot open '/dev/null'.");
+		if (p0f_context.null_fd < 0) {
+			PFATAL("Cannot open '/dev/null'.");
+		}
 	}
 
-	if (p0f_context.switch_user)
+	if (p0f_context.switch_user) {
 		drop_privs();
+	}
 
-	if (p0f_context.daemon_mode)
+	if (p0f_context.daemon_mode) {
 		fork_off();
+	}
 
 	signal(SIGHUP, p0f_context.daemon_mode ? SIG_IGN : abort_handler);
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
 
-	if (libp0f_context.read_file)
+	if (libp0f_context.read_file) {
 		offline_event_loop();
-	else
+	} else {
 		live_event_loop();
+	}
 
 	if (!p0f_context.daemon_mode)
 		SAYF("\nAll done. Processed %lu packets.\n", libp0f_context.packet_cnt);
-
-	// Shut down the p0f library
-	destroy_all_hosts();
 }
