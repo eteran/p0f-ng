@@ -864,7 +864,7 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 	const tcp_sig_record *const m = sig->matched;
 	if (m) {
 		observf(libp0f_context, (m->class_id == InvalidId || f->sendsyn) ? "app" : "os", "%s%s%s",
-				fp_context.fp_os_names[m->name_id].c_str(),
+				fp_context.fp_os_names_[m->name_id].c_str(),
 				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");
 

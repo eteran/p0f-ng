@@ -39,29 +39,38 @@ constexpr uint32_t SYS_NF(uint32_t x) {
 	return (x & ~SYS_CLASS_FLAG);
 }
 
-void read_config(const char *fname);
-uint32_t lookup_name_id(ext::string_view name);
-
 struct fp_context_t {
-	uint32_t sig_cnt = 0; // Total number of p0f.fp sigs
+public:
+	void read_config(const char *fname);
+	uint32_t lookup_name_id(ext::string_view name);
 
-	uint8_t state      = CF_NEED_SECT; // Parser state (CF_NEED_*)
-	uint8_t mod_type   = 0;            // Current module (CF_MOD_*)
-	uint8_t mod_to_srv = 0;            // Traffic direction
-	uint8_t generic    = 0;            // Generic signature?
+private:
+	void config_parse_classes(ext::string_view value);
+	void config_parse_label(const std::string &value);
+	void config_parse_sys(ext::string_view value);
+	void config_parse_line(ext::string_view line);
+	uint32_t lookup_name_id(const char *name, size_t len);
 
-	uint32_t sig_class = 0;                // Signature class ID (-1 = userland)
-	uint32_t sig_name  = 0;                // Signature name
-	ext::optional<std::string> sig_flavor; // Signature flavor
+public:
+	uint32_t sig_cnt_ = 0; // Total number of p0f.fp sigs
 
-	std::vector<uint32_t> cur_sys; // Current 'sys' values
+	uint8_t state_      = CF_NEED_SECT; // Parser state (CF_NEED_*)
+	uint8_t mod_type_   = 0;            // Current module (CF_MOD_*)
+	uint8_t mod_to_srv_ = 0;            // Traffic direction
+	uint8_t generic_    = 0;            // Generic signature?
 
-	uint32_t label_id = 0; // Current label ID
-	uint32_t line_no  = 0; // Current line number
+	uint32_t sig_class_ = 0;                // Signature class ID (-1 = userland)
+	uint32_t sig_name_  = 0;                // Signature name
+	ext::optional<std::string> sig_flavor_; // Signature flavor
+
+	std::vector<uint32_t> cur_sys_; // Current 'sys' values
+
+	uint32_t label_id_ = 0; // Current label ID
+	uint32_t line_no_  = 0; // Current line number
 
 	// Map of OS classes
-	std::vector<std::string> fp_os_classes;
-	std::vector<std::string> fp_os_names;
+	std::vector<std::string> fp_os_classes_;
+	std::vector<std::string> fp_os_names_;
 };
 
 extern fp_context_t fp_context;

@@ -37,10 +37,8 @@
 
 fp_context_t fp_context;
 
-namespace {
-
-// Parse 'classes' parameter by populating fp_context.fp_os_classes.
-void config_parse_classes(ext::string_view value) {
+// Parse 'classes' parameter by populating fp_os_classes_.
+void fp_context_t::config_parse_classes(ext::string_view value) {
 
 	parser in(value);
 	do {
@@ -48,28 +46,28 @@ void config_parse_classes(ext::string_view value) {
 
 		std::string class_name;
 		if (!in.match([](char ch) { return isalnum(ch); }, &class_name)) {
-			FATAL("Malformed class entry in line %u.", fp_context.line_no);
+			FATAL("Malformed class entry in line %u.", line_no_);
 		}
 
-		fp_context.fp_os_classes.push_back(std::move(class_name));
+		fp_os_classes_.push_back(std::move(class_name));
 
 		in.consume(" \t");
 	} while (in.match(','));
 
 	if (!in.eof()) {
-		FATAL("Malformed class entry in line %u.", fp_context.line_no);
+		FATAL("Malformed class entry in line %u.", line_no_);
 	}
 }
 
 // Parse 'label' parameter by looking up ID and recording name / flavor.
-void config_parse_label(const std::string &value) {
+void fp_context_t::config_parse_label(const std::string &value) {
 
 	// Simplified handling for [mtu] signatures.
-	if (fp_context.mod_type == CF_MOD_MTU) {
+	if (mod_type_ == CF_MOD_MTU) {
 		if (value.empty())
-			FATAL("Empty MTU label in line %u.\n", fp_context.line_no);
+			FATAL("Empty MTU label in line %u.\n", line_no_);
 
-		fp_context.sig_flavor = value;
+		sig_flavor_ = value;
 		return;
 	}
 
@@ -77,64 +75,64 @@ void config_parse_label(const std::string &value) {
 
 	// type
 	if (in.match('g')) {
-		fp_context.generic = 1;
+		generic_ = 1;
 	} else if (in.match('s')) {
-		fp_context.generic = 0;
+		generic_ = 0;
 	} else {
-		FATAL("Malformed class entry in line %u.", fp_context.line_no);
+		FATAL("Malformed class entry in line %u.", line_no_);
 	}
 
 	if (!in.match(':')) {
-		FATAL("Malformed class entry in line %u.", fp_context.line_no);
+		FATAL("Malformed class entry in line %u.", line_no_);
 	}
 
 	// class
 	std::string class_name;
 	if (in.match('!')) {
-		fp_context.sig_class = -1;
+		sig_class_ = InvalidId;
 	} else if (in.match([](char ch) { return isalnum(ch); }, &class_name)) {
-		auto it = std::find_if(fp_context.fp_os_classes.begin(), fp_context.fp_os_classes.end(), [&class_name](const std::string &os_class) {
+		auto it = std::find_if(fp_os_classes_.begin(), fp_os_classes_.end(), [&class_name](const std::string &os_class) {
 			return strcasecmp(class_name.c_str(), os_class.c_str()) == 0;
 		});
 
-		if (it == fp_context.fp_os_classes.end()) {
-			FATAL("Unknown class '%s' in line %u.", class_name.c_str(), fp_context.line_no);
+		if (it == fp_os_classes_.end()) {
+			FATAL("Unknown class '%s' in line %u.", class_name.c_str(), line_no_);
 		}
 
-		fp_context.sig_class = std::distance(fp_context.fp_os_classes.begin(), it);
+		sig_class_ = std::distance(fp_os_classes_.begin(), it);
 	}
 
 	if (!in.match(':')) {
-		FATAL("Malformed class entry in line %u.", fp_context.line_no);
+		FATAL("Malformed class entry in line %u.", line_no_);
 	}
 
 	// name
 	std::string name;
 	if (!in.match([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); }, &name)) {
-		FATAL("Malformed name in line %u.", fp_context.line_no);
+		FATAL("Malformed name in line %u.", line_no_);
 	}
 
-	fp_context.sig_name = lookup_name_id(name);
+	sig_name_ = lookup_name_id(name);
 
 	if (!in.match(':')) {
-		FATAL("Malformed class entry in line %u.", fp_context.line_no);
+		FATAL("Malformed class entry in line %u.", line_no_);
 	}
 
 	// flavor
 	std::string flavor;
 	if (in.match_any(&flavor)) {
-		fp_context.sig_flavor = flavor;
+		sig_flavor_ = flavor;
 	} else {
-		fp_context.sig_flavor = {};
+		sig_flavor_ = {};
 	}
 
-	fp_context.label_id++;
+	label_id_++;
 }
 
-// Parse 'sys' parameter into fp_context.cur_sys[].
-void config_parse_sys(ext::string_view value) {
+// Parse 'sys' parameter into cur_sys_[].
+void fp_context_t::config_parse_sys(ext::string_view value) {
 
-	fp_context.cur_sys.clear();
+	cur_sys_.clear();
 
 	parser in(value);
 	do {
@@ -144,49 +142,49 @@ void config_parse_sys(ext::string_view value) {
 
 		std::string class_name;
 		if (!in.match([](char ch) { return isalnum(ch) || (strchr(NAME_CHARS, ch)); }, &class_name)) {
-			FATAL("Malformed sys entry in line %u.", fp_context.line_no);
+			FATAL("Malformed sys entry in line %u.", line_no_);
 		}
 
 		uint32_t i;
 		if (is_cl) {
 
-			for (i = 0; i < fp_context.fp_os_classes.size(); i++) {
-				if (!strcasecmp(class_name.c_str(), fp_context.fp_os_classes[i].c_str())) {
+			for (i = 0; i < fp_os_classes_.size(); i++) {
+				if (!strcasecmp(class_name.c_str(), fp_os_classes_[i].c_str())) {
 					break;
 				}
 			}
 
-			if (i == fp_context.fp_os_names.size()) {
-				FATAL("Unknown class '%s' in line %u.", class_name.c_str(), fp_context.line_no);
+			if (i == fp_os_names_.size()) {
+				FATAL("Unknown class '%s' in line %u.", class_name.c_str(), line_no_);
 			}
 
 			i |= SYS_CLASS_FLAG;
 
 		} else {
 
-			for (i = 0; i < fp_context.fp_os_names.size(); i++) {
-				if (!strcasecmp(class_name.c_str(), fp_context.fp_os_names[i].c_str())) {
+			for (i = 0; i < fp_os_names_.size(); i++) {
+				if (!strcasecmp(class_name.c_str(), fp_os_names_[i].c_str())) {
 					break;
 				}
 			}
 
-			if (i == fp_context.fp_os_names.size()) {
-				fp_context.fp_os_names.push_back(class_name);
+			if (i == fp_os_names_.size()) {
+				fp_os_names_.push_back(class_name);
 			}
 		}
 
-		fp_context.cur_sys.push_back(i);
+		cur_sys_.push_back(i);
 
 		in.consume(" \t");
 	} while (in.match(','));
 
 	if (!in.eof()) {
-		FATAL("Malformed sys entry in line %u.", fp_context.line_no);
+		FATAL("Malformed sys entry in line %u.", line_no_);
 	}
 }
 
 // Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
-void config_parse_line(ext::string_view line) {
+void fp_context_t::config_parse_line(ext::string_view line) {
 
 	parser in(line);
 
@@ -195,45 +193,45 @@ void config_parse_line(ext::string_view line) {
 
 		// Simplified case for [mtu].
 		if (in.match("mtu]")) {
-			fp_context.mod_type = CF_MOD_MTU;
-			fp_context.state    = CF_NEED_LABEL;
+			mod_type_ = CF_MOD_MTU;
+			state_    = CF_NEED_LABEL;
 			return;
 		}
 
 		if (in.match("tcp")) {
-			fp_context.mod_type = CF_MOD_TCP;
+			mod_type_ = CF_MOD_TCP;
 		} else if (in.match("http")) {
-			fp_context.mod_type = CF_MOD_HTTP;
+			mod_type_ = CF_MOD_HTTP;
 		} else {
-			FATAL("Unrecognized fingerprinting module '%s' in line %u.", line.to_string().c_str(), fp_context.line_no);
+			FATAL("Unrecognized fingerprinting module '%s' in line %u.", line.to_string().c_str(), line_no_);
 		}
 
 		if (!in.match(':')) {
-			FATAL("Malformed section identifier in line %u.", fp_context.line_no);
+			FATAL("Malformed section identifier in line %u.", line_no_);
 		}
 
 		if (in.match("request]")) {
-			fp_context.mod_to_srv = 1;
+			mod_to_srv_ = 1;
 		} else if (in.match("response]")) {
-			fp_context.mod_to_srv = 0;
+			mod_to_srv_ = 0;
 		} else {
-			FATAL("Unrecognized traffic direction in line %u.", fp_context.line_no);
+			FATAL("Unrecognized traffic direction in line %u.", line_no_);
 		}
 
-		fp_context.state = CF_NEED_LABEL;
+		state_ = CF_NEED_LABEL;
 		return;
 	}
 
 	// Everything else follows the 'name = value' approach.
 	if (in.match("classes")) {
 
-		if (fp_context.state != CF_NEED_SECT)
-			FATAL("misplaced 'classes' in line %u.", fp_context.line_no);
+		if (state_ != CF_NEED_SECT)
+			FATAL("misplaced 'classes' in line %u.", line_no_);
 
 		in.consume(" \t");
 
 		if (!in.match('=')) {
-			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
 		in.consume(" \t");
@@ -244,13 +242,13 @@ void config_parse_line(ext::string_view line) {
 
 	} else if (in.match("ua_os")) {
 
-		if (fp_context.state != CF_NEED_LABEL || fp_context.mod_to_srv != 1 || fp_context.mod_type != CF_MOD_HTTP)
-			FATAL("misplaced 'us_os' in line %u.", fp_context.line_no);
+		if (state_ != CF_NEED_LABEL || mod_to_srv_ != 1 || mod_type_ != CF_MOD_HTTP)
+			FATAL("misplaced 'us_os' in line %u.", line_no_);
 
 		in.consume(" \t");
 
 		if (!in.match('=')) {
-			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
 		in.consume(" \t");
@@ -258,20 +256,20 @@ void config_parse_line(ext::string_view line) {
 		std::string value;
 		in.match_any(&value);
 
-		http_context.http_parse_ua(value, fp_context.line_no);
+		http_context.http_parse_ua(value, line_no_);
 
 	} else if (in.match("label")) {
 
-		/* We will drop sig_sys / fp_context.sig_flavor on the floor if no
+		/* We will drop sig_sys / sig_flavor_ on the floor if no
 		 * signatures actually created, but it's not worth tracking that. */
 
-		if (fp_context.state != CF_NEED_LABEL && fp_context.state != CF_NEED_SIG)
-			FATAL("misplaced 'label' in line %u.", fp_context.line_no);
+		if (state_ != CF_NEED_LABEL && state_ != CF_NEED_SIG)
+			FATAL("misplaced 'label' in line %u.", line_no_);
 
 		in.consume(" \t");
 
 		if (!in.match('=')) {
-			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
 		in.consume(" \t");
@@ -281,19 +279,19 @@ void config_parse_line(ext::string_view line) {
 
 		config_parse_label(value);
 
-		if (fp_context.mod_type != CF_MOD_MTU && fp_context.sig_class == InvalidId)
-			fp_context.state = CF_NEED_SYS;
+		if (mod_type_ != CF_MOD_MTU && sig_class_ == InvalidId)
+			state_ = CF_NEED_SYS;
 		else
-			fp_context.state = CF_NEED_SIG;
+			state_ = CF_NEED_SIG;
 
 	} else if (in.match("sys")) {
-		if (fp_context.state != CF_NEED_SYS)
-			FATAL("Misplaced 'sys' in line %u.", fp_context.line_no);
+		if (state_ != CF_NEED_SYS)
+			FATAL("Misplaced 'sys' in line %u.", line_no_);
 
 		in.consume(" \t");
 
 		if (!in.match('=')) {
-			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
 		in.consume(" \t");
@@ -302,16 +300,16 @@ void config_parse_line(ext::string_view line) {
 		in.match_any(&value);
 
 		config_parse_sys(value);
-		fp_context.state = CF_NEED_SIG;
+		state_ = CF_NEED_SIG;
 	} else if (in.match("sig")) {
 
-		if (fp_context.state != CF_NEED_SIG)
-			FATAL("Misplaced 'sig' in line %u.", fp_context.line_no);
+		if (state_ != CF_NEED_SIG)
+			FATAL("Misplaced 'sig' in line %u.", line_no_);
 
 		in.consume(" \t");
 
 		if (!in.match('=')) {
-			FATAL("Unexpected statement in line %u.", fp_context.line_no);
+			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
 		in.consume(" \t");
@@ -319,79 +317,77 @@ void config_parse_line(ext::string_view line) {
 		std::string value;
 		in.match_any(&value);
 
-		switch (fp_context.mod_type) {
+		switch (mod_type_) {
 		case CF_MOD_TCP:
 			tcp_context.tcp_register_sig(
-				fp_context.mod_to_srv,
-				fp_context.generic,
-				fp_context.sig_class,
-				fp_context.sig_name,
-				fp_context.sig_flavor,
-				fp_context.label_id,
-				fp_context.cur_sys,
+				mod_to_srv_,
+				generic_,
+				sig_class_,
+				sig_name_,
+				sig_flavor_,
+				label_id_,
+				cur_sys_,
 				value,
-				fp_context.line_no);
+				line_no_);
 			break;
 		case CF_MOD_MTU:
 			mtu_context.mtu_register_sig(
-				fp_context.sig_flavor,
+				sig_flavor_,
 				value,
-				fp_context.line_no);
+				line_no_);
 			break;
 		case CF_MOD_HTTP:
 			http_context.http_register_sig(
-				fp_context.mod_to_srv,
-				fp_context.generic,
-				fp_context.sig_class,
-				fp_context.sig_name,
-				fp_context.sig_flavor,
-				fp_context.label_id,
-				fp_context.cur_sys,
+				mod_to_srv_,
+				generic_,
+				sig_class_,
+				sig_name_,
+				sig_flavor_,
+				label_id_,
+				cur_sys_,
 				value,
-				fp_context.line_no);
+				line_no_);
 			break;
 		}
 
-		fp_context.sig_cnt++;
+		sig_cnt_++;
 
 	} else {
-		FATAL("Unrecognized field '%s' in line %u.", line.to_string().c_str(), fp_context.line_no);
+		FATAL("Unrecognized field '%s' in line %u.", line.to_string().c_str(), line_no_);
 	}
 }
 
 // Look up or create OS or application id.
-uint32_t lookup_name_id(const char *name, size_t len) {
+uint32_t fp_context_t::lookup_name_id(const char *name, size_t len) {
 
 	uint32_t i;
 
-	for (i = 0; i < fp_context.fp_os_names.size(); i++) {
-		if (!strncasecmp(name, fp_context.fp_os_names[i].c_str(), len) && !fp_context.fp_os_names[i][len]) {
+	for (i = 0; i < fp_os_names_.size(); i++) {
+		if (!strncasecmp(name, fp_os_names_[i].c_str(), len) && !fp_os_names_[i][len]) {
 			break;
 		}
 	}
 
-	if (i == fp_context.fp_os_names.size()) {
-		fp_context.sig_name = fp_context.fp_os_names.size();
-		fp_context.fp_os_names.push_back(std::string(name, len));
+	if (i == fp_os_names_.size()) {
+		sig_name_ = fp_os_names_.size();
+		fp_os_names_.push_back(std::string(name, len));
 	}
 
 	return i;
 }
 
-}
-
-uint32_t lookup_name_id(ext::string_view name) {
+uint32_t fp_context_t::lookup_name_id(ext::string_view name) {
 	return lookup_name_id(name.data(), name.size());
 }
 
 // Top-level file parsing.
-void read_config(const char *fname) {
+void fp_context_t::read_config(const char *fname) {
 
 	// If you put NUL in your p0f.fp... Well, sucks to be you.
 	std::ifstream file(fname);
 	for (std::string line; std::getline(file, line);) {
 
-		fp_context.line_no++;
+		line_no_++;
 
 		ext::string_view line_view(line);
 		while (!line_view.empty() && isblank(line_view[0])) {
@@ -405,9 +401,9 @@ void read_config(const char *fname) {
 		config_parse_line(line_view);
 	}
 
-	if (!fp_context.sig_cnt)
+	if (!sig_cnt_)
 		SAYF("[!] No signatures found in '%s'.\n", fname);
 	else
-		SAYF("[+] Loaded %u signature%s from '%s'.\n", fp_context.sig_cnt,
-			 fp_context.sig_cnt == 1 ? "" : "s", fname);
+		SAYF("[+] Loaded %u signature%s from '%s'.\n", sig_cnt_,
+			 sig_cnt_ == 1 ? "" : "s", fname);
 }

@@ -4,7 +4,7 @@
 #include "p0f/readfp.h"
 
 engine::engine(const char *fp_database) {
-	read_config(fp_database);
+	fp_context.read_config(fp_database);
 }
 
 engine::~engine() {

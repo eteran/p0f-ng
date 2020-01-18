@@ -562,7 +562,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_contex
 	if ((m = f->http_tmp.matched)) {
 
 		observf(libp0f_context, (m->class_id == InvalidId) ? "app" : "os", "%s%s%s",
-				fp_context.fp_os_names[m->name_id].c_str(),
+				fp_context.fp_os_names_[m->name_id].c_str(),
 				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");
 
@@ -1029,7 +1029,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
-		uint32_t id = lookup_name_id(system_str);
+		uint32_t id = fp_context.lookup_name_id(system_str);
 
 		ext::optional<std::string> name;
 		if (in.match('=')) {
@@ -1052,7 +1052,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 		ua_map_record record;
 		record.id   = id;
-		record.name = (!name) ? fp_context.fp_os_names[id] : *name;
+		record.name = (!name) ? fp_context.fp_os_names_[id] : *name;
 		ua_map_.push_back(record);
 
 	} while (in.match(','));
