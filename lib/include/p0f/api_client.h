@@ -12,16 +12,17 @@
 #define HAVE_API_CLIENT_H_
 
 #include "api.h"
+#include <cstddef>
 
 struct api_client {
 
-	int32_t fd; // -1 if slot free
+	int fd; // -1 if slot free
 
 	p0f_api_query in_data; // Query recv buffer
-	uint32_t in_off;       // Query buffer offset
+	size_t in_off;         // Query buffer offset
 
 	p0f_api_response out_data; // Response transmit buffer
-	uint32_t out_off;          // Response buffer offset
+	size_t out_off;            // Response buffer offset
 };
 
 #endif
