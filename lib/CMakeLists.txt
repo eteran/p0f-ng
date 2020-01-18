@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-find_package(Boost 1.35 REQUIRED)
+find_package(Boost 1.61 REQUIRED)
 
 add_library(p0f-engine
     fp_http.cpp
