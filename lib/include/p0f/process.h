@@ -203,9 +203,6 @@ public:
 	host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver);
 	void destroy_all_hosts();
 
-public:
-	static char *addr_to_str(uint8_t *data, uint8_t ip_ver);
-
 private:
 	packet_flow *lookup_flow(packet_data *pk, bool *to_srv);
 	void destroy_flow(packet_flow *f);

@@ -50,6 +50,7 @@
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
+#include "p0f/util.h"
 
 #ifndef PF_INET6
 #define PF_INET6 10
@@ -90,8 +91,8 @@ struct p0f_context_t {
 	uint32_t api_max_conn = API_MAX_CONN; // Maximum number of API connections
 	int32_t null_fd       = -1;           // File descriptor of /dev/null
 	int32_t api_fd        = -1;           // API socket descriptor
-	uint8_t stop_soon     = 0;            // Ctrl-C or so pressed?
-	uint8_t set_promisc   = 0;            // Use promiscuous mode?
+	bool stop_soon     = false;            // Ctrl-C or so pressed?
+	bool set_promisc   = false;            // Use promiscuous mode?
 	uint8_t obs_fields    = 0;            // No of pending observation fields
 	uint8_t daemon_mode   = 0;            // Running in daemon mode?
 };
@@ -292,9 +293,9 @@ void list_interfaces() {
 
 		if (a) {
 			if (a->addr->sa_family == PF_INET)
-				SAYF("     IP address  : %s\n", process_context_t::addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 4, IP_VER4));
+				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 4, IP_VER4));
 			else
-				SAYF("     IP address  : %s\n", process_context_t::addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 8, IP_VER6));
+				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 8, IP_VER6));
 
 		} else
 			SAYF("     IP address  : (none)\n");
@@ -519,10 +520,11 @@ void fork_off() {
 void abort_handler(int sig) {
 	(void)sig;
 
-	if (p0f_context.stop_soon)
+	if (p0f_context.stop_soon) {
 		exit(1);
+	}
 
-	p0f_context.stop_soon = 1;
+	p0f_context.stop_soon = true;
 }
 
 // Regenerate pollfd data for poll()
@@ -832,16 +834,16 @@ void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, cons
 
 	if (!p0f_context.daemon_mode) {
 		SAYF(".-[ %s/%u -> ",
-			 process_context_t::addr_to_str(f->client->addr, f->client->ip_ver),
+			 addr_to_str(f->client->addr, f->client->ip_ver),
 			 f->cli_port);
 
 		SAYF("%s/%u (%s) ]-\n|\n",
-			 process_context_t::addr_to_str(f->server->addr, f->client->ip_ver),
+			 addr_to_str(f->server->addr, f->client->ip_ver),
 			 f->srv_port,
 			 keyword);
 
 		SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server",
-			 process_context_t::addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
+			 addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
 			 to_srv ? f->cli_port : f->srv_port);
 	}
 
@@ -854,11 +856,11 @@ void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, cons
 		LOGF("[%s] mod=%s|cli=%s/%u|",
 			 tmp,
 			 keyword,
-			 process_context_t::addr_to_str(f->client->addr, f->client->ip_ver),
+			 addr_to_str(f->client->addr, f->client->ip_ver),
 			 f->cli_port);
 
 		LOGF("srv=%s/%u|subj=%s",
-			 process_context_t::addr_to_str(f->server->addr, f->server->ip_ver),
+			 addr_to_str(f->server->addr, f->server->ip_ver),
 			 f->srv_port,
 			 to_srv ? "cli" : "srv");
 	}
@@ -956,7 +958,7 @@ int main(int argc, char *argv[]) {
 			if (p0f_context.set_promisc)
 				FATAL("Even more promiscuous? People will start talking!");
 
-			p0f_context.set_promisc = 1;
+			p0f_context.set_promisc = true;
 			break;
 		case 'r':
 			if (libp0f_context.read_file)

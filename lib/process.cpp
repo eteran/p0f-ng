@@ -667,26 +667,6 @@ time_t process_context_t::get_unix_time() {
 	return cur_time_.tv_sec;
 }
 
-// Convert IPv4 or IPv6 address to a human-readable form.
-char *process_context_t::addr_to_str(uint8_t *data, uint8_t ip_ver) {
-
-	static char tmp[128];
-
-	/* We could be using inet_ntop(), but on systems that have older libc
-	 * but still see passing IPv6 traffic, we would be in a pickle. */
-	if (ip_ver == IP_VER4) {
-		sprintf(tmp, "%u.%u.%u.%u", data[0], data[1], data[2], data[3]);
-	} else {
-		sprintf(tmp, "%x:%x:%x:%x:%x:%x:%x:%x",
-				(data[0] << 8) | data[1], (data[2] << 8) | data[3],
-				(data[4] << 8) | data[5], (data[6] << 8) | data[7],
-				(data[8] << 8) | data[9], (data[10] << 8) | data[11],
-				(data[12] << 8) | data[13], (data[14] << 8) | data[15]);
-	}
-
-	return tmp;
-}
-
 /* Parse PCAP input, with plenty of sanity checking. Store interesting details
  * in a protocol-agnostic buffer that will be then examined upstream. */
 void process_context_t::parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {

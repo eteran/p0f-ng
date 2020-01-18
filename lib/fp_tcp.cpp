@@ -496,14 +496,6 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	std::vector<uint8_t> opt_layout;
 	uint8_t bad_ttl = 0;
 
-	int32_t olen;
-	int32_t mss;
-	int32_t win;
-	int32_t scale;
-	int32_t opt_eol_pad = 0;
-	uint32_t quirks     = 0;
-	uint32_t bucket;
-
 	parser in(value);
 
 	// IP version
@@ -526,7 +518,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	if (!in.match([](char ch) { return isdigit(ch); }, &ttl)) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
-	int32_t ittl = atol(ttl.c_str());
+	int ittl = stoi(ttl);
 	if (ittl < 1 || ittl > 255)
 		FATAL("Bogus initial TTL in line %u.", line_no);
 
@@ -537,7 +529,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 		if (!in.match([](char ch) { return isdigit(ch); }, &ttl_add)) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
-		int32_t ittl_add = atol(ttl_add.c_str());
+		int ittl_add = stoi(ttl_add);
 
 		if (ittl_add < 0 || ittl + ittl_add > 255)
 			FATAL("Bogus initial TTL in line %u.", line_no);
@@ -555,7 +547,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 
-	olen = atol(olen_str.c_str());
+	int olen = stoi(olen_str);
 	if (olen < 0 || olen > 255)
 		FATAL("Bogus IP option length in line %u.", line_no);
 
@@ -564,6 +556,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	}
 
 	// MSS
+	int mss;
 	if (in.match('*')) {
 		mss = -1;
 	} else {
@@ -572,7 +565,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		mss = atol(mss_str.c_str());
+		mss = stoi(mss_str);
 		if (mss < 0 || mss > 65535)
 			FATAL("Bogus MSS in line %u.", line_no);
 	}
@@ -582,6 +575,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	}
 
 	// window size, followed by comma
+	int win;
 	if (in.match("*")) {
 		win_type = WIN_TYPE_ANY;
 		win      = 0;
@@ -593,7 +587,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		win = atol(win_str.c_str());
+		win = stoi(win_str);
 		if (win < 2 || win > 65535)
 			FATAL("Bogus '%%' value in line %u.", line_no);
 	} else if (in.match("mss*")) {
@@ -604,7 +598,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		win = atol(win_str.c_str());
+		win = stoi(win_str);
 		if (win < 1 || win > 1000)
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
 	} else if (in.match("mtu*")) {
@@ -615,7 +609,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		win = atol(win_str.c_str());
+		win = stoi(win_str);
 		if (win < 1 || win > 1000)
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
 	} else {
@@ -626,7 +620,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		win = atol(win_str.c_str());
+		win = stoi(win_str);
 		if (win < 0 || win > 65535)
 			FATAL("Bogus window size in line %u.", line_no);
 	}
@@ -634,7 +628,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	if (!in.match(','))
 		FATAL("Malformed signature in line %u.", line_no);
 
+
 	// Window scale
+	int scale;
 	if (in.match('*')) {
 		scale = -1;
 	} else {
@@ -643,7 +639,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		scale = atol(scale_str.c_str());
+		scale = stoi(scale_str);
 		if (scale < 0 || scale > 255)
 			FATAL("Bogus window scale in line %u.", line_no);
 	}
@@ -653,6 +649,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	}
 
 	// Option layout
+	int opt_eol_pad = 0;
 	while (in.peek() != ':') {
 
 		if (opt_layout.size() >= MAX_TCP_OPT)
@@ -670,7 +667,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 				FATAL("Truncated options in line %u.", line_no);
 			}
 
-			opt_eol_pad = atol(eol_str.c_str());
+			opt_eol_pad = stoi(eol_str);
 			if (opt_eol_pad < 0 || opt_eol_pad > 255) {
 				FATAL("Bogus EOL padding in line %u.", line_no);
 			}
@@ -697,7 +694,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 				FATAL("Malformed '?' option in line %u.", line_no);
 			}
 
-			int32_t optno = atoi(opt_str.c_str());
+			const int optno = stoi(opt_str);
 			if (optno < 0 || optno > 255)
 				FATAL("Bogus '?' option in line %u.", line_no);
 
@@ -727,6 +724,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	const uint32_t opt_hash = hash32(opt_layout.data(), opt_layout.size());
 
 	// Quirks
+	uint32_t quirks     = 0;
 	while (in.peek() != ':') {
 		if (in.match("df")) {
 			if (ver == IP_VER6)
@@ -808,15 +806,15 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 	auto tsig = std::make_unique<tcp_sig>();
 
 	tsig->opt_hash    = opt_hash;
-	tsig->opt_eol_pad = opt_eol_pad;
+	tsig->opt_eol_pad = static_cast<uint8_t>(opt_eol_pad);
 	tsig->quirks      = quirks;
-	tsig->ip_opt_len  = olen;
+	tsig->ip_opt_len  = static_cast<uint8_t>(olen);
 	tsig->ip_ver      = ver;
-	tsig->ttl         = ittl;
+	tsig->ttl         = static_cast<uint8_t>(ittl);
 	tsig->mss         = mss;
-	tsig->win         = win;
-	tsig->win_type    = win_type;
-	tsig->wscale      = scale;
+	tsig->win         = static_cast<uint16_t>(win);
+	tsig->win_type    = static_cast<uint8_t>(win_type);
+	tsig->wscale      = static_cast<int16_t>(scale);
 	tsig->pay_class   = pay_class;
 
 	// No need to set ts1, recv_ms, match, fuzzy, dist
@@ -827,7 +825,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, int32_t sig_c
 			  line_no, tsig->matched->line_no);
 
 	// Everything checks out, so let's register it.
-	bucket = opt_hash % SIG_BUCKETS;
+	uint32_t bucket = opt_hash % SIG_BUCKETS;
 
 	tcp_sig_record trec;
 	trec.generic  = generic;

@@ -410,8 +410,9 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f, libp0f_context
 		ref = hd->http_resp;
 
 		// If the signature is for a different port, don't read too much into it.
-		if (hd->http_resp_port != f->srv_port)
+		if (hd->http_resp_port != f->srv_port) {
 			ref = nullptr;
+		}
 	}
 
 	if (!m) {
@@ -489,7 +490,7 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f, libp0f_context
 	 * that's a clear sign of trouble. */
 	if (to_srv && m->class_id == -1 && f->http_tmp.sw && !f->http_tmp.dishonest) {
 
-		uint32_t i;
+		size_t i;
 
 		for (i = 0; i < ua_map_.size(); i++)
 			if (strstr(f->http_tmp.sw->c_str(), ua_map_[i].name.c_str()))
