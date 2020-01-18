@@ -561,7 +561,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_contex
 
 	if ((m = f->http_tmp.matched)) {
 
-		observf(libp0f_context, (m->class_id < 0) ? "app" : "os", "%s%s%s",
+		observf(libp0f_context, (m->class_id == -1) ? "app" : "os", "%s%s%s",
 				fp_context.fp_os_names[m->name_id].c_str(),
 				m->flavor ? " " : "",
 				m->flavor ? m->flavor->c_str() : "");
@@ -780,7 +780,7 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more,
 		http_hdr new_hdr;
 		new_hdr.id = hid;
 
-		if (hid < 0) {
+		if (hid == -1) {
 			// Header ID not found, store literal value.
 			new_hdr.name = std::string(pay + f->http_pos, nlen);
 		} else {
