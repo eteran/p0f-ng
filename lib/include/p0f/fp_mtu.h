@@ -31,7 +31,7 @@ public:
 	void mtu_register_sig(const ext::optional<std::string> &name, ext::string_view val, uint32_t line_no);
 	void fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context);
 
-public:
+private:
 	std::vector<mtu_sig_record> sigs_[SIG_BUCKETS];
 };
 

@@ -51,7 +51,7 @@ private:
 	void config_parse_line(ext::string_view line);
 	uint32_t lookup_name_id(const char *name, size_t len);
 
-public:
+private:
 	uint32_t sig_cnt_ = 0; // Total number of p0f.fp sigs
 
 	uint8_t state_      = CF_NEED_SECT; // Parser state (CF_NEED_*)
@@ -70,6 +70,8 @@ public:
 
 	// Map of OS classes
 	std::vector<std::string> fp_os_classes_;
+
+public:
 	std::vector<std::string> fp_os_names_;
 };
 

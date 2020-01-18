@@ -88,7 +88,7 @@ public:
 private:
 	void tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss);
 
-public:
+private:
 	// TCP signature buckets:
 	std::vector<tcp_sig_record> sigs_[2][SIG_BUCKETS];
 };

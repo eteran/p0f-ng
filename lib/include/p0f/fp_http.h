@@ -96,7 +96,6 @@ private:
 	void score_nat(bool to_srv, const packet_flow *f, libp0f_context_t *libp0f_context);
 	void fingerprint_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context);
 	bool parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context);
-	std::string dump_flags(const http_sig *hsig, const http_sig_record *m);
 
 private:
 	http_id req_optional_[sizeof(req_optional_init) / sizeof(http_id)];

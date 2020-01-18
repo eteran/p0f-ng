@@ -216,7 +216,7 @@ private:
 	packet_flow *create_flow_from_syn(packet_data *pk, libp0f_context_t *libp0f_context);
 	void expire_cache(libp0f_context_t *libp0f_context);
 
-public:
+private:
 	host_data *host_by_age_ = nullptr; // All host entries, by last mod
 	host_data *newest_host_ = nullptr; // Tail of the list
 

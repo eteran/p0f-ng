@@ -67,6 +67,29 @@ time_t parse_date(const char *str) {
 	return mktime(&t);
 }
 
+// Dump signature flags.
+std::string dump_flags(const http_sig *hsig, const http_sig_record *m) {
+
+	std::stringstream ss;
+
+	if (hsig->dishonest)
+		append_format(ss, " dishonest");
+
+	if (!hsig->sw)
+		append_format(ss, " anonymous");
+
+	if (m && m->generic)
+		append_format(ss, " generic");
+
+	std::string ret = ss.str();
+
+	if (!ret.empty()) {
+		return ret.substr(1);
+	} else {
+		return "none";
+	}
+}
+
 }
 
 // Look up or register new header
@@ -365,29 +388,6 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 	}
 
 	return ss.str();
-}
-
-// Dump signature flags.
-std::string http_context_t::dump_flags(const http_sig *hsig, const http_sig_record *m) {
-
-	std::stringstream ss;
-
-	if (hsig->dishonest)
-		append_format(ss, " dishonest");
-
-	if (!hsig->sw)
-		append_format(ss, " anonymous");
-
-	if (m && m->generic)
-		append_format(ss, " generic");
-
-	std::string ret = ss.str();
-
-	if (!ret.empty()) {
-		return ret.substr(1);
-	} else {
-		return "none";
-	}
 }
 
 /* Score signature differences. For unknown signatures, the presumption is that
