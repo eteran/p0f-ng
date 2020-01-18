@@ -864,9 +864,9 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 	const tcp_sig_record *const m = sig->matched;
 	if (m) {
 		report_observation(libp0f_context, (m->class_id == InvalidId || f->sendsyn) ? "app" : "os", "%s%s%s",
-				fp_context.fp_os_names_[m->name_id].c_str(),
-				m->flavor ? " " : "",
-				m->flavor ? m->flavor->c_str() : "");
+						   fp_context.fp_os_names_[m->name_id].c_str(),
+						   m->flavor ? " " : "",
+						   m->flavor ? m->flavor->c_str() : "");
 
 	} else {
 		libp0f_context->observation_field("os", nullptr);
@@ -1009,8 +1009,8 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, l
 	}
 
 	report_observation(libp0f_context, "uptime", "%u days %u hrs %u min (modulo %u days)",
-			(up_min / 60 / 24), (up_min / 60) % 24, up_min % 60,
-			up_mod_days);
+					   (up_min / 60 / 24), (up_min / 60) % 24, up_min % 60,
+					   up_mod_days);
 
 	report_observation(libp0f_context, "raw_freq", "%.02f Hz", ffreq);
 }
