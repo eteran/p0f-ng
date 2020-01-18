@@ -6,12 +6,14 @@ add_executable(p0f-sendsyn
 
 target_compile_options(p0f-sendsyn 
 PUBLIC
-	-Wall -Wno-format -funsigned-char
+    -pedantic
+    -Wall
+    -W
 )
 
 target_link_libraries(p0f-sendsyn
 PUBLIC
-    p0f-engine
+	p0f-engine
 )
 
 set_property(TARGET p0f-sendsyn PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})

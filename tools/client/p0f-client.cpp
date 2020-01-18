@@ -33,9 +33,12 @@
 namespace {
 
 /* Parse IPv4 address into a buffer. */
-void parse_addr4(char *str, uint8_t *ret) {
+void parse_addr4(const char *str, uint8_t *ret) {
 
-	uint32_t a1, a2, a3, a4;
+	uint32_t a1;
+	uint32_t a2;
+	uint32_t a3;
+	uint32_t a4;
 
 	if (sscanf(str, "%u.%u.%u.%u", &a1, &a2, &a3, &a4) != 4)
 		FATAL("Malformed IPv4 address.");
@@ -50,49 +53,49 @@ void parse_addr4(char *str, uint8_t *ret) {
 }
 
 /* Parse IPv6 address into a buffer. */
-void parse_addr6(char *str, uint8_t *ret) {
+void parse_addr6(const char *str, uint8_t *ret) {
 
 	uint32_t seg = 0;
 	uint32_t val;
 
 	while (*str) {
+		if (seg == 8) {
+			FATAL("Malformed IPv6 address (too many segments).");
+		}
 
-		if (seg == 8) FATAL("Malformed IPv6 address (too many segments).");
-
-		if (sscanf((char *)str, "%x", &val) != 1 ||
-			val > 65535) FATAL("Malformed IPv6 address (bad octet value).");
+		if (sscanf(str, "%x", &val) != 1 || val > 65535) {
+			FATAL("Malformed IPv6 address (bad octet value).");
+		}
 
 		ret[seg * 2]     = val >> 8;
 		ret[seg * 2 + 1] = val;
 
 		seg++;
 
-		while (isxdigit(*str))
+		while (isxdigit(*str)) {
 			str++;
-		if (*str) str++;
+		}
+
+		if (*str) {
+			str++;
+		}
 	}
 
-	if (seg != 8) FATAL("Malformed IPv6 address (don't abbreviate).");
+	if (seg != 8) {
+		FATAL("Malformed IPv6 address (don't abbreviate).");
+	}
 }
 
 }
 
 int main(int argc, char **argv) {
 
-	char tmp[128];
-	struct tm *t;
-
-	struct p0f_api_query q;
-	struct p0f_api_response r;
-	struct sockaddr_un sun;
-
-	time_t ut;
-
 	if (argc != 3) {
 		ERRORF("Usage: p0f-client /path/to/socket host_ip\n");
 		exit(1);
 	}
 
+	struct p0f_api_query q;
 	q.magic = P0F_QUERY_MAGIC;
 
 	if (strchr(argv[2], ':')) {
@@ -104,9 +107,10 @@ int main(int argc, char **argv) {
 	}
 
 	int sock = socket(PF_UNIX, SOCK_STREAM, 0);
+	if (sock < 0)
+		PFATAL("Call to socket() failed.");
 
-	if (sock < 0) PFATAL("Call to socket() failed.");
-
+	struct sockaddr_un sun;
 	sun.sun_family = AF_UNIX;
 
 	if (strlen(argv[1]) >= sizeof(sun.sun_path))
@@ -114,12 +118,13 @@ int main(int argc, char **argv) {
 
 	strcpy(sun.sun_path, argv[1]);
 
-	if (connect(sock, (struct sockaddr *)&sun, sizeof(sun)))
+	if (connect(sock, reinterpret_cast<struct sockaddr *>(&sun), sizeof(sun)))
 		PFATAL("Can't connect to API socket.");
 
 	if (write(sock, &q, sizeof(struct p0f_api_query)) !=
 		sizeof(struct p0f_api_query)) FATAL("Short write to API socket.");
 
+	struct p0f_api_response r;
 	if (read(sock, &r, sizeof(struct p0f_api_response)) !=
 		sizeof(struct p0f_api_response)) FATAL("Short read from API socket.");
 
@@ -136,15 +141,16 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	ut = r.first_seen;
-	t  = localtime(&ut);
-	strftime(tmp, 128, "%Y/%m/%d %H:%M:%S", t);
+	time_t ut = r.first_seen;
+	struct tm *t = localtime(&ut);
+	char tmp[128];
+	strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", t);
 
 	SAYF("First seen    = %s\n", tmp);
 
 	ut = r.last_seen;
 	t  = localtime(&ut);
-	strftime(tmp, 128, "%Y/%m/%d %H:%M:%S", t);
+	strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", t);
 
 	SAYF("Last update   = %s\n", tmp);
 
@@ -197,6 +203,4 @@ int main(int argc, char **argv) {
 			 r.uptime_min / 60 / 24, (r.uptime_min / 60) % 24, r.uptime_min % 60,
 			 r.up_mod_days);
 	}
-
-	return 0;
 }

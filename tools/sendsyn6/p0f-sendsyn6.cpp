@@ -42,15 +42,15 @@ namespace {
 void tcp_cksum(uint8_t *src, uint8_t *dst, struct tcp_hdr *t, uint8_t opt_len) {
 
 	uint32_t sum, i;
-	uint8_t *p;
 
-	if (opt_len % 4) FATAL("Packet size not aligned to 4.");
+	if (opt_len % 4)
+		FATAL("Packet size not aligned to 4.");
 
 	t->cksum = 0;
 
 	sum = PROTO_TCP + sizeof(struct tcp_hdr) + opt_len;
 
-	p = (uint8_t *)t;
+	auto p = reinterpret_cast<uint8_t *>(t);
 
 	for (i = 0; i < sizeof(struct tcp_hdr) + opt_len; i += 2, p += 2)
 		sum += (*p << 8) + p[1];
@@ -78,7 +78,7 @@ void parse_addr(char *str, uint8_t *ret) {
 
 		if (seg == 8) FATAL("Malformed IPv6 address (too many segments).");
 
-		if (sscanf((char *)str, "%x", &val) != 1 ||
+		if (sscanf(str, "%x", &val) != 1 ||
 			val > 65535) FATAL("Malformed IPv6 address (bad octet value).");
 
 		ret[seg * 2]     = val >> 8;
@@ -131,14 +131,12 @@ const uint8_t opt_combos[8][24] = {
 int main(int argc, char **argv) {
 
 	struct sockaddr_in6 sin;
-	char one = 1;
-	int32_t sock;
 	uint32_t i;
 
 	uint8_t work_buf[MIN_TCP6 + 24];
 
-	struct ipv6_hdr *ip6 = (struct ipv6_hdr *)work_buf;
-	struct tcp_hdr *tcp  = (struct tcp_hdr *)(ip6 + 1);
+	auto ip6 = reinterpret_cast<struct ipv6_hdr *>(work_buf);
+	auto tcp  = reinterpret_cast<struct tcp_hdr *>(ip6 + 1);
 	uint8_t *opts        = work_buf + MIN_TCP6;
 
 	if (argc != 4) {
@@ -149,11 +147,12 @@ int main(int argc, char **argv) {
 	parse_addr(argv[1], ip6->src);
 	parse_addr(argv[2], ip6->dst);
 
-	sock = socket(AF_INET, SOCK_RAW, IPPROTO_IPV6);
+	int sock = socket(AF_INET, SOCK_RAW, IPPROTO_IPV6);
+	if (sock < 0)
+		PFATAL("Can't open raw socket (you need to be root).");
 
-	if (sock < 0) PFATAL("Can't open raw socket (you need to be root).");
-
-	if (setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (char *)&one, sizeof(char)))
+	const char one = 1;
+	if (setsockopt(sock, IPPROTO_IP, IP_HDRINCL, &one, sizeof(char)))
 		PFATAL("setsockopt() on raw socket failed.");
 
 	sin.sin6_family = PF_INET6;
@@ -178,13 +177,11 @@ int main(int argc, char **argv) {
 		memcpy(opts, opt_combos[i], 24);
 		tcp_cksum(ip6->src, ip6->dst, tcp, 24);
 
-		if (sendto(sock, work_buf, sizeof(work_buf), 0, (struct sockaddr *)&sin,
-				   sizeof(struct sockaddr_in6)) < 0) PFATAL("sendto() fails.");
+		if (sendto(sock, work_buf, sizeof(work_buf), 0, reinterpret_cast<struct sockaddr *>(&sin), sizeof(struct sockaddr_in6)) < 0)
+			PFATAL("sendto() fails.");
 
 		usleep(100000);
 	}
 
 	SAYF("Eight packets sent! Check p0f output to examine responses, if any.\n");
-
-	return 0;
 }

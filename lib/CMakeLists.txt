@@ -11,6 +11,8 @@ add_library(p0f-engine
     include/p0f/api.h
     include/p0f/config.h
     include/p0f/debug.h
+    include/p0f/ext/optional.h
+    include/p0f/ext/string_view.h
     include/p0f/fp_http.h
     include/p0f/fp_mtu.h
     include/p0f/fp_tcp.h
@@ -23,8 +25,6 @@ add_library(p0f-engine
     include/p0f/tcp.h
     include/p0f/types.h
     include/p0f/util.h
-	include/p0f/ext/string_view.h
-	include/p0f/ext/optional.h
     parser.cpp
     process.cpp
     readfp.cpp
@@ -33,7 +33,7 @@ add_library(p0f-engine
 target_compile_definitions(p0f-engine 
 PUBLIC
 	-DVERSION=\"3.09b\"
-    -DDEBUG_BUILD
+	-DDEBUG_BUILD
 )
 
 target_include_directories(p0f-engine 
@@ -43,7 +43,7 @@ PUBLIC
 
 target_link_libraries(p0f-engine
 PUBLIC
-    Boost::boost
+	Boost::boost
 )
 
 target_compile_options(p0f-engine

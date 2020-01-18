@@ -6,7 +6,9 @@ add_executable(p0f-client
 
 target_compile_options(p0f-client 
 PUBLIC
-	-Wall -Wno-format -funsigned-char
+    -pedantic
+    -Wall
+    -W
 )
 
 target_link_libraries(p0f-client

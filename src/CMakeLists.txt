@@ -6,7 +6,7 @@ add_executable(p0f
 
 target_compile_definitions(p0f 
 PUBLIC
-	-DVERSION=\"3.09b\"
+    -DVERSION=\"3.09b\"
     -DDEBUG_BUILD
 )
 
@@ -78,7 +78,7 @@ PUBLIC
 target_link_libraries(p0f
 PUBLIC
 	${PCAP_LIBRARIES}
-    p0f-engine
+	p0f-engine
 )
 
 
