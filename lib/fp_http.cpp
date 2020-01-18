@@ -75,7 +75,7 @@ constexpr uint64_t bloom4_64(uint32_t val) {
 }
 
 // Look up or register new header
-int32_t lookup_hdr(const std::string &name, uint8_t create) {
+int32_t lookup_hdr(const std::string &name, bool create) {
 
 	std::hash<std::string> hasher;
 	uint32_t bucket = hasher(name) % SIG_BUCKETS;
@@ -94,7 +94,7 @@ int32_t lookup_hdr(const std::string &name, uint8_t create) {
 	if (!create)
 		return -1;
 
-	size_t index = http_context.hdr_names.size();
+	const size_t index = http_context.hdr_names.size();
 
 	http_context.hdr_names.push_back(name);
 	http_context.hdr_by_hash[bucket].push_back(index);
@@ -791,7 +791,7 @@ bool parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_
 
 		/* Header value starts at vstart, and has vlen bytes (may be zero).
 		 * Record this in the signature. */
-		const int32_t hid = lookup_hdr(std::string(pay + f->http_pos, nlen), 0);
+		const int32_t hid = lookup_hdr(std::string(pay + f->http_pos, nlen), false);
 
 		http_hdr new_hdr;
 		new_hdr.id = hid;
@@ -871,46 +871,46 @@ void http_init() {
 	uint32_t i;
 
 	// Do not change - other code depends on the ordering of first 6 entries.
-	lookup_hdr("User-Agent", 1);      // 0
-	lookup_hdr("Server", 1);          // 1
-	lookup_hdr("Accept-Language", 1); // 2
-	lookup_hdr("Via", 1);             // 3
-	lookup_hdr("X-Forwarded-For", 1); // 4
-	lookup_hdr("Date", 1);            // 5
+	lookup_hdr("User-Agent", true);      // 0
+	lookup_hdr("Server", true);          // 1
+	lookup_hdr("Accept-Language", true); // 2
+	lookup_hdr("Via", true);             // 3
+	lookup_hdr("X-Forwarded-For", true); // 4
+	lookup_hdr("Date", true);            // 5
 
 	i = 0;
 	while (http_context.req_optional[i].name) {
-		http_context.req_optional[i].id = lookup_hdr(http_context.req_optional[i].name, 1);
+		http_context.req_optional[i].id = lookup_hdr(http_context.req_optional[i].name, true);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.resp_optional[i].name) {
-		http_context.resp_optional[i].id = lookup_hdr(http_context.resp_optional[i].name, 1);
+		http_context.resp_optional[i].id = lookup_hdr(http_context.resp_optional[i].name, true);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.req_skipval[i].name) {
-		http_context.req_skipval[i].id = lookup_hdr(http_context.req_skipval[i].name, 1);
+		http_context.req_skipval[i].id = lookup_hdr(http_context.req_skipval[i].name, true);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.resp_skipval[i].name) {
-		http_context.resp_skipval[i].id = lookup_hdr(http_context.resp_skipval[i].name, 1);
+		http_context.resp_skipval[i].id = lookup_hdr(http_context.resp_skipval[i].name, true);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.req_common[i].name) {
-		http_context.req_common[i].id = lookup_hdr(http_context.req_common[i].name, 1);
+		http_context.req_common[i].id = lookup_hdr(http_context.req_common[i].name, true);
 		i++;
 	}
 
 	i = 0;
 	while (http_context.resp_common[i].name) {
-		http_context.resp_common[i].id = lookup_hdr(http_context.resp_common[i].name, 1);
+		http_context.resp_common[i].id = lookup_hdr(http_context.resp_common[i].name, true);
 		i++;
 	}
 }
@@ -951,7 +951,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			const int32_t id = lookup_hdr(horder_key, 1);
+			const int32_t id = lookup_hdr(horder_key, true);
 
 			http_hdr new_hdr;
 			new_hdr.id       = id;
@@ -998,7 +998,7 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			int32_t id = lookup_hdr(habsent_key, 1);
+			int32_t id = lookup_hdr(habsent_key, true);
 			hsig->miss.push_back(id);
 		} while (in.match(','));
 	}
