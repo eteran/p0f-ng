@@ -8,8 +8,6 @@
 
  */
 
-#define _FROM_P0F
-
 #include <cerrno>
 #include <clocale>
 #include <csignal>

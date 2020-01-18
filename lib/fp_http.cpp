@@ -8,8 +8,6 @@
 
  */
 
-#define _FROM_FP_HTTP
-
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -34,6 +32,7 @@
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
+#include "p0f/config_http.h"
 
 namespace {
 

@@ -25,6 +25,7 @@ add_library(p0f-engine
     include/p0f/types.h
     include/p0f/util.h
 	include/p0f/engine.h
+	include/p0f/config_http.h
     parser.cpp
     process.cpp
     readfp.cpp
