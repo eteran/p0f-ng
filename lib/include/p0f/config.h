@@ -57,92 +57,92 @@
  * ---------------------*/
 
 // Percentage of host entries / flows to prune when limits exceeded:
-#define KILL_PERCENT 10
+constexpr int KILL_PERCENT = 10;
 
 // PCAP snapshot length:
-#define SNAPLEN 65535
+constexpr int SNAPLEN = 65535;
 
 // Maximum request, response size to keep per flow:
-#define MAX_FLOW_DATA 8192
+constexpr int MAX_FLOW_DATA = 8192;
 
 // Maximum number of TCP options we will process (< 256):
-#define MAX_TCP_OPT 24
+constexpr int MAX_TCP_OPT = 24;
 
 /* Minimum and maximum frequency for timestamp clock (Hz). Note that RFC
  * 1323 permits 1 - 1000 Hz . At 1000 Hz, the 32-bit counter overflows
  * after about 50 days. */
-#define MIN_TSCALE 0.7
-#define MAX_TSCALE 1500
+constexpr double MIN_TSCALE = 0.7;
+constexpr int MAX_TSCALE    = 1500;
 
 /* Minimum and maximum interval (ms) for measuring timestamp progrssion. This
  * is used to make sure the timestamps are fresh enough to be of any value,
  * and that the measurement is not affected by network performance too
  * severely. */
-#define MIN_TWAIT 25
-#define MAX_TWAIT (1000 * 60 * 10)
+constexpr int MIN_TWAIT = 25;
+constexpr int MAX_TWAIT = 1000 * 60 * 10;
 
 /* Time window in which to tolerate timestamps going back slightly or
  * otherwise misbehaving during NAT checks (ms): */
-#define TSTAMP_GRACE 100
+constexpr int TSTAMP_GRACE = 100;
 
 // Maximum interval between packets used for TS-based NAT checks (ms):
-#define MAX_NAT_TS (1000 * 60 * 60 * 24)
+constexpr int MAX_NAT_TS = 1000 * 60 * 60 * 24;
 
 // Minimum port drop to serve as a NAT detection signal:
-#define MIN_PORT_DROP 64
+constexpr int MIN_PORT_DROP = 64;
 
 /* Threshold before letting NAT detection make a big deal out of TTL change
  * for remote hosts (this is to account for peering changes): */
-#define SMALL_TTL_CHG 2
+constexpr int SMALL_TTL_CHG = 2;
 
 /* The distance up to which the system is considered to be local, and therefore
  * the SMALL_TTL_CHG threshold should not be taken account: */
-#define LOCAL_TTL_LIMIT 5
+constexpr int LOCAL_TTL_LIMIT = 5;
 
 /* The distance past which the system is considered to be really distant,
  * and therefore, changes within SMALL_TTL_CHG should be completely ignored: */
-#define NEAR_TTL_LIMIT 9
+constexpr int NEAR_TTL_LIMIT = 9;
 
 // Number of packet scores to keep for NAT detection (< 256):
-#define NAT_SCORES 32
+constexpr int NAT_SCORES = 32;
 
 // Number of hash buckets for p0f.fp signatures:
-#define SIG_BUCKETS 64
+constexpr int SIG_BUCKETS = 64;
 
 // Number of hash buckets for active connections:
-#define FLOW_BUCKETS 256
+constexpr int FLOW_BUCKETS = 256;
 
 // Number of hash buckets for host data:
-#define HOST_BUCKETS 1024
+constexpr int HOST_BUCKETS = 1024;
 
 // Cache expiration interval (every n packets received):
-#define EXPIRE_INTERVAL 50
+constexpr int EXPIRE_INTERVAL = 50;
 
 /* Non-alphanumeric chars to permit in OS names. This is to allow 'sys' syntax
  * to be used unambiguously, yet allow some freedom: */
-#define NAME_CHARS " ./-_!?()"
+constexpr char NAME_CHARS[] = " ./-_!?()";
 
 // Special window size and MSS used by p0f-sendsyn, and detected by p0f:
-#define SPECIAL_MSS 1331
-#define SPECIAL_WIN 1337
+constexpr int SPECIAL_MSS = 1331;
+constexpr int SPECIAL_WIN = 1337;
 
 /* Maximum length of an HTTP URL line we're willing to entertain. The same
  * limit is also used for the first line of a response: */
-#define HTTP_MAX_URL 1024
+constexpr int HTTP_MAX_URL = 1024;
 
 // Maximum number of HTTP headers:
-#define HTTP_MAX_HDRS 32
+constexpr int HTTP_MAX_HDRS = 32;
 
 // Maximum length of a header name:
-#define HTTP_MAX_HDR_NAME 32
+constexpr int HTTP_MAX_HDR_NAME = 32;
 
 // Maximum length of a header value:
-#define HTTP_MAX_HDR_VAL 1024
+constexpr int HTTP_MAX_HDR_VAL = 1024;
 
 // Maximum length of a header value for display purposes:
-#define HTTP_MAX_SHOW 200
+constexpr int HTTP_MAX_SHOW = 200;
 
 // Maximum HTTP 'Date' progression jitter to overlook (s):
-#define HTTP_MAX_DATE_DIFF 10
+constexpr int HTTP_MAX_DATE_DIFF = 10;
 
 #endif
