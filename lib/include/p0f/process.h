@@ -51,7 +51,7 @@ struct packet_data {
 	uint8_t ip_opt_len = 0; // Length of IP options
 
 	const uint8_t *payload = nullptr; // TCP payload
-	uint32_t pay_len = 0;       // Length of TCP payload
+	uint32_t pay_len       = 0;       // Length of TCP payload
 
 	uint32_t seq = 0; // seq value seen
 };

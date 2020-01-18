@@ -8,6 +8,12 @@
 /* Headers that should be tagged as optional by the HTTP fingerprinter in any
  * generated signatures: */
 
+// A structure used for looking up various headers internally in fp_http.c:
+struct http_id {
+	const char *name;
+	int32_t id;
+};
+
 constexpr http_id req_optional_init[] = {
 	{"Cookie", 0},
 	{"Referer", 0},

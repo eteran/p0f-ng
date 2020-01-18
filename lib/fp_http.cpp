@@ -22,7 +22,6 @@
 
 #include "p0f/api.h"
 #include "p0f/config.h"
-#include "p0f/config_http.h"
 #include "p0f/debug.h"
 #include "p0f/fp_http.h"
 #include "p0f/hash.h"
@@ -34,6 +33,8 @@
 #include "p0f/tcp.h"
 #include "p0f/util.h"
 
+http_context_t http_context;
+
 namespace {
 
 constexpr int HDR_UA  = 0;
@@ -42,26 +43,6 @@ constexpr int HDR_AL  = 2;
 constexpr int HDR_VIA = 3;
 constexpr int HDR_XFF = 4;
 constexpr int HDR_DAT = 5;
-
-struct http_context_t {
-	http_id req_optional[sizeof(req_optional_init) / sizeof(http_id)];
-	http_id resp_optional[sizeof(resp_optional_init) / sizeof(http_id)];
-	http_id req_common[sizeof(req_common_init) / sizeof(http_id)];
-	http_id resp_common[sizeof(resp_common_init) / sizeof(http_id)];
-	http_id req_skipval[sizeof(req_skipval_init) / sizeof(http_id)];
-	http_id resp_skipval[sizeof(resp_skipval_init) / sizeof(http_id)];
-
-	std::vector<std::string> hdr_names;             // List of header names by ID
-	std::vector<uint32_t> hdr_by_hash[SIG_BUCKETS]; // Hashed header names
-
-	/* Signatures aren't bucketed due to the complex matching used; but we use
-	 * Bloom filters to go through them quickly. */
-	std::vector<http_sig_record> sigs[2];
-
-	std::vector<ua_map_record> ua_map; // Mappings between U-A and OS
-};
-
-http_context_t http_context;
 
 /* Ghetto Bloom filter 4-out-of-64 bitmask generator for adding 32-bit header
  * IDs to a set. We expect around 10 members in a set. */
@@ -74,17 +55,31 @@ constexpr uint64_t bloom4_64(uint32_t val) {
 	return ret;
 }
 
+// Parse HTTP date field.
+time_t parse_date(const char *str) {
+	struct tm t = {};
+
+	if (!strptime(str, "%a, %d %b %Y %H:%M:%S %Z", &t)) {
+		DEBUG("[#] Invalid 'Date' field ('%s').\n", str);
+		return 0;
+	}
+
+	return mktime(&t);
+}
+
+}
+
 // Look up or register new header
-int32_t lookup_hdr(const std::string &name, bool create) {
+int32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
 
 	std::hash<std::string> hasher;
 	uint32_t bucket = hasher(name) % SIG_BUCKETS;
 
-	uint32_t *p = &http_context.hdr_by_hash[bucket][0];
-	uint32_t i  = http_context.hdr_by_hash[bucket].size();
+	uint32_t *p = &hdr_by_hash_[bucket][0];
+	uint32_t i  = hdr_by_hash_[bucket].size();
 
 	while (i--) {
-		if (http_context.hdr_names[*p] == name) {
+		if (hdr_names_[*p] == name) {
 			return *p;
 		}
 		p++;
@@ -94,20 +89,20 @@ int32_t lookup_hdr(const std::string &name, bool create) {
 	if (!create)
 		return -1;
 
-	const size_t index = http_context.hdr_names.size();
+	const size_t index = hdr_names_.size();
 
-	http_context.hdr_names.push_back(name);
-	http_context.hdr_by_hash[bucket].push_back(index);
+	hdr_names_.push_back(name);
+	hdr_by_hash_[bucket].push_back(index);
 
 	return index;
 }
 
 // Find match for a signature.
-void http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det) {
+void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det) {
 
 	http_sig_record *gmatch = nullptr;
-	http_sig_record *ref    = &http_context.sigs[to_srv][0];
-	size_t cnt              = http_context.sigs[to_srv].size();
+	http_sig_record *ref    = &sigs_[to_srv][0];
+	size_t cnt              = sigs_[to_srv].size();
 
 	while (cnt--) {
 
@@ -218,12 +213,12 @@ void http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det) {
 	}
 }
 
-void http_find_match(bool to_srv, const std::unique_ptr<http_sig> &ts, uint8_t dupe_det) {
+void http_context_t::http_find_match(bool to_srv, const std::unique_ptr<http_sig> &ts, uint8_t dupe_det) {
 	http_find_match(to_srv, ts.get(), dupe_det);
 }
 
 // Dump a HTTP signature.
-std::string dump_sig(bool to_srv, const http_sig *hsig) {
+std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 	bool had_prev = false;
 	http_id *list;
@@ -238,7 +233,7 @@ std::string dump_sig(bool to_srv, const http_sig *hsig) {
 			bool optional = false;
 
 			// Check the "optional" list.
-			list = to_srv ? http_context.req_optional : http_context.resp_optional;
+			list = to_srv ? req_optional_ : resp_optional_;
 
 			while (list->name) {
 				if (list->id == hsig->hdr[i].id) {
@@ -254,7 +249,7 @@ std::string dump_sig(bool to_srv, const http_sig *hsig) {
 			append_format(ss, "%s%s%s",
 						  had_prev ? "," : "",
 						  optional ? "?" : "",
-						  http_context.hdr_names[hsig->hdr[i].id].c_str());
+						  hdr_names_[hsig->hdr[i].id].c_str());
 
 			had_prev = true;
 
@@ -266,7 +261,7 @@ std::string dump_sig(bool to_srv, const http_sig *hsig) {
 				if (optional)
 					continue;
 
-				list = to_srv ? http_context.req_skipval : http_context.resp_skipval;
+				list = to_srv ? req_skipval_ : resp_skipval_;
 
 				while (list->name) {
 					if (list->id == hsig->hdr[i].id) {
@@ -327,7 +322,7 @@ std::string dump_sig(bool to_srv, const http_sig *hsig) {
 
 	append_format(ss, ":");
 
-	list     = to_srv ? http_context.req_common : http_context.resp_common;
+	list     = to_srv ? req_common_ : resp_common_;
 	had_prev = false;
 
 	while (list->name) {
@@ -373,7 +368,7 @@ std::string dump_sig(bool to_srv, const http_sig *hsig) {
 }
 
 // Dump signature flags.
-std::string dump_flags(const http_sig *hsig, const http_sig_record *m) {
+std::string http_context_t::dump_flags(const http_sig *hsig, const http_sig_record *m) {
 
 	std::stringstream ss;
 
@@ -397,7 +392,7 @@ std::string dump_flags(const http_sig *hsig, const http_sig_record *m) {
 
 /* Score signature differences. For unknown signatures, the presumption is that
  * they identify apps, so the logic is quite different from TCP. */
-void score_nat(bool to_srv, const packet_flow *f, libp0f_context_t *libp0f_context) {
+void http_context_t::score_nat(bool to_srv, const packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	http_sig_record *m = f->http_tmp.matched;
 	host_data *hd;
@@ -496,13 +491,13 @@ void score_nat(bool to_srv, const packet_flow *f, libp0f_context_t *libp0f_conte
 
 		uint32_t i;
 
-		for (i = 0; i < http_context.ua_map.size(); i++)
-			if (strstr(f->http_tmp.sw->c_str(), http_context.ua_map[i].name.c_str()))
+		for (i = 0; i < ua_map_.size(); i++)
+			if (strstr(f->http_tmp.sw->c_str(), ua_map_[i].name.c_str()))
 				break;
 
-		if (i != http_context.ua_map.size()) {
+		if (i != ua_map_.size()) {
 
-			if (http_context.ua_map[i].id != hd->last_name_id) {
+			if (ua_map_[i].id != hd->last_name_id) {
 
 				DEBUG("[#] Otherwise plausible User-Agent points to another OS.\n");
 				score += 4;
@@ -553,20 +548,8 @@ header_check:
 	add_nat_score(to_srv, f, reason, score, libp0f_context);
 }
 
-// Parse HTTP date field.
-time_t parse_date(const char *str) {
-	struct tm t = {};
-
-	if (!strptime(str, "%a, %d %b %Y %H:%M:%S %Z", &t)) {
-		DEBUG("[#] Invalid 'Date' field ('%s').\n", str);
-		return 0;
-	}
-
-	return mktime(&t);
-}
-
 // Look up HTTP signature, create an observation.
-void fingerprint_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context) {
+void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	http_sig_record *m;
 	const char *lang = nullptr;
@@ -682,7 +665,7 @@ void fingerprint_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_cont
 }
 
 // Parse name=value pairs into a signature.
-bool parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context) {
+bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context) {
 
 	size_t plen = to_srv ? f->request.size() : f->response.size();
 
@@ -856,19 +839,15 @@ bool parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_
 	return can_get_more;
 }
 
-}
-
 // Pre-register essential headers.
-void http_init() {
+http_context_t::http_context_t() {
 
-	memcpy(&http_context.req_optional, &req_optional_init, sizeof(http_context.req_optional));
-	memcpy(&http_context.resp_optional, &resp_optional_init, sizeof(http_context.resp_optional));
-	memcpy(&http_context.req_common, &req_common_init, sizeof(http_context.req_common));
-	memcpy(&http_context.resp_common, &resp_common_init, sizeof(http_context.resp_common));
-	memcpy(&http_context.req_skipval, &req_skipval_init, sizeof(http_context.req_skipval));
-	memcpy(&http_context.resp_skipval, &resp_skipval_init, sizeof(http_context.resp_skipval));
-
-	uint32_t i;
+	memcpy(&req_optional_, &req_optional_init, sizeof(req_optional_));
+	memcpy(&resp_optional_, &resp_optional_init, sizeof(resp_optional_));
+	memcpy(&req_common_, &req_common_init, sizeof(req_common_));
+	memcpy(&resp_common_, &resp_common_init, sizeof(resp_common_));
+	memcpy(&req_skipval_, &req_skipval_init, sizeof(req_skipval_));
+	memcpy(&resp_skipval_, &resp_skipval_init, sizeof(resp_skipval_));
 
 	// Do not change - other code depends on the ordering of first 6 entries.
 	lookup_hdr("User-Agent", true);      // 0
@@ -878,45 +857,46 @@ void http_init() {
 	lookup_hdr("X-Forwarded-For", true); // 4
 	lookup_hdr("Date", true);            // 5
 
+	uint32_t i;
 	i = 0;
-	while (http_context.req_optional[i].name) {
-		http_context.req_optional[i].id = lookup_hdr(http_context.req_optional[i].name, true);
+	while (req_optional_[i].name) {
+		req_optional_[i].id = lookup_hdr(req_optional_[i].name, true);
 		i++;
 	}
 
 	i = 0;
-	while (http_context.resp_optional[i].name) {
-		http_context.resp_optional[i].id = lookup_hdr(http_context.resp_optional[i].name, true);
+	while (resp_optional_[i].name) {
+		resp_optional_[i].id = lookup_hdr(resp_optional_[i].name, true);
 		i++;
 	}
 
 	i = 0;
-	while (http_context.req_skipval[i].name) {
-		http_context.req_skipval[i].id = lookup_hdr(http_context.req_skipval[i].name, true);
+	while (req_skipval_[i].name) {
+		req_skipval_[i].id = lookup_hdr(req_skipval_[i].name, true);
 		i++;
 	}
 
 	i = 0;
-	while (http_context.resp_skipval[i].name) {
-		http_context.resp_skipval[i].id = lookup_hdr(http_context.resp_skipval[i].name, true);
+	while (resp_skipval_[i].name) {
+		resp_skipval_[i].id = lookup_hdr(resp_skipval_[i].name, true);
 		i++;
 	}
 
 	i = 0;
-	while (http_context.req_common[i].name) {
-		http_context.req_common[i].id = lookup_hdr(http_context.req_common[i].name, true);
+	while (req_common_[i].name) {
+		req_common_[i].id = lookup_hdr(req_common_[i].name, true);
 		i++;
 	}
 
 	i = 0;
-	while (http_context.resp_common[i].name) {
-		http_context.resp_common[i].id = lookup_hdr(http_context.resp_common[i].name, true);
+	while (resp_common_[i].name) {
+		resp_common_[i].id = lookup_hdr(resp_common_[i].name, true);
 		i++;
 	}
 }
 
 // Register new HTTP signature.
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
+void http_context_t::http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
 
 	auto hsig = std::make_unique<http_sig>();
 
@@ -1034,11 +1014,11 @@ void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t 
 	hrec.generic  = generic;
 	hrec.sig      = std::move(hsig);
 
-	http_context.sigs[to_srv].push_back(std::move(hrec));
+	sigs_[to_srv].push_back(std::move(hrec));
 }
 
 // Register new HTTP signature.
-void http_parse_ua(ext::string_view value, uint32_t line_no) {
+void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 	parser in(value);
 	do {
@@ -1072,7 +1052,7 @@ void http_parse_ua(ext::string_view value, uint32_t line_no) {
 		ua_map_record record;
 		record.id   = id;
 		record.name = (!name) ? fp_context.fp_os_names[id] : *name;
-		http_context.ua_map.push_back(record);
+		ua_map_.push_back(record);
 
 	} while (in.match(','));
 
@@ -1083,7 +1063,7 @@ void http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 /* Examine request or response; returns 1 if more data needed and plausibly
  * can be read. Note that the buffer is always NUL-terminated. */
-bool process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context) {
+bool http_context_t::process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context) {
 
 	// Already decided this flow is not worth tracking?
 	if (f->in_http < 0)

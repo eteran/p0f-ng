@@ -4,7 +4,6 @@
 #include "p0f/readfp.h"
 
 engine::engine(const char *fp_database) {
-	http_init();
 	read_config(fp_database);
 }
 

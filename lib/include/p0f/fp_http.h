@@ -12,6 +12,7 @@
 #define HAVE_FP_HTTP_H_
 
 #include "config.h"
+#include "config_http.h"
 #include "ext/optional.h"
 #include "ext/string_view.h"
 #include <cstdint>
@@ -22,12 +23,6 @@
 struct packet_flow;
 struct libp0f_context_t;
 struct http_sig_record;
-
-// A structure used for looking up various headers internally in fp_http.c:
-struct http_id {
-	const char *name;
-	int32_t id;
-};
 
 // Another internal structure for UA -> OS maps:
 struct ua_map_record {
@@ -84,10 +79,43 @@ struct http_sig_record {
 	std::unique_ptr<http_sig> sig; // Actual signature data
 };
 
-void http_parse_ua(ext::string_view val, uint32_t line_no);
-void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view val, uint32_t line_no);
-bool process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context);
-void free_sig_hdrs(http_sig *h);
-void http_init();
+struct http_context_t {
+public:
+	http_context_t();
+
+public:
+	bool process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context);
+	void http_parse_ua(ext::string_view value, uint32_t line_no);
+	void http_register_sig(bool to_srv, uint8_t generic, int32_t sig_class, int32_t sig_name, const ext::optional<std::string> &sig_flavor, int32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
+
+private:
+	int32_t lookup_hdr(const std::string &name, bool create);
+	void http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det);
+	void http_find_match(bool to_srv, const std::unique_ptr<http_sig> &ts, uint8_t dupe_det);
+	std::string dump_sig(bool to_srv, const http_sig *hsig);
+	void score_nat(bool to_srv, const packet_flow *f, libp0f_context_t *libp0f_context);
+	void fingerprint_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context);
+	bool parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context);
+	std::string dump_flags(const http_sig *hsig, const http_sig_record *m);
+
+private:
+	http_id req_optional_[sizeof(req_optional_init) / sizeof(http_id)];
+	http_id resp_optional_[sizeof(resp_optional_init) / sizeof(http_id)];
+	http_id req_common_[sizeof(req_common_init) / sizeof(http_id)];
+	http_id resp_common_[sizeof(resp_common_init) / sizeof(http_id)];
+	http_id req_skipval_[sizeof(req_skipval_init) / sizeof(http_id)];
+	http_id resp_skipval_[sizeof(resp_skipval_init) / sizeof(http_id)];
+
+	std::vector<std::string> hdr_names_;             // List of header names by ID
+	std::vector<uint32_t> hdr_by_hash_[SIG_BUCKETS]; // Hashed header names
+
+	/* Signatures aren't bucketed due to the complex matching used; but we use
+	 * Bloom filters to go through them quickly. */
+	std::vector<http_sig_record> sigs_[2];
+
+	std::vector<ua_map_record> ua_map_; // Mappings between U-A and OS
+};
+
+extern http_context_t http_context;
 
 #endif

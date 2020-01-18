@@ -420,7 +420,7 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 			return;
 		}
 
-		fingerprint_mtu(1, pk, f, libp0f_context);
+		mtu_context.fingerprint_mtu(1, pk, f, libp0f_context);
 		check_ts_tcp(1, pk, f, libp0f_context);
 
 		if (tsig) {
@@ -470,7 +470,7 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 			return;
 		}
 
-		fingerprint_mtu(0, pk, f, libp0f_context);
+		mtu_context.fingerprint_mtu(0, pk, f, libp0f_context);
 		check_ts_tcp(0, pk, f, libp0f_context);
 
 		f->server->last_synack = std::move(tsig);
@@ -551,7 +551,7 @@ void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
 		if (!pk->pay_len)
 			return;
 
-		need_more |= process_http(to_srv, f, libp0f_context);
+		need_more |= http_context.process_http(to_srv, f, libp0f_context);
 
 		if (!need_more) {
 			DEBUG("[#] All modules done, no need to keep tracking flow.\n");

@@ -257,7 +257,7 @@ void config_parse_line(ext::string_view line) {
 		std::string value;
 		in.match_any(&value);
 
-		http_parse_ua(value, fp_context.line_no);
+		http_context.http_parse_ua(value, fp_context.line_no);
 
 	} else if (in.match("label")) {
 
@@ -332,13 +332,13 @@ void config_parse_line(ext::string_view line) {
 				fp_context.line_no);
 			break;
 		case CF_MOD_MTU:
-			mtu_register_sig(
+			mtu_context.mtu_register_sig(
 				fp_context.sig_flavor,
 				value,
 				fp_context.line_no);
 			break;
 		case CF_MOD_HTTP:
-			http_register_sig(
+			http_context.http_register_sig(
 				fp_context.mod_to_srv,
 				fp_context.generic,
 				fp_context.sig_class,
