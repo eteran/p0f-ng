@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	time_t ut = r.first_seen;
+	time_t ut    = r.first_seen;
 	struct tm *t = localtime(&ut);
 	char tmp[128];
 	strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", t);

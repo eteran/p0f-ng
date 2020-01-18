@@ -135,9 +135,9 @@ int main(int argc, char **argv) {
 
 	uint8_t work_buf[MIN_TCP6 + 24];
 
-	auto ip6 = reinterpret_cast<struct ipv6_hdr *>(work_buf);
-	auto tcp  = reinterpret_cast<struct tcp_hdr *>(ip6 + 1);
-	uint8_t *opts        = work_buf + MIN_TCP6;
+	auto ip6      = reinterpret_cast<struct ipv6_hdr *>(work_buf);
+	auto tcp      = reinterpret_cast<struct tcp_hdr *>(ip6 + 1);
+	uint8_t *opts = work_buf + MIN_TCP6;
 
 	if (argc != 4) {
 		ERRORF("Usage: p0f-sendsyn your_ip dst_ip port\n");
