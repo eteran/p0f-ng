@@ -40,11 +40,13 @@ void parse_addr4(const char *str, uint8_t *ret) {
 	uint32_t a3;
 	uint32_t a4;
 
-	if (sscanf(str, "%u.%u.%u.%u", &a1, &a2, &a3, &a4) != 4)
+	if (sscanf(str, "%u.%u.%u.%u", &a1, &a2, &a3, &a4) != 4) {
 		FATAL("Malformed IPv4 address.");
+	}
 
-	if (a1 > 255 || a2 > 255 || a3 > 255 || a4 > 255)
+	if (a1 > 255 || a2 > 255 || a3 > 255 || a4 > 255) {
 		FATAL("Malformed IPv4 address.");
+	}
 
 	ret[0] = a1;
 	ret[1] = a2;
@@ -107,34 +109,41 @@ int main(int argc, char **argv) {
 	}
 
 	int sock = socket(PF_UNIX, SOCK_STREAM, 0);
-	if (sock < 0)
+	if (sock < 0) {
 		PFATAL("Call to socket() failed.");
+	}
 
 	struct sockaddr_un sun;
 	sun.sun_family = AF_UNIX;
 
-	if (strlen(argv[1]) >= sizeof(sun.sun_path))
+	if (strlen(argv[1]) >= sizeof(sun.sun_path)) {
 		FATAL("API socket filename is too long for sockaddr_un (blame Unix).");
+	}
 
 	strcpy(sun.sun_path, argv[1]);
 
-	if (connect(sock, reinterpret_cast<struct sockaddr *>(&sun), sizeof(sun)))
+	if (connect(sock, reinterpret_cast<struct sockaddr *>(&sun), sizeof(sun))) {
 		PFATAL("Can't connect to API socket.");
+	}
 
-	if (write(sock, &q, sizeof(p0f_api_query)) != sizeof(p0f_api_query))
+	if (write(sock, &q, sizeof(p0f_api_query)) != sizeof(p0f_api_query)) {
 		FATAL("Short write to API socket.");
+	}
 
 	p0f_api_response r;
-	if (read(sock, &r, sizeof(p0f_api_response)) != sizeof(p0f_api_response))
+	if (read(sock, &r, sizeof(p0f_api_response)) != sizeof(p0f_api_response)) {
 		FATAL("Short read from API socket.");
+	}
 
 	close(sock);
 
-	if (r.magic != P0F_RESP_MAGIC)
+	if (r.magic != P0F_RESP_MAGIC) {
 		FATAL("Bad response magic (0x%08x).\n", r.magic);
+	}
 
-	if (r.status == P0F_STATUS_BADQUERY)
+	if (r.status == P0F_STATUS_BADQUERY) {
 		FATAL("P0f did not understand the query.\n");
+	}
 
 	if (r.status == P0F_STATUS_NOMATCH) {
 		SAYF("No matching host in p0f cache. That's all we know.\n");
@@ -156,33 +165,38 @@ int main(int argc, char **argv) {
 
 	SAYF("Total flows   = %u\n", r.total_conn);
 
-	if (!r.os_name[0])
+	if (!r.os_name[0]) {
 		SAYF("Detected OS   = ???\n");
-	else
+	} else {
 		SAYF("Detected OS   = %s %s%s%s\n", r.os_name, r.os_flavor,
 			 (r.os_match_q & P0F_MATCH_GENERIC) ? " [generic]" : "",
 			 (r.os_match_q & P0F_MATCH_FUZZY) ? " [fuzzy]" : "");
+	}
 
-	if (!r.http_name[0])
+	if (!r.http_name[0]) {
 		SAYF("HTTP software = ???\n");
-	else
+	} else {
 		SAYF("HTTP software = %s %s (ID %s)\n", r.http_name, r.http_flavor,
 			 (r.bad_sw == 2) ? "is fake" : (r.bad_sw ? "OS mismatch" : "seems legit"));
+	}
 
-	if (!r.link_type[0])
+	if (!r.link_type[0]) {
 		SAYF("Network link  = ???\n");
-	else
+	} else {
 		SAYF("Network link  = %s\n", r.link_type);
+	}
 
-	if (!r.language[0])
+	if (!r.language[0]) {
 		SAYF("Language      = ???\n");
-	else
+	} else {
 		SAYF("Language      = %s\n", r.language);
+	}
 
-	if (r.distance == -1)
+	if (r.distance == -1) {
 		SAYF("Distance      = ???\n");
-	else
+	} else {
 		SAYF("Distance      = %u\n", r.distance);
+	}
 
 	if (r.last_nat) {
 		ut = r.last_nat;

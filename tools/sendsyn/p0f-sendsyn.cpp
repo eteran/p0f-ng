@@ -36,8 +36,9 @@ namespace {
 /* Do a basic IPv4 TCP checksum. */
 void tcp_cksum(uint8_t *src, uint8_t *dst, tcp_hdr *t, uint8_t opt_len) {
 
-	if (opt_len % 4)
+	if (opt_len % 4) {
 		FATAL("Packet size not aligned to 4.");
+	}
 
 	t->cksum = 0;
 
@@ -45,18 +46,21 @@ void tcp_cksum(uint8_t *src, uint8_t *dst, tcp_hdr *t, uint8_t opt_len) {
 
 	auto p = reinterpret_cast<uint8_t *>(t);
 
-	for (uint32_t i = 0; i < sizeof(tcp_hdr) + opt_len; i += 2, p += 2)
+	for (uint32_t i = 0; i < sizeof(tcp_hdr) + opt_len; i += 2, p += 2) {
 		sum += (*p << 8) + p[1];
+	}
 
 	p = src;
 
-	for (uint32_t i = 0; i < 4; i += 2, p += 2)
+	for (uint32_t i = 0; i < 4; i += 2, p += 2) {
 		sum += (*p << 8) + p[1];
+	}
 
 	p = dst;
 
-	for (uint32_t i = 0; i < 4; i += 2, p += 2)
+	for (uint32_t i = 0; i < 4; i += 2, p += 2) {
 		sum += (*p << 8) + p[1];
+	}
 
 	t->cksum = htons(~(sum + (sum >> 16)));
 }
@@ -66,11 +70,13 @@ void parse_addr(char *str, uint8_t *ret) {
 
 	uint32_t a1, a2, a3, a4;
 
-	if (sscanf(str, "%u.%u.%u.%u", &a1, &a2, &a3, &a4) != 4)
+	if (sscanf(str, "%u.%u.%u.%u", &a1, &a2, &a3, &a4) != 4) {
 		FATAL("Malformed IPv4 address.");
+	}
 
-	if (a1 > 255 || a2 > 255 || a3 > 255 || a4 > 255)
+	if (a1 > 255 || a2 > 255 || a3 > 255 || a4 > 255) {
 		FATAL("Malformed IPv4 address.");
+	}
 
 	ret[0] = a1;
 	ret[1] = a2;
@@ -129,12 +135,14 @@ int main(int argc, char **argv) {
 	parse_addr(argv[2], ip4->dst);
 
 	int sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-	if (sock < 0)
+	if (sock < 0) {
 		PFATAL("Can't open raw socket (you need to be root).");
+	}
 
 	const char one = 1;
-	if (setsockopt(sock, IPPROTO_IP, IP_HDRINCL, &one, sizeof(char)))
+	if (setsockopt(sock, IPPROTO_IP, IP_HDRINCL, &one, sizeof(char))) {
 		PFATAL("setsockopt() on raw socket failed.");
+	}
 
 	struct sockaddr_in sin;
 	sin.sin_family = PF_INET;
@@ -159,8 +167,9 @@ int main(int argc, char **argv) {
 		memcpy(opts, opt_combos[i], 24);
 		tcp_cksum(ip4->src, ip4->dst, tcp, 24);
 
-		if (sendto(sock, work_buf, sizeof(work_buf), 0, reinterpret_cast<struct sockaddr *>(&sin), sizeof(struct sockaddr_in)) < 0)
+		if (sendto(sock, work_buf, sizeof(work_buf), 0, reinterpret_cast<struct sockaddr *>(&sin), sizeof(struct sockaddr_in)) < 0) {
 			PFATAL("sendto() fails.");
+		}
 
 		usleep(100000);
 	}
