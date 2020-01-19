@@ -35,6 +35,7 @@ void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext
 	if (!in.match([](char ch) { return isdigit(ch); }, &mtu_str)) {
 		FATAL("Malformed MTU value in line %u.", line_no);
 	}
+
 	const int mtu = stoi(mtu_str);
 
 	if (mtu <= 0 || mtu > 65535)
@@ -51,36 +52,38 @@ void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext
 
 void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f) {
 
-	uint32_t bucket;
-	uint32_t i;
-	uint32_t mtu;
-
-	if (!pk->mss || f->sendsyn)
+	if (!pk->mss || f->sendsyn) {
 		return;
+	}
 
 	ctx_->start_observation("mtu", 2, to_srv, f, ctx_);
 
-	if (pk->ip_ver == IP_VER4)
+	uint32_t mtu;
+	if (pk->ip_ver == IP_VER4) {
 		mtu = pk->mss + MIN_TCP4;
-	else
+	} else {
 		mtu = pk->mss + MIN_TCP6;
+	}
 
-	bucket = (mtu) % SIG_BUCKETS;
+	const uint32_t bucket = (mtu) % SIG_BUCKETS;
 
-	for (i = 0; i < sigs_[bucket].size(); i++)
-		if (sigs_[bucket][i].mtu == mtu)
+	uint32_t i;
+	for (i = 0; i < sigs_[bucket].size(); i++) {
+		if (sigs_[bucket][i].mtu == mtu) {
 			break;
+		}
+	}
 
-	if (i == sigs_[bucket].size())
+	if (i == sigs_[bucket].size()) {
 		ctx_->observation_field("link", nullptr);
-	else {
-
+	} else {
 		ctx_->observation_field("link", sigs_[bucket][i].name->c_str());
 
-		if (to_srv)
+		if (to_srv) {
 			f->client->link_type = sigs_[bucket][i].name;
-		else
+		} else {
 			f->server->link_type = sigs_[bucket][i].name;
+		}
 	}
 
 	report_observation(ctx_, "raw_mtu", "%u", mtu);

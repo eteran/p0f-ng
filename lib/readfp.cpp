@@ -58,14 +58,14 @@ void fp_context_t::config_parse_classes(ext::string_view value) {
 }
 
 // Parse 'label' parameter by looking up ID and recording name / flavor.
-void fp_context_t::config_parse_label(const std::string &value) {
+void fp_context_t::config_parse_label(ext::string_view value) {
 
 	// Simplified handling for [mtu] signatures.
 	if (mod_type_ == CF_MOD_MTU) {
 		if (value.empty())
 			FATAL("Empty MTU label in line %u.\n", line_no_);
 
-		sig_flavor_ = value;
+		sig_flavor_ = value.to_string();
 		return;
 	}
 

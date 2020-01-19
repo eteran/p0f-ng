@@ -914,11 +914,6 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 
 	uint32_t ts_diff;
 	uint64_t ms_diff;
-
-	uint32_t freq;
-	uint32_t up_min;
-	uint32_t up_mod_days;
-
 	double ffreq;
 
 	if (!pk->ts1 || f->sendsyn)
@@ -943,14 +938,14 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 	}
 
 	/* Wait at least 25 ms, and not more than 10 minutes, for at least 5
-	 timestamp ticks. Allow the timestamp to go back slightly within
-	 a short window, too - we may be receiving packets a bit out of
-	 order. */
+	 * timestamp ticks. Allow the timestamp to go back slightly within a short
+	 * window, too - we may be receiving packets a bit out of order. */
 
-	if (ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT) return;
+	if (ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT)
+		return;
 
-	if (ts_diff < 5 || (ms_diff < TSTAMP_GRACE && (~ts_diff) / 1000 <
-													  MAX_TSCALE / TSTAMP_GRACE)) return;
+	if (ts_diff < 5 || (ms_diff < TSTAMP_GRACE && (~ts_diff) / 1000 < MAX_TSCALE / TSTAMP_GRACE))
+		return;
 
 	if (ts_diff > ~ts_diff)
 		ffreq = (~ts_diff * -1000.0 / ms_diff);
@@ -960,10 +955,9 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 	if (ffreq < MIN_TSCALE || ffreq > MAX_TSCALE) {
 
 		/* Allow bad reading on SYN, as this may be just an artifact of IP
-	   sharing or OS change. */
+		 * sharing or OS change. */
 
 		if (pk->tcp_type != TCP_SYN) {
-
 			if (to_srv)
 				f->cli_tps = -1;
 			else
@@ -976,38 +970,38 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 		return;
 	}
 
-	freq = ffreq;
+	auto freq = static_cast<uint32_t>(ffreq);
 
 	// Round the frequency neatly.
-	if (freq == 0)
+	if (freq == 0) {
 		freq = 1;
-	else if (freq >= 1 && freq <= 10) {
-	} else if (freq >= 11 && freq <= 50)
+	} else if (freq >= 1 && freq <= 10) {
+		// no change
+	} else if (freq >= 11 && freq <= 50) {
 		freq = (freq + 3) / 5 * 5;
-	else if (freq >= 51 && freq <= 100)
+	} else if (freq >= 51 && freq <= 100) {
 		freq = (freq + 7) / 10 * 10;
-	else if (freq >= 101 && freq <= 500)
+	} else if (freq >= 101 && freq <= 500) {
 		freq = (freq + 33) / 50 * 50;
-	else
+	} else {
 		freq = (freq + 67) / 100 * 100;
+	}
 
-	if (to_srv)
+	if (to_srv) {
 		f->cli_tps = freq;
-	else
+	} else {
 		f->srv_tps = freq;
+	}
 
-	up_min      = pk->ts1 / freq / 60;
-	up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
+	uint32_t up_min      = pk->ts1 / freq / 60;
+	uint32_t up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
 	ctx_->start_observation("uptime", 2, to_srv, f, ctx_);
 
 	if (to_srv) {
-
 		f->client->last_up_min = up_min;
 		f->client->up_mod_days = up_mod_days;
-
 	} else {
-
 		f->server->last_up_min = up_min;
 		f->server->up_mod_days = up_mod_days;
 	}
