@@ -865,7 +865,7 @@ int main(int argc, char *argv[]) {
 
 	setlinebuf(stdout);
 
-	SAYF("--- p0f " VERSION " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
+	SAYF("--- p0f %s by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n", VERSION);
 
 	if (getuid() != geteuid()) {
 		FATAL("Please don't make me setuid. See README for more.\n");
