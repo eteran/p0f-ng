@@ -56,7 +56,7 @@ void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f
 		return;
 	}
 
-	ctx_->start_observation(ctx_, "mtu", 2, to_srv, f);
+	ctx_->begin_observation("mtu", 2, to_srv, f);
 
 	uint32_t mtu;
 	if (pk->ip_ver == IP_VER4) {

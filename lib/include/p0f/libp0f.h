@@ -26,11 +26,14 @@ public:
 	void read_fingerprints(const char *filename);
 
 public:
-	using observation_begin_t = void (*)(libp0f_context_t *, const char *, uint8_t, bool, const packet_flow *);
+	void begin_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
+
+public:
+	using observation_begin_t = void (*)(time_t, const char *, uint8_t, bool, const packet_flow *);
 	using observation_field_t = void (*)(const char *, const char *);
 
 	// Observation hooks
-	observation_begin_t start_observation = [](libp0f_context_t *, const char *, uint8_t, bool, const packet_flow *) {};
+	observation_begin_t start_observation = [](time_t, const char *, uint8_t, bool, const packet_flow *) {};
 	observation_field_t observation_field = [](const char *, const char *) {};
 
 	// Fill in by the one driving things

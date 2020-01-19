@@ -86,9 +86,6 @@ bool set_promisc      = false;        // Use promiscuous mode?
 uint8_t obs_fields    = 0;            // No of pending observation fields
 uint8_t daemon_mode   = 0;            // Running in daemon mode?
 
-void start_observation(libp0f_context_t *ctx, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
-void add_observation_field(const char *key, const char *value);
-
 // Display usage information
 [[noreturn]] void usage() {
 
@@ -817,7 +814,7 @@ void offline_event_loop(libp0f_context_t *ctx) {
 }
 
 // Open log entry.
-void start_observation(libp0f_context_t *ctx, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {
+void start_observation(time_t time, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {
 
 	if (obs_fields) {
 		FATAL("Premature end of observation.");
@@ -841,7 +838,7 @@ void start_observation(libp0f_context_t *ctx, const char *keyword, uint8_t field
 	if (log_file) {
 		char tmp[64];
 
-		const time_t ut = ctx->process_context.get_unix_time();
+		const time_t ut = time;
 		strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", localtime(&ut));
 
 		LOGF("[%s] mod=%s|cli=%s/%u|",
@@ -1052,8 +1049,6 @@ int main(int argc, char *argv[]) {
 	signal(SIGHUP, daemon_mode ? SIG_IGN : abort_handler);
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
-
-
 
 	if (libp0f_context.read_file) {
 		offline_event_loop(&libp0f_context);

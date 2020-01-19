@@ -555,7 +555,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 
 	http_find_match(to_srv, &f->http_tmp, 0);
 
-	ctx_->start_observation(ctx_, to_srv ? "http request" : "http response", 4, to_srv, f);
+	ctx_->begin_observation(to_srv ? "http request" : "http response", 4, to_srv, f);
 
 	if ((m = f->http_tmp.matched)) {
 

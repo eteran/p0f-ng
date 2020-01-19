@@ -859,9 +859,9 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 		f->sendsyn = 1;
 
 	if (to_srv)
-		ctx_->start_observation(ctx_, f->sendsyn ? "sendsyn probe" : "syn", 4, 1, f);
+		ctx_->begin_observation(f->sendsyn ? "sendsyn probe" : "syn", 4, 1, f);
 	else
-		ctx_->start_observation(ctx_, f->sendsyn ? "sendsyn response" : "syn+ack", 4, 0, f);
+		ctx_->begin_observation(f->sendsyn ? "sendsyn response" : "syn+ack", 4, 0, f);
 
 	tcp_find_match(to_srv, sig, 0, f->syn_mss);
 
@@ -996,7 +996,7 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 	uint32_t up_min      = pk->ts1 / freq / 60;
 	uint32_t up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
-	ctx_->start_observation(ctx_, "uptime", 2, to_srv, f);
+	ctx_->begin_observation("uptime", 2, to_srv, f);
 
 	if (to_srv) {
 		f->client->last_up_min = up_min;
