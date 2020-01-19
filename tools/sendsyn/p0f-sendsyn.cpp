@@ -27,7 +27,6 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include "p0f/config.h"
 #include "p0f/debug.h"
 #include "p0f/tcp.h"
 

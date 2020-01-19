@@ -32,7 +32,6 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include "p0f/config.h"
 #include "p0f/debug.h"
 #include "p0f/tcp.h"
 
@@ -41,31 +40,29 @@ namespace {
 /* Do a basic IPv6 TCP checksum. */
 void tcp_cksum(uint8_t *src, uint8_t *dst, tcp_hdr *t, uint8_t opt_len) {
 
-	uint32_t sum, i;
-
 	if (opt_len % 4) {
 		FATAL("Packet size not aligned to 4.");
 	}
 
 	t->cksum = 0;
 
-	sum = PROTO_TCP + sizeof(tcp_hdr) + opt_len;
+	uint32_t sum = PROTO_TCP + sizeof(tcp_hdr) + opt_len;
 
 	auto p = reinterpret_cast<uint8_t *>(t);
 
-	for (i = 0; i < sizeof(tcp_hdr) + opt_len; i += 2, p += 2) {
+	for (uint32_t i = 0; i < sizeof(tcp_hdr) + opt_len; i += 2, p += 2) {
 		sum += (*p << 8) + p[1];
 	}
 
 	p = src;
 
-	for (i = 0; i < 16; i += 2, p += 2) {
+	for (uint32_t i = 0; i < 16; i += 2, p += 2) {
 		sum += (*p << 8) + p[1];
 	}
 
 	p = dst;
 
-	for (i = 0; i < 16; i += 2, p += 2) {
+	for (uint32_t i = 0; i < 16; i += 2, p += 2) {
 		sum += (*p << 8) + p[1];
 	}
 

@@ -27,7 +27,6 @@
 #include <sys/un.h>
 
 #include "p0f/api.h"
-#include "p0f/config.h"
 #include "p0f/debug.h"
 
 namespace {

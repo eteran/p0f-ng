@@ -14,17 +14,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <memory>
+
 #include <dirent.h>
 #include <getopt.h>
 #include <grp.h>
-#include <memory>
 #include <poll.h>
 #include <pwd.h>
 #include <unistd.h>
 
 #include <arpa/inet.h>
-#include <memory>
 #include <netinet/in.h>
+
 #include <sys/fcntl.h>
 #include <sys/file.h>
 #include <sys/socket.h>
@@ -44,11 +45,7 @@
 #include "p0f/api.h"
 #include "p0f/api_client.h"
 #include "p0f/debug.h"
-#include "p0f/fp_http.h"
 #include "p0f/libp0f.h"
-#include "p0f/process.h"
-#include "p0f/readfp.h"
-#include "p0f/tcp.h"
 #include "p0f/util.h"
 
 #ifndef PF_INET6
@@ -67,12 +64,11 @@
 
 namespace {
 
-std::string use_iface;             // Interface to listen on
-const char *orig_rule   = nullptr; // Original filter rule
-const char *switch_user = nullptr; // Target username
-const char *log_file    = nullptr; // Binary log file name
-const char *api_sock    = nullptr; // API socket file name
-const char *fp_file     = nullptr; // Location of p0f.fp
+std::string use_iface;           // Interface to listen on
+const char *orig_rule = nullptr; // Original filter rule
+const char *log_file  = nullptr; // Binary log file name
+const char *api_sock  = nullptr; // API socket file name
+const char *fp_file   = nullptr; // Location of p0f.fp
 
 std::unique_ptr<api_client[]> api_cl; // Array with API client state
 FILE *lf   = nullptr;                 // Log file stream
@@ -163,47 +159,46 @@ void close_spare_fds() {
 }
 
 // Create or open log file
-void open_log() {
+void open_log(const char *filename) {
 
-	int log_fd = open(log_file, O_WRONLY | O_APPEND | O_NOFOLLOW | O_LARGEFILE);
+	int log_fd = open(filename, O_WRONLY | O_APPEND | O_NOFOLLOW | O_LARGEFILE);
 	if (log_fd >= 0) {
 
 		struct stat st;
 		if (fstat(log_fd, &st)) {
-			PFATAL("fstat() on '%s' failed.", log_file);
+			PFATAL("fstat() on '%s' failed.", filename);
 		}
 
 		if (!S_ISREG(st.st_mode)) {
-			FATAL("'%s' is not a regular file.", log_file);
+			FATAL("'%s' is not a regular file.", filename);
 		}
 
 	} else {
 		if (errno != ENOENT) {
-			PFATAL("Cannot open '%s'.", log_file);
+			PFATAL("Cannot open '%s'.", filename);
 		}
 
-		log_fd = open(log_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, LOG_MODE);
+		log_fd = open(filename, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, LOG_MODE);
 
 		if (log_fd < 0) {
-			PFATAL("Cannot open '%s'.", log_file);
+			PFATAL("Cannot open '%s'.", filename);
 		}
 	}
 
 	if (flock(log_fd, LOCK_EX | LOCK_NB)) {
-		FATAL("'%s' is being used by another process.", log_file);
+		FATAL("'%s' is being used by another process.", filename);
 	}
 
 	lf = fdopen(log_fd, "a");
-
 	if (!lf) {
-		FATAL("fdopen() on '%s' failed.", log_file);
+		FATAL("fdopen() on '%s' failed.", filename);
 	}
 
-	SAYF("[+] Log file '%s' opened for writing.\n", log_file);
+	SAYF("[+] Log file '%s' opened for writing.\n", filename);
 }
 
 // Create and start listening on API socket
-void open_api() {
+void open_api(const char *socket_name) {
 
 	api_fd = socket(PF_UNIX, SOCK_STREAM, 0);
 
@@ -214,33 +209,33 @@ void open_api() {
 	struct sockaddr_un u = {};
 	u.sun_family         = AF_UNIX;
 
-	if (strlen(api_sock) >= sizeof(u.sun_path)) {
+	if (strlen(socket_name) >= sizeof(u.sun_path)) {
 		FATAL("API socket filename is too long for sockaddr_un (blame Unix).");
 	}
 
-	strcpy(u.sun_path, api_sock);
+	strcpy(u.sun_path, socket_name);
 
 	/* This is bad, but you can't do any better with standard unix socket
 	 * semantics today :-( */
 	struct stat st;
-	if (!stat(api_sock, &st) && !S_ISSOCK(st.st_mode)) {
-		FATAL("'%s' exists but is not a socket.", api_sock);
+	if (!stat(socket_name, &st) && !S_ISSOCK(st.st_mode)) {
+		FATAL("'%s' exists but is not a socket.", socket_name);
 	}
 
-	if (unlink(api_sock) && errno != ENOENT) {
-		PFATAL("unlink('%s') failed.", api_sock);
+	if (unlink(socket_name) && errno != ENOENT) {
+		PFATAL("unlink('%s') failed.", socket_name);
 	}
 
 	mode_t old_umask = umask(0777 ^ API_MODE);
 
 	if (bind(api_fd, reinterpret_cast<struct sockaddr *>(&u), sizeof(u))) {
-		PFATAL("bind() on '%s' failed.", api_sock);
+		PFATAL("bind() on '%s' failed.", socket_name);
 	}
 
 	umask(old_umask);
 
 	if (listen(api_fd, api_max_conn)) {
-		PFATAL("listen() on '%s' failed.", api_sock);
+		PFATAL("listen() on '%s' failed.", socket_name);
 	}
 
 	if (fcntl(api_fd, F_SETFL, O_NONBLOCK)) {
@@ -254,7 +249,7 @@ void open_api() {
 	}
 
 	SAYF("[+] Listening on API socket '%s' (max %u clients).\n",
-		 api_sock,
+		 socket_name,
 		 api_max_conn);
 }
 
@@ -440,24 +435,24 @@ retry_no_vlan:
 }
 
 // Drop privileges and chroot(), with some sanity checks
-void drop_privs() {
+void drop_privs(const char *new_user) {
 
-	struct passwd *const pw = getpwnam(switch_user);
+	struct passwd *const pw = getpwnam(new_user);
 
 	if (!pw) {
-		FATAL("User '%s' not found.", switch_user);
+		FATAL("User '%s' not found.", new_user);
 	}
 
 	if (!strcmp(pw->pw_dir, "/")) {
-		FATAL("User '%s' must have a dedicated home directory.", switch_user);
+		FATAL("User '%s' must have a dedicated home directory.", new_user);
 	}
 
 	if (!pw->pw_uid || !pw->pw_gid) {
-		FATAL("User '%s' must be non-root.", switch_user);
+		FATAL("User '%s' must be non-root.", new_user);
 	}
 
 	if (initgroups(pw->pw_name, pw->pw_gid)) {
-		PFATAL("initgroups() for '%s' failed.", switch_user);
+		PFATAL("initgroups() for '%s' failed.", new_user);
 	}
 
 	if (chdir(pw->pw_dir)) {
@@ -473,7 +468,7 @@ void drop_privs() {
 	}
 
 	if (!access("/proc/", F_OK) || !access("/sys/", F_OK)) {
-		FATAL("User '%s' must have a dedicated home directory.", switch_user);
+		FATAL("User '%s' must have a dedicated home directory.", new_user);
 	}
 
 	if (setgid(pw->pw_gid)) {
@@ -815,9 +810,7 @@ public:
 
 		if (log_file) {
 			char tmp[64];
-
-			const time_t ut = time;
-			strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", localtime(&ut));
+			strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", localtime(&time));
 
 			LOGF("[%s] mod=%s|cli=%s/%u|",
 				 tmp,
@@ -877,6 +870,8 @@ int main(int argc, char *argv[]) {
 	if (getuid() != geteuid()) {
 		FATAL("Please don't make me setuid. See README for more.\n");
 	}
+
+	const char *switch_user = nullptr; // Target username
 
 	int r;
 	while ((r = getopt(argc, argv, "+LS:df:i:m:o:pr:s:t:u:")) != -1) {
@@ -1024,11 +1019,11 @@ int main(int argc, char *argv[]) {
 	prepare_bpf();
 
 	if (log_file) {
-		open_log();
+		open_log(log_file);
 	}
 
 	if (api_sock) {
-		open_api();
+		open_api(api_sock);
 	}
 
 	if (daemon_mode) {
@@ -1039,7 +1034,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (switch_user) {
-		drop_privs();
+		drop_privs(switch_user);
 	}
 
 	if (daemon_mode) {
