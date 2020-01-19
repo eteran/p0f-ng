@@ -679,43 +679,16 @@ time_t process_context_t::get_unix_time() {
 	return cur_time_.tv_sec;
 }
 
-/* Parse PCAP input, with plenty of sanity checking. Store interesting details
- * in a protocol-agnostic buffer that will be then examined upstream. */
-void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data) {
+void process_context_t::parse_packet_frame(struct timeval ts, const uint8_t *data, size_t packet_len) {
 
-	const tcp_hdr *tcp = nullptr;
-	packet_data pk     = {};
-
-	uint32_t tcp_doff;
-
-	const uint8_t *opt_end;
+	cur_time_ = ts;
 
 	ctx_->packet_cnt++;
-
-	cur_time_ = hdr->ts;
-
 	if (!(ctx_->packet_cnt % EXPIRE_INTERVAL)) {
 		expire_cache();
 	}
 
-	// Be paranoid about how much data we actually have off the wire.
-	uint32_t packet_len = std::min(hdr->len, hdr->caplen);
-	if (packet_len > SNAPLEN) {
-		packet_len = SNAPLEN;
-	}
-
-	// DEBUG("[#] Received packet: len = %d, caplen = %d, limit = %d\n",
-	//    hdr->len, hdr->caplen, SNAPLEN);
-
-	// Account for link-level headers.
-	if (link_off_ < 0) {
-		link_off_ = find_offset(data, packet_len);
-	}
-
-	if (link_off_ > 0) {
-		data += link_off_;
-		packet_len -= link_off_;
-	}
+	packet_data pk = {};
 
 	/* If there is no way we could have received a complete TCP packet,
 	 * bail out early. */
@@ -725,6 +698,8 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 	}
 
 	pk.quirks = 0;
+
+	const tcp_hdr *tcp = nullptr;
 
 	if ((*data >> 4) == IP_VER4) {
 
@@ -746,7 +721,7 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 		// Bail out if the result leaves no room for IPv4 + TCP headers.
 		if (packet_len < MIN_TCP4) {
-			DEBUG("[#] packet_len = %u. Too short for IPv4 + TCP, giving up!\n",
+			DEBUG("[#] packet_len = %lu. Too short for IPv4 + TCP, giving up!\n",
 				  packet_len);
 			return;
 		}
@@ -761,7 +736,7 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 		/* If the packet claims to be longer than the recv buffer, best to back
 		 * off - even though we could just ignore this and recover. */
 		if (tot_len > packet_len) {
-			DEBUG("[#] ipv4.tot_len = %u but packet_len = %u, bailing out!\n",
+			DEBUG("[#] ipv4.tot_len = %u but packet_len = %lu, bailing out!\n",
 				  tot_len, packet_len);
 			return;
 		}
@@ -769,7 +744,7 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 		/* And finally, bail out if after skipping the IPv4 header as specified
 		 * (including options), there wouldn't be enough room for TCP. */
 		if (hdr_len + sizeof(tcp_hdr) > packet_len) {
-			DEBUG("[#] ipv4.hdr_len = %u, packet_len = %d, no room for TCP!\n",
+			DEBUG("[#] ipv4.hdr_len = %u, packet_len = %lu, no room for TCP!\n",
 				  hdr_len, packet_len);
 			return;
 		}
@@ -845,7 +820,7 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 		// Bail out if the result leaves no room for IPv6 + TCP headers.
 		if (packet_len < MIN_TCP6) {
-			DEBUG("[#] packet_len = %u. Too short for IPv6 + TCP, giving up!\n",
+			DEBUG("[#] packet_len = %lu. Too short for IPv6 + TCP, giving up!\n",
 				  packet_len);
 			return;
 		}
@@ -853,7 +828,7 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 		/* If the packet claims to be longer than the data we have, best to back
 		 * off - even though we could just ignore this and recover. */
 		if (tot_len > packet_len) {
-			DEBUG("[#] ipv6.tot_len = %u but packet_len = %u, bailing out!\n",
+			DEBUG("[#] ipv6.tot_len = %u but packet_len = %lu, bailing out!\n",
 				  tot_len, packet_len);
 			return;
 		}
@@ -906,7 +881,7 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 	 * ------------*/
 	data = reinterpret_cast<const uint8_t *>(tcp);
 
-	tcp_doff = (tcp->doff_rsvd >> 4) * 4;
+	uint32_t tcp_doff = (tcp->doff_rsvd >> 4) * 4;
 
 	// As usual, let's start with sanity checks.
 	if (tcp_doff < sizeof(tcp_hdr)) {
@@ -991,8 +966,8 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 	/* --------------------
 	 * TCP option parsing *
 	 * -------------------*/
-	opt_end = data + tcp_doff; // First byte of non-option data
-	data    = reinterpret_cast<const uint8_t *>(tcp + 1);
+	const uint8_t *opt_end = data + tcp_doff; // First byte of non-option data
+	data                   = reinterpret_cast<const uint8_t *>(tcp + 1);
 
 	pk.opt_layout.clear();
 	pk.opt_eol_pad = 0;
@@ -1017,7 +992,6 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 			pk.opt_eol_pad = opt_end - data;
 
 			while (data < opt_end && !*data++) {
-				;
 			}
 
 			if (data != opt_end) {
@@ -1167,6 +1141,32 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 	}
 
 	flow_dispatch(&pk);
+}
+
+/* Parse PCAP input, with plenty of sanity checking. Store interesting details
+ * in a protocol-agnostic buffer that will be then examined upstream. */
+void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data) {
+
+	// Be paranoid about how much data we actually have off the wire.
+	uint32_t packet_len = std::min(hdr->len, hdr->caplen);
+	if (packet_len > SNAPLEN) {
+		packet_len = SNAPLEN;
+	}
+
+	// DEBUG("[#] Received packet: len = %d, caplen = %d, limit = %d\n",
+	//    hdr->len, hdr->caplen, SNAPLEN);
+
+	// Account for link-level headers.
+	if (link_off_ < 0) {
+		link_off_ = find_offset(data, packet_len);
+	}
+
+	if (link_off_ > 0) {
+		data += link_off_;
+		packet_len -= link_off_;
+	}
+
+	parse_packet_frame(hdr->ts, data, packet_len);
 }
 
 // Look up host data.

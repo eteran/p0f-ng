@@ -199,6 +199,7 @@ struct process_context_t {
 
 public:
 	void parse_packet(const pcap_pkthdr *hdr, const uint8_t *data);
+	void parse_packet_frame(timeval ts, const uint8_t *data, size_t packet_len);
 	uint64_t get_unix_time_ms();
 	time_t get_unix_time();
 	void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score);
