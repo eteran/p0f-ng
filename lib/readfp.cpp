@@ -62,8 +62,9 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 
 	// Simplified handling for [mtu] signatures.
 	if (mod_type_ == CF_MOD_MTU) {
-		if (value.empty())
+		if (value.empty()) {
 			FATAL("Empty MTU label in line %u.\n", line_no_);
+		}
 
 		sig_flavor_ = value.to_string();
 		return;
@@ -223,8 +224,9 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 	// Everything else follows the 'name = value' approach.
 	if (in.match("classes")) {
 
-		if (state_ != CF_NEED_SECT)
+		if (state_ != CF_NEED_SECT) {
 			FATAL("misplaced 'classes' in line %u.", line_no_);
+		}
 
 		in.consume(" \t");
 
@@ -240,8 +242,9 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 
 	} else if (in.match("ua_os")) {
 
-		if (state_ != CF_NEED_LABEL || mod_to_srv_ != 1 || mod_type_ != CF_MOD_HTTP)
+		if (state_ != CF_NEED_LABEL || mod_to_srv_ != 1 || mod_type_ != CF_MOD_HTTP) {
 			FATAL("misplaced 'us_os' in line %u.", line_no_);
+		}
 
 		in.consume(" \t");
 
@@ -261,8 +264,9 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 		/* We will drop sig_sys / sig_flavor_ on the floor if no
 		 * signatures actually created, but it's not worth tracking that. */
 
-		if (state_ != CF_NEED_LABEL && state_ != CF_NEED_SIG)
+		if (state_ != CF_NEED_LABEL && state_ != CF_NEED_SIG) {
 			FATAL("misplaced 'label' in line %u.", line_no_);
+		}
 
 		in.consume(" \t");
 
@@ -277,14 +281,16 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 
 		config_parse_label(value);
 
-		if (mod_type_ != CF_MOD_MTU && sig_class_ == InvalidId)
+		if (mod_type_ != CF_MOD_MTU && sig_class_ == InvalidId) {
 			state_ = CF_NEED_SYS;
-		else
+		} else {
 			state_ = CF_NEED_SIG;
+		}
 
 	} else if (in.match("sys")) {
-		if (state_ != CF_NEED_SYS)
+		if (state_ != CF_NEED_SYS) {
 			FATAL("Misplaced 'sys' in line %u.", line_no_);
+		}
 
 		in.consume(" \t");
 
@@ -301,8 +307,9 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 		state_ = CF_NEED_SIG;
 	} else if (in.match("sig")) {
 
-		if (state_ != CF_NEED_SIG)
+		if (state_ != CF_NEED_SIG) {
 			FATAL("Misplaced 'sig' in line %u.", line_no_);
+		}
 
 		in.consume(" \t");
 
@@ -399,9 +406,10 @@ void fp_context_t::read_config(const char *fname) {
 		config_parse_line(line_view);
 	}
 
-	if (!sig_cnt_)
+	if (!sig_cnt_) {
 		SAYF("[!] No signatures found in '%s'.\n", fname);
-	else
+	} else {
 		SAYF("[+] Loaded %u signature%s from '%s'.\n", sig_cnt_,
 			 sig_cnt_ == 1 ? "" : "s", fname);
+	}
 }

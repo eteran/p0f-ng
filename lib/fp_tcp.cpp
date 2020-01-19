@@ -35,14 +35,17 @@ namespace {
 
 // Figure out what the TTL distance might have been for an unknown sig.
 constexpr uint8_t guess_dist(uint8_t ttl) {
-	if (ttl <= 32)
+	if (ttl <= 32) {
 		return 32 - ttl;
+	}
 
-	if (ttl <= 64)
+	if (ttl <= 64) {
 		return 64 - ttl;
+	}
 
-	if (ttl <= 128)
+	if (ttl <= 128) {
 		return 128 - ttl;
+	}
 
 	return 255 - ttl;
 }
@@ -55,8 +58,9 @@ int16_t detect_win_multi(const std::unique_ptr<tcp_sig> &ts, bool *use_mtu, uint
 	int32_t mss   = ts->mss;
 	int32_t mss12 = mss - 12;
 
-	if (!win || mss < 100 || ts->win_type != WIN_TYPE_NORMAL)
+	if (!win || mss < 100 || ts->win_type != WIN_TYPE_NORMAL) {
 		return -1;
+	}
 
 #define RET_IF_DIV(_div, _use_mtu, _desc)                                                                                 \
 	do {                                                                                                                  \
@@ -70,7 +74,9 @@ int16_t detect_win_multi(const std::unique_ptr<tcp_sig> &ts, bool *use_mtu, uint
 	RET_IF_DIV(mss, false, "MSS");
 
 	// Some systems will sometimes subtract 12 bytes when timestamps are in use.
-	if (ts->ts1) RET_IF_DIV(mss12, false, "MSS - 12");
+	if (ts->ts1) {
+		RET_IF_DIV(mss12, false, "MSS - 12");
+	}
 
 	/* Some systems use MTU on the wrong interface, so let's check for the most
 	 common case. */
@@ -121,17 +127,19 @@ std::string dump_sig(const packet_data *pk, const std::unique_ptr<tcp_sig> &ts, 
 
 	/* Detect a system echoing back MSS from p0f-sendsyn queries, suggest using
 	 a wildcard in such a case. */
-	if (pk->mss == SPECIAL_MSS && pk->tcp_type == (TCP_SYN | TCP_ACK))
+	if (pk->mss == SPECIAL_MSS && pk->tcp_type == (TCP_SYN | TCP_ACK)) {
 		append_format(ss, "*:");
-	else
+	} else {
 		append_format(ss, "%u:", pk->mss);
+	}
 
 	win_m = detect_win_multi(ts, &win_mtu, syn_mss);
 
-	if (win_m > 0)
+	if (win_m > 0) {
 		append_format(ss, "%s*%u", win_mtu ? "mtu" : "mss", win_m);
-	else
+	} else {
 		append_format(ss, "%u", pk->win);
+	}
 
 	append_format(ss, ",%u:", pk->wscale);
 
@@ -187,33 +195,68 @@ std::string dump_sig(const packet_data *pk, const std::unique_ptr<tcp_sig> &ts, 
 		sp = 1;                          \
 	} while (0)
 
-		if (pk->quirks & QUIRK_DF) MAYBE_CM("df");
-		if (pk->quirks & QUIRK_NZ_ID) MAYBE_CM("id+");
-		if (pk->quirks & QUIRK_ZERO_ID) MAYBE_CM("id-");
-		if (pk->quirks & QUIRK_ECN) MAYBE_CM("ecn");
-		if (pk->quirks & QUIRK_NZ_MBZ) MAYBE_CM("0+");
-		if (pk->quirks & QUIRK_FLOW) MAYBE_CM("flow");
+		if (pk->quirks & QUIRK_DF) {
+			MAYBE_CM("df");
+		}
+		if (pk->quirks & QUIRK_NZ_ID) {
+			MAYBE_CM("id+");
+		}
+		if (pk->quirks & QUIRK_ZERO_ID) {
+			MAYBE_CM("id-");
+		}
+		if (pk->quirks & QUIRK_ECN) {
+			MAYBE_CM("ecn");
+		}
+		if (pk->quirks & QUIRK_NZ_MBZ) {
+			MAYBE_CM("0+");
+		}
+		if (pk->quirks & QUIRK_FLOW) {
+			MAYBE_CM("flow");
+		}
 
-		if (pk->quirks & QUIRK_ZERO_SEQ) MAYBE_CM("seq-");
-		if (pk->quirks & QUIRK_NZ_ACK) MAYBE_CM("ack+");
-		if (pk->quirks & QUIRK_ZERO_ACK) MAYBE_CM("ack-");
-		if (pk->quirks & QUIRK_NZ_URG) MAYBE_CM("uptr+");
-		if (pk->quirks & QUIRK_URG) MAYBE_CM("urgf+");
-		if (pk->quirks & QUIRK_PUSH) MAYBE_CM("pushf+");
+		if (pk->quirks & QUIRK_ZERO_SEQ) {
+			MAYBE_CM("seq-");
+		}
+		if (pk->quirks & QUIRK_NZ_ACK) {
+			MAYBE_CM("ack+");
+		}
+		if (pk->quirks & QUIRK_ZERO_ACK) {
+			MAYBE_CM("ack-");
+		}
+		if (pk->quirks & QUIRK_NZ_URG) {
+			MAYBE_CM("uptr+");
+		}
+		if (pk->quirks & QUIRK_URG) {
+			MAYBE_CM("urgf+");
+		}
+		if (pk->quirks & QUIRK_PUSH) {
+			MAYBE_CM("pushf+");
+		}
 
-		if (pk->quirks & QUIRK_OPT_ZERO_TS1) MAYBE_CM("ts1-");
-		if (pk->quirks & QUIRK_OPT_NZ_TS2) MAYBE_CM("ts2+");
-		if (pk->quirks & QUIRK_OPT_EOL_NZ) MAYBE_CM("opt+");
-		if (pk->quirks & QUIRK_OPT_EXWS) MAYBE_CM("exws");
-		if (pk->quirks & QUIRK_OPT_BAD) MAYBE_CM("bad");
+		if (pk->quirks & QUIRK_OPT_ZERO_TS1) {
+			MAYBE_CM("ts1-");
+		}
+		if (pk->quirks & QUIRK_OPT_NZ_TS2) {
+			MAYBE_CM("ts2+");
+		}
+		if (pk->quirks & QUIRK_OPT_EOL_NZ) {
+			MAYBE_CM("opt+");
+		}
+		if (pk->quirks & QUIRK_OPT_EXWS) {
+			MAYBE_CM("exws");
+		}
+		if (pk->quirks & QUIRK_OPT_BAD) {
+			MAYBE_CM("bad");
+		}
 
 #undef MAYBE_CM
 	}
 
-	if (pk->pay_len)
+	if (pk->pay_len) {
 		append_format(ss, ":+");
-	else
+	} else {
 		append_format(ss, ":0");
+	}
 
 	return ss.str();
 }
@@ -226,28 +269,34 @@ std::string dump_flags(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
 	append_format(ss, "");
 
 	if (ts->matched) {
-		if (ts->matched->generic)
+		if (ts->matched->generic) {
 			append_format(ss, " generic");
+		}
 
-		if (ts->fuzzy)
+		if (ts->fuzzy) {
 			append_format(ss, " fuzzy");
+		}
 
-		if (ts->matched->bad_ttl)
+		if (ts->matched->bad_ttl) {
 			append_format(ss, " random_ttl");
+		}
 	}
 
-	if (ts->dist > MAX_DIST)
+	if (ts->dist > MAX_DIST) {
 		append_format(ss, " excess_dist");
+	}
 
-	if (pk->tos)
+	if (pk->tos) {
 		append_format(ss, " tos:0x%02x", pk->tos);
+	}
 
 	std::string ret = ss.str();
 
-	if (!ret.empty())
+	if (!ret.empty()) {
 		return ret.substr(1);
-	else
+	} else {
 		return "none";
+	}
 }
 
 }
@@ -406,10 +455,11 @@ void tcp_context_t::score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, 
 
 		DEBUG("[#] Signature TTL differs by %d (dist = %u).\n", ttl_diff, sig->dist);
 
-		if (sig->dist > LOCAL_TTL_LIMIT && std::abs(ttl_diff) <= SMALL_TTL_CHG)
+		if (sig->dist > LOCAL_TTL_LIMIT && std::abs(ttl_diff) <= SMALL_TTL_CHG) {
 			score += 1;
-		else
+		} else {
 			score += 4;
+		}
 
 		reason |= NAT_TTL;
 	}
@@ -471,9 +521,10 @@ void tcp_context_t::score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, 
 				score /= 2;
 			}
 
-		} else
+		} else {
 			DEBUG("[#] Timestamps available, but with bad interval (%lu ms).\n",
 				  ms_diff);
+		}
 	}
 
 log_and_update:
@@ -524,8 +575,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 	int ittl = stoi(ttl);
-	if (ittl < 1 || ittl > 255)
+	if (ittl < 1 || ittl > 255) {
 		FATAL("Bogus initial TTL in line %u.", line_no);
+	}
 
 	if (in.match('-')) {
 		bad_ttl = 1;
@@ -536,8 +588,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 		}
 		int ittl_add = stoi(ttl_add);
 
-		if (ittl_add < 0 || ittl + ittl_add > 255)
+		if (ittl_add < 0 || ittl + ittl_add > 255) {
 			FATAL("Bogus initial TTL in line %u.", line_no);
+		}
 
 		ittl += ittl_add;
 	}
@@ -553,8 +606,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	}
 
 	int olen = stoi(olen_str);
-	if (olen < 0 || olen > 255)
+	if (olen < 0 || olen > 255) {
 		FATAL("Bogus IP option length in line %u.", line_no);
+	}
 
 	if (!in.match(':')) {
 		FATAL("Malformed signature in line %u.", line_no);
@@ -571,8 +625,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 		}
 
 		mss = stoi(mss_str);
-		if (mss < 0 || mss > 65535)
+		if (mss < 0 || mss > 65535) {
 			FATAL("Bogus MSS in line %u.", line_no);
+		}
 	}
 
 	if (!in.match(':')) {
@@ -593,8 +648,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 		}
 
 		win = stoi(win_str);
-		if (win < 2 || win > 65535)
+		if (win < 2 || win > 65535) {
 			FATAL("Bogus '%%' value in line %u.", line_no);
+		}
 	} else if (in.match("mss*")) {
 		win_type = WIN_TYPE_MSS;
 
@@ -604,8 +660,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 		}
 
 		win = stoi(win_str);
-		if (win < 1 || win > 1000)
+		if (win < 1 || win > 1000) {
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
+		}
 	} else if (in.match("mtu*")) {
 		win_type = WIN_TYPE_MTU;
 
@@ -615,8 +672,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 		}
 
 		win = stoi(win_str);
-		if (win < 1 || win > 1000)
+		if (win < 1 || win > 1000) {
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
+		}
 	} else {
 		win_type = WIN_TYPE_NORMAL;
 
@@ -626,12 +684,14 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 		}
 
 		win = stoi(win_str);
-		if (win < 0 || win > 65535)
+		if (win < 0 || win > 65535) {
 			FATAL("Bogus window size in line %u.", line_no);
+		}
 	}
 
-	if (!in.match(','))
+	if (!in.match(',')) {
 		FATAL("Malformed signature in line %u.", line_no);
+	}
 
 	// Window scale
 	int scale;
@@ -644,8 +704,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 		}
 
 		scale = stoi(scale_str);
-		if (scale < 0 || scale > 255)
+		if (scale < 0 || scale > 255) {
 			FATAL("Bogus window scale in line %u.", line_no);
+		}
 	}
 
 	if (!in.match(':')) {
@@ -656,8 +717,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	int opt_eol_pad = 0;
 	while (in.peek() != ':') {
 
-		if (opt_layout.size() >= MAX_TCP_OPT)
+		if (opt_layout.size() >= MAX_TCP_OPT) {
 			FATAL("Too many TCP options in line %u.", line_no);
+		}
 
 		if (in.match("eol")) {
 			opt_layout.push_back(TCPOPT_EOL);
@@ -699,8 +761,9 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 			}
 
 			const int optno = stoi(opt_str);
-			if (optno < 0 || optno > 255)
+			if (optno < 0 || optno > 255) {
 				FATAL("Bogus '?' option in line %u.", line_no);
+			}
 
 			opt_layout.push_back(optno);
 
@@ -731,30 +794,35 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	uint32_t quirks = 0;
 	while (in.peek() != ':') {
 		if (in.match("df")) {
-			if (ver == IP_VER6)
+			if (ver == IP_VER6) {
 				FATAL("'df' is not valid for IPv6 in line %u.", line_no);
+			}
 
 			quirks |= QUIRK_DF;
 		} else if (in.match("id+")) {
-			if (ver == IP_VER6)
+			if (ver == IP_VER6) {
 				FATAL("'id+' is not valid for IPv6 in line %u.", line_no);
+			}
 
 			quirks |= QUIRK_NZ_ID;
 		} else if (in.match("id-")) {
-			if (ver == IP_VER6)
+			if (ver == IP_VER6) {
 				FATAL("'id-' is not valid for IPv6 in line %u.", line_no);
+			}
 
 			quirks |= QUIRK_ZERO_ID;
 		} else if (in.match("ecn")) {
 			quirks |= QUIRK_ECN;
 		} else if (in.match("0+")) {
-			if (ver == IP_VER6)
+			if (ver == IP_VER6) {
 				FATAL("'0+' is not valid for IPv6 in line %u.", line_no);
+			}
 
 			quirks |= QUIRK_NZ_MBZ;
 		} else if (in.match("flow")) {
-			if (ver == IP_VER4)
+			if (ver == IP_VER4) {
 				FATAL("'flow' is not valid for IPv4 in line %u.", line_no);
+			}
 
 			quirks |= QUIRK_FLOW;
 		} else if (in.match("seq-")) {
@@ -797,14 +865,15 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	}
 
 	// Payload class
-	if (in.match('*'))
+	if (in.match('*')) {
 		pay_class = -1;
-	else if (in.match('0'))
+	} else if (in.match('0')) {
 		pay_class = 0;
-	else if (in.match('+'))
+	} else if (in.match('+')) {
 		pay_class = 1;
-	else
+	} else {
 		FATAL("Malformed payload class in line %u.", line_no);
+	}
 
 	// Phew, okay, we're done. Now, create tcp_sig...
 	auto tsig = std::make_unique<tcp_sig>();
@@ -824,9 +893,10 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	// No need to set ts1, recv_ms, match, fuzzy, dist
 	tcp_find_match(to_srv, tsig, 1, 0);
 
-	if (tsig->matched)
+	if (tsig->matched) {
 		FATAL("Signature in line %u is already covered by line %u.",
 			  line_no, tsig->matched->line_no);
+	}
 
 	// Everything checks out, so let's register it.
 	uint32_t bucket = opt_hash % SIG_BUCKETS;
@@ -855,13 +925,15 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 	/* Detect packets generated by p0f-sendsyn; they require special
 	 * handling to provide the user with response fingerprints, but not
 	 * interfere with NAT scores and such. */
-	if (pk->tcp_type == TCP_SYN && pk->win == SPECIAL_WIN && pk->mss == SPECIAL_MSS)
+	if (pk->tcp_type == TCP_SYN && pk->win == SPECIAL_WIN && pk->mss == SPECIAL_MSS) {
 		f->sendsyn = 1;
+	}
 
-	if (to_srv)
+	if (to_srv) {
 		ctx_->begin_observation(f->sendsyn ? "sendsyn probe" : "syn", 4, 1, f);
-	else
+	} else {
 		ctx_->begin_observation(f->sendsyn ? "sendsyn response" : "syn+ack", 4, 0, f);
+	}
 
 	tcp_find_match(to_srv, sig, 0, f->syn_mss);
 
@@ -879,10 +951,11 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 	if (m && m->bad_ttl) {
 		report_observation(ctx_, "dist", "<= %u", sig->dist);
 	} else {
-		if (to_srv)
+		if (to_srv) {
 			f->client->distance = sig->dist;
-		else
+		} else {
 			f->server->distance = sig->dist;
+		}
 
 		report_observation(ctx_, "dist", "%u", sig->dist);
 	}
@@ -891,8 +964,9 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 
 	ctx_->observation_field("raw_sig", dump_sig(pk, sig, f->syn_mss).c_str());
 
-	if (pk->tcp_type == TCP_SYN)
+	if (pk->tcp_type == TCP_SYN) {
 		f->syn_mss = pk->mss;
+	}
 
 	// That's about as far as we go with non-OS signatures.
 	if (m && m->class_id == InvalidId) {
@@ -916,22 +990,25 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 	uint64_t ms_diff;
 	double ffreq;
 
-	if (!pk->ts1 || f->sendsyn)
+	if (!pk->ts1 || f->sendsyn) {
 		return;
+	}
 
 	/* If we're getting SYNs very rapidly, last_syn may be changing too quickly
 	 to be of any use. Perhaps lock into an older value? */
 
 	if (to_srv) {
-		if (f->cli_tps || !f->client->last_syn || !f->client->last_syn->ts1)
+		if (f->cli_tps || !f->client->last_syn || !f->client->last_syn->ts1) {
 			return;
+		}
 
 		ms_diff = ctx_->process_context.get_unix_time_ms() - f->client->last_syn->recv_ms;
 		ts_diff = pk->ts1 - f->client->last_syn->ts1;
 
 	} else {
-		if (f->srv_tps || !f->server->last_synack || !f->server->last_synack->ts1)
+		if (f->srv_tps || !f->server->last_synack || !f->server->last_synack->ts1) {
 			return;
+		}
 
 		ms_diff = ctx_->process_context.get_unix_time_ms() - f->server->last_synack->recv_ms;
 		ts_diff = pk->ts1 - f->server->last_synack->ts1;
@@ -941,16 +1018,19 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 	 * timestamp ticks. Allow the timestamp to go back slightly within a short
 	 * window, too - we may be receiving packets a bit out of order. */
 
-	if (ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT)
+	if (ms_diff < MIN_TWAIT || ms_diff > MAX_TWAIT) {
 		return;
+	}
 
-	if (ts_diff < 5 || (ms_diff < TSTAMP_GRACE && (~ts_diff) / 1000 < MAX_TSCALE / TSTAMP_GRACE))
+	if (ts_diff < 5 || (ms_diff < TSTAMP_GRACE && (~ts_diff) / 1000 < MAX_TSCALE / TSTAMP_GRACE)) {
 		return;
+	}
 
-	if (ts_diff > ~ts_diff)
+	if (ts_diff > ~ts_diff) {
 		ffreq = (~ts_diff * -1000.0 / ms_diff);
-	else
+	} else {
 		ffreq = (ts_diff * 1000.0 / ms_diff);
+	}
 
 	if (ffreq < MIN_TSCALE || ffreq > MAX_TSCALE) {
 
@@ -958,10 +1038,11 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 		 * sharing or OS change. */
 
 		if (pk->tcp_type != TCP_SYN) {
-			if (to_srv)
+			if (to_srv) {
 				f->cli_tps = -1;
-			else
+			} else {
 				f->srv_tps = -1;
+			}
 		}
 
 		DEBUG("[#] Bad %s TS frequency: %.02f Hz (%d ticks in %lu ms).\n",
@@ -1032,13 +1113,16 @@ void tcp_context_t::tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &
 		uint8_t fuzzy       = 0;
 		uint32_t ref_quirks = refs->quirks;
 
-		if (ref->sig->opt_hash != ts->opt_hash) continue;
+		if (ref->sig->opt_hash != ts->opt_hash) {
+			continue;
+		}
 
 		/* If the p0f.fp signature has no IP version specified, we need
 		 * to remove IPv6-specific quirks from it when matching IPv4
 		 * packets, and vice versa. */
-		if (refs->ip_ver == -1)
+		if (refs->ip_ver == -1) {
 			ref_quirks &= ((ts->ip_ver == IP_VER4) ? ~(QUIRK_FLOW) : ~(QUIRK_DF | QUIRK_NZ_ID | QUIRK_ZERO_ID));
+		}
 
 		if (ref_quirks != ts->quirks) {
 
@@ -1048,39 +1132,49 @@ void tcp_context_t::tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &
 			/* If there is a difference in quirks, but it amounts to 'df' or
 			 * 'id+' disappearing, or 'id-' or 'ecn' appearing, allow a fuzzy match. */
 			if (fmatch || (deleted & ~(QUIRK_DF | QUIRK_NZ_ID)) ||
-				(added & ~(QUIRK_ZERO_ID | QUIRK_ECN))) continue;
+				(added & ~(QUIRK_ZERO_ID | QUIRK_ECN))) {
+				continue;
+			}
 
 			fuzzy = 1;
 		}
 
 		// Fixed parameters.
 		if (refs->opt_eol_pad != ts->opt_eol_pad ||
-			refs->ip_opt_len != ts->ip_opt_len)
+			refs->ip_opt_len != ts->ip_opt_len) {
 			continue;
+		}
 
 		// TTL matching, with a provision to allow fuzzy match.
 		if (ref->bad_ttl) {
-			if (refs->ttl < ts->ttl)
+			if (refs->ttl < ts->ttl) {
 				continue;
+			}
 
 		} else {
-			if (refs->ttl < ts->ttl || refs->ttl - ts->ttl > MAX_DIST) fuzzy = 1;
+			if (refs->ttl < ts->ttl || refs->ttl - ts->ttl > MAX_DIST) {
+				fuzzy = 1;
+			}
 		}
 
 		// Simple wildcards.
-		if (refs->mss != -1 && refs->mss != ts->mss)
+		if (refs->mss != -1 && refs->mss != ts->mss) {
 			continue;
-		if (refs->wscale != -1 && refs->wscale != ts->wscale)
+		}
+		if (refs->wscale != -1 && refs->wscale != ts->wscale) {
 			continue;
-		if (refs->pay_class != -1 && refs->pay_class != ts->pay_class)
+		}
+		if (refs->pay_class != -1 && refs->pay_class != ts->pay_class) {
 			continue;
+		}
 
 		// Window size.
 		if (ts->win_type != WIN_TYPE_NORMAL) {
 
 			// Comparing two p0f.fp signatures.
-			if (refs->win_type != ts->win_type || refs->win != ts->win)
+			if (refs->win_type != ts->win_type || refs->win != ts->win) {
 				continue;
+			}
 
 		} else {
 
@@ -1089,22 +1183,30 @@ void tcp_context_t::tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &
 
 			case WIN_TYPE_NORMAL:
 
-				if (refs->win != ts->win) continue;
+				if (refs->win != ts->win) {
+					continue;
+				}
 				break;
 
 			case WIN_TYPE_MOD:
 
-				if (ts->win % refs->win) continue;
+				if (ts->win % refs->win) {
+					continue;
+				}
 				break;
 
 			case WIN_TYPE_MSS:
 
-				if (use_mtu || refs->win != win_multi) continue;
+				if (use_mtu || refs->win != win_multi) {
+					continue;
+				}
 				break;
 
 			case WIN_TYPE_MTU:
 
-				if (!use_mtu || refs->win != win_multi) continue;
+				if (!use_mtu || refs->win != win_multi) {
+					continue;
+				}
 				break;
 
 				// WIN_TYPE_ANY
@@ -1121,15 +1223,19 @@ void tcp_context_t::tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &
 				ts->dist    = refs->ttl - ts->ttl;
 				return;
 
-			} else if (!gmatch)
+			} else if (!gmatch) {
 				gmatch = ref;
+			}
 
-		} else if (!fmatch)
+		} else if (!fmatch) {
 			fmatch = ref;
+		}
 	}
 
 	// OK, no definitive match so far...
-	if (dupe_det) return;
+	if (dupe_det) {
+		return;
+	}
 
 	/* If we found a generic signature, and nothing better, let's just use
 	 that. */
@@ -1143,20 +1249,24 @@ void tcp_context_t::tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &
 	}
 
 	// No fuzzy matching for userland tools.
-	if (fmatch && fmatch->class_id == InvalidId)
+	if (fmatch && fmatch->class_id == InvalidId) {
 		return;
+	}
 
 	/* Let's try to guess distance if no match; or if match TTL out of
 	 range. */
 
 	if (!fmatch || fmatch->sig->ttl < ts->ttl ||
-		(!fmatch->bad_ttl && fmatch->sig->ttl - ts->ttl > MAX_DIST))
+		(!fmatch->bad_ttl && fmatch->sig->ttl - ts->ttl > MAX_DIST)) {
 		ts->dist = guess_dist(ts->ttl);
-	else
+	} else {
 		ts->dist = fmatch->sig->ttl - ts->ttl;
+	}
 
 	// Record the outcome.
 	ts->matched = fmatch;
 
-	if (fmatch) ts->fuzzy = 1;
+	if (fmatch) {
+		ts->fuzzy = 1;
+	}
 }

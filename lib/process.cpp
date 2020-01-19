@@ -117,9 +117,9 @@ void process_context_t::destroy_flow(packet_flow *f) {
 	}
 
 	// Remove from the by-age linked list.
-	if (f->newer)
+	if (f->newer) {
 		f->newer->older = f->older;
-	else {
+	} else {
 		newest_flow_ = f->older;
 	}
 
@@ -148,10 +148,11 @@ void process_context_t::touch_host(host_data *h) {
 		// Remove from the the by-age linked list.
 		h->newer->older = h->older;
 
-		if (h->older)
+		if (h->older) {
 			h->older->newer = h->newer;
-		else
+		} else {
 			host_by_age_ = h->newer;
+		}
 
 		// Re-insert in front.
 		newest_host_->newer = h;
@@ -190,31 +191,36 @@ void process_context_t::destroy_host(host_data *h) {
 
 	const uint32_t bucket = get_host_bucket(h->addr, h->ip_ver);
 
-	if (h->use_cnt)
+	if (h->use_cnt) {
 		FATAL("Attempt to destroy used host data.");
+	}
 
 	DEBUG("[#] Destroying host data: %s (bucket %d)\n",
 		  addr_to_str(h->addr, h->ip_ver), bucket);
 
 	// Remove it from the bucketed linked list.
-	if (h->next)
+	if (h->next) {
 		h->next->prev = h->prev;
+	}
 
-	if (h->prev)
+	if (h->prev) {
 		h->prev->next = h->next;
-	else
+	} else {
 		host_b_[bucket] = h->next;
+	}
 
 	// Remove from the by-age linked list.
-	if (h->newer)
+	if (h->newer) {
 		h->newer->older = h->older;
-	else
+	} else {
 		newest_host_ = h->older;
+	}
 
-	if (h->older)
+	if (h->older) {
 		h->older->newer = h->newer;
-	else
+	} else {
 		host_by_age_ = h->newer;
+	}
 
 	delete h;
 
@@ -248,8 +254,9 @@ host_data *process_context_t::create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
 
-	if (host_cnt_ > ctx_->max_hosts)
+	if (host_cnt_ > ctx_->max_hosts) {
 		nuke_hosts();
+	}
 
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
@@ -310,17 +317,19 @@ packet_flow *process_context_t::create_flow_from_syn(packet_data *pk) {
 
 	nf->client = lookup_host(pk->src, pk->ip_ver);
 
-	if (nf->client)
+	if (nf->client) {
 		touch_host(nf->client);
-	else
+	} else {
 		nf->client = create_host(pk->src, pk->ip_ver);
+	}
 
 	nf->server = lookup_host(pk->dst, pk->ip_ver);
 
-	if (nf->server)
+	if (nf->server) {
 		touch_host(nf->server);
-	else
+	} else {
 		nf->server = create_host(pk->dst, pk->ip_ver);
+	}
 
 	nf->client->use_cnt++;
 	nf->server->use_cnt++;
@@ -340,8 +349,9 @@ packet_flow *process_context_t::create_flow_from_syn(packet_data *pk) {
 	if (newest_flow_) {
 		newest_flow_->newer = nf;
 		nf->older           = newest_flow_;
-	} else
+	} else {
 		flow_by_age_ = nf;
+	}
 
 	newest_flow_ = nf;
 
@@ -380,7 +390,9 @@ void process_context_t::flow_dispatch(packet_data *pk) {
 	case TCP_SYN:
 		if (f) {
 			// Perhaps just a simple dupe?
-			if (to_srv && f->next_cli_seq - 1 == pk->seq) return;
+			if (to_srv && f->next_cli_seq - 1 == pk->seq) {
+				return;
+			}
 
 			DEBUG("[#] New SYN for an existing flow, resetting.\n");
 			destroy_flow(f);
@@ -432,9 +444,10 @@ void process_context_t::flow_dispatch(packet_data *pk) {
 
 		if (f->acked) {
 
-			if (f->next_srv_seq - 1 != pk->seq)
+			if (f->next_srv_seq - 1 != pk->seq) {
 				DEBUG("[#] Repeated but non-identical SYN+ACK (0x%08x != 0x%08x).\n",
 					  f->next_srv_seq - 1, pk->seq);
+			}
 
 			return;
 		}
@@ -466,8 +479,9 @@ void process_context_t::flow_dispatch(packet_data *pk) {
 		}
 		break;
 	case TCP_ACK:
-		if (!f)
+		if (!f) {
 			return;
+		}
 
 		// Stop there, you criminal scum!
 		if (f->sendsyn) {
@@ -488,8 +502,9 @@ void process_context_t::flow_dispatch(packet_data *pk) {
 			if (f->next_cli_seq != pk->seq) {
 
 				// Not a simple dupe?
-				if (f->next_cli_seq - pk->pay_len != pk->seq)
+				if (f->next_cli_seq - pk->pay_len != pk->seq) {
 					DEBUG("[#] Expected client seq 0x%08x, got 0x%08x.\n", f->next_cli_seq, pk->seq);
+				}
 
 				return;
 			}
@@ -509,9 +524,10 @@ void process_context_t::flow_dispatch(packet_data *pk) {
 			if (f->next_srv_seq != pk->seq) {
 
 				// Not a simple dupe?
-				if (f->next_srv_seq - pk->pay_len != pk->seq)
+				if (f->next_srv_seq - pk->pay_len != pk->seq) {
 					DEBUG("[#] Expected server seq 0x%08x, got 0x%08x.\n",
 						  f->next_cli_seq, pk->seq);
+				}
 
 				return;
 			}
@@ -527,8 +543,9 @@ void process_context_t::flow_dispatch(packet_data *pk) {
 			f->next_srv_seq += pk->pay_len;
 		}
 
-		if (!pk->pay_len)
+		if (!pk->pay_len) {
 			return;
+		}
 
 		need_more |= ctx_->http_context.process_http(to_srv, f);
 
@@ -680,13 +697,15 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 	cur_time_ = hdr->ts;
 
-	if (!(ctx_->packet_cnt % EXPIRE_INTERVAL))
+	if (!(ctx_->packet_cnt % EXPIRE_INTERVAL)) {
 		expire_cache();
+	}
 
 	// Be paranoid about how much data we actually have off the wire.
 	uint32_t packet_len = std::min(hdr->len, hdr->caplen);
-	if (packet_len > SNAPLEN)
+	if (packet_len > SNAPLEN) {
 		packet_len = SNAPLEN;
+	}
 
 	// DEBUG("[#] Received packet: len = %d, caplen = %d, limit = %d\n",
 	//    hdr->len, hdr->caplen, SNAPLEN);
@@ -783,19 +802,27 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 		pk.ttl = ip4->ttl;
 
-		if (ip4->tos_ecn & (IP_TOS_CE | IP_TOS_ECT)) pk.quirks |= QUIRK_ECN;
+		if (ip4->tos_ecn & (IP_TOS_CE | IP_TOS_ECT)) {
+			pk.quirks |= QUIRK_ECN;
+		}
 
 		// Tag some of the corner cases associated with implementation quirks.
-		if (flags_off & IP4_MBZ) pk.quirks |= QUIRK_NZ_MBZ;
+		if (flags_off & IP4_MBZ) {
+			pk.quirks |= QUIRK_NZ_MBZ;
+		}
 
 		if (flags_off & IP4_DF) {
 
 			pk.quirks |= QUIRK_DF;
-			if (RD16(ip4->id)) pk.quirks |= QUIRK_NZ_ID;
+			if (RD16(ip4->id)) {
+				pk.quirks |= QUIRK_NZ_ID;
+			}
 
 		} else {
 
-			if (!RD16(ip4->id)) pk.quirks |= QUIRK_ZERO_ID;
+			if (!RD16(ip4->id)) {
+				pk.quirks |= QUIRK_ZERO_ID;
+			}
 		}
 
 		pk.tot_hdr = hdr_len;
@@ -854,9 +881,13 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 		pk.ttl = ip6->ttl;
 
-		if (ver_tos & 0xFFFFF) pk.quirks |= QUIRK_FLOW;
+		if (ver_tos & 0xFFFFF) {
+			pk.quirks |= QUIRK_FLOW;
+		}
 
-		if ((ver_tos >> 20) & (IP_TOS_CE | IP_TOS_ECT)) pk.quirks |= QUIRK_ECN;
+		if ((ver_tos >> 20) & (IP_TOS_CE | IP_TOS_ECT)) {
+			pk.quirks |= QUIRK_ECN;
+		}
 
 		pk.tot_hdr = sizeof(ipv6_hdr);
 
@@ -911,15 +942,18 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 	pk.seq = ntohl(RD32(tcp->seq));
 
 	// Take note of miscellanous features and quirks.
-	if ((tcp->flags & (TCP_ECE | TCP_CWR)) || (tcp->doff_rsvd & TCP_NS_RES))
+	if ((tcp->flags & (TCP_ECE | TCP_CWR)) || (tcp->doff_rsvd & TCP_NS_RES)) {
 		pk.quirks |= QUIRK_ECN;
+	}
 
-	if (!pk.seq)
+	if (!pk.seq) {
 		pk.quirks |= QUIRK_ZERO_SEQ;
+	}
 
 	if (tcp->flags & TCP_ACK) {
-		if (!RD32(tcp->ack))
+		if (!RD32(tcp->ack)) {
 			pk.quirks |= QUIRK_ZERO_ACK;
+		}
 	} else {
 
 		/* A good proportion of RSTs tend to have "illegal" ACK numbers, so
@@ -944,8 +978,9 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 		}
 	}
 
-	if (tcp->flags & TCP_PUSH)
+	if (tcp->flags & TCP_PUSH) {
 		pk.quirks |= QUIRK_PUSH;
+	}
 
 	// Handle payload data.
 	if (tcp_doff == packet_len) {
@@ -984,8 +1019,9 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 			pk.opt_eol_pad = opt_end - data;
 
-			while (data < opt_end && !*data++)
+			while (data < opt_end && !*data++) {
 				;
+			}
 
 			if (data != opt_end) {
 				pk.quirks |= QUIRK_OPT_EOL_NZ;
@@ -1027,8 +1063,9 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 			pk.wscale = data[1];
 
-			if (pk.wscale > 14)
+			if (pk.wscale > 14) {
 				pk.quirks |= QUIRK_OPT_EXWS;
+			}
 
 			data += 2;
 			break;
@@ -1085,8 +1122,9 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 			pk.ts1 = ntohl(RD32p(data + 1));
 
-			if (!pk.ts1)
+			if (!pk.ts1) {
 				pk.quirks |= QUIRK_OPT_ZERO_TS1;
+			}
 
 			if (pk.tcp_type == TCP_SYN && RD32p(data + 5)) {
 
@@ -1143,8 +1181,9 @@ host_data *process_context_t::lookup_host(const uint8_t *addr, uint8_t ip_ver) {
 	while (h) {
 
 		if (ip_ver == h->ip_ver &&
-			!memcmp(addr, h->addr, (h->ip_ver == IP_VER4) ? 4 : 16))
+			!memcmp(addr, h->addr, (h->ip_ver == IP_VER4) ? 4 : 16)) {
 			return h;
+		}
 
 		h = h->next;
 	}
@@ -1178,7 +1217,9 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 	scores[NAT_SCORES - 1] = score;
 	hd->nat_reasons |= reason;
 
-	if (!score) return;
+	if (!score) {
+		return;
+	}
 
 	for (i = 0; i < NAT_SCORES; i++) {
 		uint8_t temp_score = scores[i];
@@ -1213,8 +1254,9 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 	} else {
 
 		// Wait for something more substantial.
-		if (score == 1)
+		if (score == 1) {
 			return;
+		}
 
 		ctx_->begin_observation("host change", 2, to_srv, f);
 
@@ -1222,19 +1264,45 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 	}
 
 	std::ostringstream ss;
-	if (reason & NAT_APP_SIG) ss << (" app_vs_os");
-	if (reason & NAT_OS_SIG) ss << (" os_diff");
-	if (reason & NAT_UNK_DIFF) ss << (" sig_diff");
-	if (reason & NAT_TO_UNK) ss << (" x_known");
-	if (reason & NAT_TS) ss << (" tstamp");
-	if (reason & NAT_TTL) ss << (" ttl");
-	if (reason & NAT_PORT) ss << (" port");
-	if (reason & NAT_MSS) ss << (" mtu");
-	if (reason & NAT_FUZZY) ss << (" fuzzy");
-	if (reason & NAT_APP_VIA) ss << (" via");
-	if (reason & NAT_APP_DATE) ss << (" date");
-	if (reason & NAT_APP_LB) ss << (" srv_sig_lb");
-	if (reason & NAT_APP_UA) ss << (" ua_vs_os");
+	if (reason & NAT_APP_SIG) {
+		ss << (" app_vs_os");
+	}
+	if (reason & NAT_OS_SIG) {
+		ss << (" os_diff");
+	}
+	if (reason & NAT_UNK_DIFF) {
+		ss << (" sig_diff");
+	}
+	if (reason & NAT_TO_UNK) {
+		ss << (" x_known");
+	}
+	if (reason & NAT_TS) {
+		ss << (" tstamp");
+	}
+	if (reason & NAT_TTL) {
+		ss << (" ttl");
+	}
+	if (reason & NAT_PORT) {
+		ss << (" port");
+	}
+	if (reason & NAT_MSS) {
+		ss << (" mtu");
+	}
+	if (reason & NAT_FUZZY) {
+		ss << (" fuzzy");
+	}
+	if (reason & NAT_APP_VIA) {
+		ss << (" via");
+	}
+	if (reason & NAT_APP_DATE) {
+		ss << (" date");
+	}
+	if (reason & NAT_APP_LB) {
+		ss << (" srv_sig_lb");
+	}
+	if (reason & NAT_APP_UA) {
+		ss << (" ua_vs_os");
+	}
 
 	std::string rea = ss.str();
 
@@ -1247,26 +1315,31 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 void process_context_t::verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys) {
 
 	host_data *hd = nullptr;
-	if (to_srv)
+	if (to_srv) {
 		hd = f->client;
-	else
+	} else {
 		hd = f->server;
+	}
 
 	/* No existing data; although there is perhaps some value in detecting
 	 * app-only conflicts in absence of other info, it's probably OK to just
 	 * wait until more data becomes available. */
-	if (hd->last_class_id == InvalidId)
+	if (hd->last_class_id == InvalidId) {
 		return;
+	}
 
 	uint32_t i = 0;
-	for (i = 0; i < sys.size(); i++)
+	for (i = 0; i < sys.size(); i++) {
 		if ((sys[i] & SYS_CLASS_FLAG)) {
-			if (SYS_NF(sys[i]) == hd->last_class_id)
+			if (SYS_NF(sys[i]) == hd->last_class_id) {
 				break;
+			}
 		} else {
-			if (SYS_NF(sys[i]) == hd->last_name_id)
+			if (SYS_NF(sys[i]) == hd->last_name_id) {
 				break;
+			}
 		}
+	}
 
 	// Oops, a mismatch.
 	if (i == sys.size()) {

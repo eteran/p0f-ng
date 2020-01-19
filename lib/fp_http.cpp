@@ -70,14 +70,17 @@ std::string dump_flags(const http_sig *hsig, const http_sig_record *m) {
 
 	std::stringstream ss;
 
-	if (hsig->dishonest)
+	if (hsig->dishonest) {
 		append_format(ss, " dishonest");
+	}
 
-	if (!hsig->sw)
+	if (!hsig->sw) {
 		append_format(ss, " anonymous");
+	}
 
-	if (m && m->generic)
+	if (m && m->generic) {
 		append_format(ss, " generic");
+	}
 
 	std::string ret = ss.str();
 
@@ -107,8 +110,9 @@ uint32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
 	}
 
 	// Not found!
-	if (!create)
+	if (!create) {
 		return InvalidId;
+	}
 
 	const size_t index = hdr_names_.size();
 
@@ -131,13 +135,15 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 		uint32_t ts_hdr               = 0;
 		uint32_t rs_hdr               = 0;
 
-		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver)
+		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver) {
 			goto next_sig;
+		}
 
 		/* Check that all the headers listed for the p0f.fp signature (probably)
 		 * appear in the examined traffic. */
-		if ((ts->hdr_bloom4 & rs->hdr_bloom4) != rs->hdr_bloom4)
+		if ((ts->hdr_bloom4 & rs->hdr_bloom4) != rs->hdr_bloom4) {
 			goto next_sig;
+		}
 
 		/* Confirm the ordering and values of headers (this is relatively slow,
 		 * hence the Bloom filter first). */
@@ -151,22 +157,26 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 
 			if (ts_hdr == ts->hdr.size()) {
 
-				if (!rs->hdr[rs_hdr].optional)
+				if (!rs->hdr[rs_hdr].optional) {
 					goto next_sig;
+				}
 
 				/* If this is an optional header, check that it doesn't appear
 				 * anywhere else. */
-				for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ts_hdr++)
-					if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id)
+				for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ts_hdr++) {
+					if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id) {
 						goto next_sig;
+					}
+				}
 
 				ts_hdr = orig_ts;
 				rs_hdr++;
 				continue;
 			}
 
-			if (rs->hdr[rs_hdr].value && (!ts->hdr[ts_hdr].value || !strstr(ts->hdr[ts_hdr].value->c_str(), rs->hdr[rs_hdr].value->c_str())))
+			if (rs->hdr[rs_hdr].value && (!ts->hdr[ts_hdr].value || !strstr(ts->hdr[ts_hdr].value->c_str(), rs->hdr[rs_hdr].value->c_str()))) {
 				goto next_sig;
+			}
 
 			ts_hdr++;
 			rs_hdr++;
@@ -179,13 +189,16 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 
 			uint64_t miss_bloom4 = bloom4_64(rs->miss[rs_hdr]);
 
-			if ((ts->hdr_bloom4 & miss_bloom4) != miss_bloom4)
+			if ((ts->hdr_bloom4 & miss_bloom4) != miss_bloom4) {
 				continue;
+			}
 
 			// Okay, possible instance of a banned header - scan list...
-			for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ts_hdr++)
-				if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id)
+			for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ts_hdr++) {
+				if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id) {
 					goto next_sig;
+				}
+			}
 		}
 
 		/* When doing dupe detection, we want to allow a signature with
@@ -193,18 +206,22 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 		 * or with a different set. */
 		if (dupe_det) {
 
-			if (rs->miss.size() > ts->miss.size())
+			if (rs->miss.size() > ts->miss.size()) {
 				goto next_sig;
+			}
 
 			for (rs_hdr = 0; rs_hdr < rs->miss.size(); rs_hdr++) {
 
-				for (ts_hdr = 0; ts_hdr < ts->miss.size(); ts_hdr++)
-					if (rs->miss[rs_hdr] == ts->miss[ts_hdr])
+				for (ts_hdr = 0; ts_hdr < ts->miss.size(); ts_hdr++) {
+					if (rs->miss[rs_hdr] == ts->miss[ts_hdr]) {
 						break;
+					}
+				}
 
 				// One of the reference headers doesn't appear in current sig!
-				if (ts_hdr == ts->miss.size())
+				if (ts_hdr == ts->miss.size()) {
 					goto next_sig;
+				}
 			}
 		}
 
@@ -218,8 +235,9 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 
 			return;
 
-		} else if (!gmatch)
+		} else if (!gmatch) {
 			gmatch = ref;
+		}
 
 	next_sig:
 		ref = ref + 1;
@@ -279,8 +297,9 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 				const char *val = hsig->hdr[i].value->c_str();
 
 				// Next, make sure that the value is not on the ignore list.
-				if (optional)
+				if (optional) {
 					continue;
+				}
 
 				list = to_srv ? req_skipval_ : resp_skipval_;
 
@@ -490,9 +509,11 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f) {
 
 		size_t i;
 
-		for (i = 0; i < ua_map_.size(); i++)
-			if (strstr(f->http_tmp.sw->c_str(), ua_map_[i].name.c_str()))
+		for (i = 0; i < ua_map_.size(); i++) {
+			if (strstr(f->http_tmp.sw->c_str(), ua_map_[i].name.c_str())) {
 				break;
+			}
+		}
 
 		if (i != ua_map_.size()) {
 
@@ -502,8 +523,9 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f) {
 				score += 4;
 				reason |= NAT_APP_UA;
 
-				if (!hd->bad_sw)
+				if (!hd->bad_sw) {
 					hd->bad_sw = 1;
+				}
 
 			} else {
 
@@ -564,8 +586,9 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 						   m->flavor ? " " : "",
 						   m->flavor ? m->flavor->c_str() : "");
 
-	} else
+	} else {
 		ctx_->observation_field("app", nullptr);
+	}
 
 	if (f->http_tmp.lang && isalpha((*f->http_tmp.lang)[0]) && isalpha((*f->http_tmp.lang)[1]) && !isalpha((*f->http_tmp.lang)[2])) {
 
@@ -608,8 +631,9 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 
 		f->server->http_resp_port = f->srv_port;
 
-		if (lang)
+		if (lang) {
 			f->server->language = lang;
+		}
 
 		if (m) {
 			if (m->class_id != InvalidId) {
@@ -626,14 +650,17 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 				f->server->http_name_id = m->name_id;
 				f->server->http_flavor  = m->flavor;
 
-				if (f->http_tmp.dishonest) f->server->bad_sw = 2;
+				if (f->http_tmp.dishonest) {
+					f->server->bad_sw = 2;
+				}
 			}
 		}
 
 	} else {
 
-		if (lang)
+		if (lang) {
 			f->client->language = lang;
+		}
 
 		if (m) {
 			if (m->class_id != InvalidId) {
@@ -657,7 +684,9 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 				f->client->http_name_id = m->name_id;
 				f->client->http_flavor  = m->flavor;
 
-				if (f->http_tmp.dishonest) f->client->bad_sw = 2;
+				if (f->http_tmp.dishonest) {
+					f->client->bad_sw = 2;
+				}
 			}
 		}
 	}
@@ -739,7 +768,9 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more)
 		 * Skip ':' and a subsequent whitespace next. */
 		off++;
 
-		if (off < plen && isblank(pay[off])) off++;
+		if (off < plen && isblank(pay[off])) {
+			off++;
+		}
 
 		uint32_t vstart = off;
 		uint32_t vlen   = 0;
@@ -768,8 +799,9 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more)
 		}
 
 		// If party is using \r\n terminators, go back one char.
-		if (pay[off - 1] == '\r')
+		if (pay[off - 1] == '\r') {
 			vlen--;
+		}
 
 		/* Header value starts at vstart, and has vlen bytes (may be zero).
 		 * Record this in the signature. */
@@ -1066,8 +1098,9 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 bool http_context_t::process_http(bool to_srv, packet_flow *f) {
 
 	// Already decided this flow is not worth tracking?
-	if (f->in_http < 0)
+	if (f->in_http < 0) {
 		return false;
+	}
 
 	if (to_srv) {
 
@@ -1075,8 +1108,9 @@ bool http_context_t::process_http(bool to_srv, packet_flow *f) {
 		bool can_get_more     = (f->request.size() < MAX_FLOW_DATA);
 
 		// Request done, but pending response?
-		if (f->http_req_done)
+		if (f->http_req_done) {
 			return true;
+		}
 
 		if (!f->in_http) {
 
@@ -1084,8 +1118,9 @@ bool http_context_t::process_http(bool to_srv, packet_flow *f) {
 			const char *sig_at;
 
 			// Ooh, new flow!
-			if (f->request.size() < 15)
+			if (f->request.size() < 15) {
 				return can_get_more;
+			}
 
 			// Scan until \n, or until binary data spotted.
 			uint32_t off = f->http_pos;
@@ -1128,7 +1163,9 @@ bool http_context_t::process_http(bool to_srv, packet_flow *f) {
 			}
 
 			sig_at = pay + off - 8;
-			if (pay[off - 1] == '\r') sig_at--;
+			if (pay[off - 1] == '\r') {
+				sig_at--;
+			}
 
 			// Bad HTTP/1.x signature?
 			if (strncmp(sig_at, "HTTP/1.", 7)) {
@@ -1162,8 +1199,9 @@ bool http_context_t::process_http(bool to_srv, packet_flow *f) {
 
 			uint8_t chr;
 
-			if (f->response.size() < 13)
+			if (f->response.size() < 13) {
 				return can_get_more;
+			}
 
 			// Scan until \n, or until binary data spotted.
 			uint32_t off = f->http_pos;

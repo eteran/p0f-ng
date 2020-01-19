@@ -726,8 +726,9 @@ void live_event_loop(libp0f *ctx) {
 				switch (cur) {
 				case 0:
 					// Process traffic on the capture interface.
-					if (pcap_dispatch(pt, -1, parse_packet, reinterpret_cast<u_char *>(ctx)) < 0)
+					if (pcap_dispatch(pt, -1, parse_packet, reinterpret_cast<u_char *>(ctx)) < 0) {
 						FATAL("Packet capture interface is down.");
+					}
 					break;
 				case 1:
 					// Accept new API connection, limits permitting.
@@ -739,7 +740,8 @@ void live_event_loop(libp0f *ctx) {
 						for (i = 0; i < api_max_conn && api_cl[i].fd >= 0; i++) {
 						}
 
-						if (i == api_max_conn) FATAL("Inconsistent API connection data.");
+						if (i == api_max_conn)
+							FATAL("Inconsistent API connection data.");
 
 						api_cl[i].fd = accept(api_fd, nullptr, nullptr);
 
@@ -908,7 +910,7 @@ int main(int argc, char *argv[]) {
 			if (api_max_conn != API_MAX_CONN)
 				FATAL("Multiple -S options not supported.");
 
-			api_max_conn = atol(optarg);
+			api_max_conn = atoi(optarg);
 
 			if (!api_max_conn || api_max_conn > 100)
 				FATAL("Outlandish value specified for -S.");

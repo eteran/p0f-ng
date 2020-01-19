@@ -38,8 +38,9 @@ void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext
 
 	const int mtu = stoi(mtu_str);
 
-	if (mtu <= 0 || mtu > 65535)
+	if (mtu <= 0 || mtu > 65535) {
 		FATAL("Malformed MTU value in line %u.", line_no);
+	}
 
 	const uint32_t bucket = mtu % SIG_BUCKETS;
 
