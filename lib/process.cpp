@@ -591,84 +591,6 @@ void process_context_t::expire_cache() {
 	}
 }
 
-// Find link-specific offset (pcap knows, but won't tell).
-int8_t process_context_t::find_offset(const uint8_t *data, uint32_t total_len) {
-
-	// Check hardcoded values for some of the most common options.
-	switch (ctx_->link_type) {
-	case DLT_RAW:
-		return 0;
-	case DLT_NULL:
-	case DLT_PPP:
-		return 4;
-	case DLT_LOOP:
-#ifdef DLT_PPP_SERIAL
-	case DLT_PPP_SERIAL:
-#endif // DLT_PPP_SERIAL
-	case DLT_PPP_ETHER:
-		return 8;
-	case DLT_EN10MB:
-		return 14;
-#ifdef DLT_LINUX_SLL
-	case DLT_LINUX_SLL:
-		return 16;
-#endif // DLT_LINUX_SLL
-	case DLT_PFLOG:
-		return 28;
-	case DLT_IEEE802_11:
-		return 32;
-	}
-
-	int8_t link_off = -1;
-
-	/* If this fails, try to auto-detect. There is a slight risk that if the
-	 * first packet we see is maliciously crafted, and somehow gets past the
-	 * configured BPF filter, we will configure the wrong offset. But that
-	 * seems fairly unlikely. */
-	uint8_t i;
-	for (i = 0; i < 40; i += 2, total_len -= 2) {
-		if (total_len < MIN_TCP4) {
-			break;
-		}
-
-		/* Perhaps this is IPv6? We check three things: IP version (first 4 bits);
-		 * total length sufficient to accommodate IPv6 and TCP headers; and the
-		 * "next protocol" field equal to PROTO_TCP. */
-		if (total_len >= MIN_TCP6 && (data[i] >> 4) == IP_VER6) {
-			auto hdr = reinterpret_cast<const ipv6_hdr *>(data + i);
-			if (hdr->proto == PROTO_TCP) {
-				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, ctx_->link_type);
-				link_off = i;
-				break;
-			}
-		}
-
-		/* Okay, let's try IPv4 then. The same approach, except the shortest
-		 * packet size must be just enough to accommodate IPv4 + TCP
-		 * (already checked). */
-		if ((data[i] >> 4) == IP_VER4) {
-			auto hdr = reinterpret_cast<const ipv4_hdr *>(data + i);
-			if (hdr->proto == PROTO_TCP) {
-				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, ctx_->link_type);
-				link_off = i;
-				break;
-			}
-		}
-	}
-
-	/* If we found something, adjust for VLAN tags (ETH_P_8021Q == 0x8100).
-	 * Else, complain once and try again soon. */
-	if (link_off >= 4 && data[i - 4] == 0x81 && data[i - 3] == 0x00) {
-		DEBUG("[#] Adjusting offset due to VLAN tagging.\n");
-		link_off -= 4;
-	} else if (link_off == -1) {
-		link_off = -2;
-		WARN("Unable to find link-specific packet offset. This is bad.");
-	}
-
-	return link_off;
-}
-
 // Get unix time in milliseconds.
 uint64_t process_context_t::get_unix_time_ms() {
 	return (cur_time_.tv_sec) * 1000 + (cur_time_.tv_usec / 1000);
@@ -1140,32 +1062,6 @@ void process_context_t::parse_packet_frame(struct timeval ts, const uint8_t *dat
 	}
 
 	flow_dispatch(&pk);
-}
-
-/* Parse PCAP input, with plenty of sanity checking. Store interesting details
- * in a protocol-agnostic buffer that will be then examined upstream. */
-void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data) {
-
-	// Be paranoid about how much data we actually have off the wire.
-	uint32_t packet_len = std::min(hdr->len, hdr->caplen);
-	if (packet_len > SNAPLEN) {
-		packet_len = SNAPLEN;
-	}
-
-	// DEBUG("[#] Received packet: len = %d, caplen = %d, limit = %d\n",
-	//    hdr->len, hdr->caplen, SNAPLEN);
-
-	// Account for link-level headers.
-	if (link_off_ < 0) {
-		link_off_ = find_offset(data, packet_len);
-	}
-
-	if (link_off_ > 0) {
-		data += link_off_;
-		packet_len -= link_off_;
-	}
-
-	parse_packet_frame(hdr->ts, data, packet_len);
 }
 
 // Look up host data.

@@ -31,11 +31,18 @@ add_library(p0f-engine
 	libp0f.cpp
 )
 
-target_compile_definitions(p0f-engine 
+target_compile_definitions(p0f-engine
 PUBLIC
-	-DVERSION=\"3.09b\"
-	-DDEBUG_BUILD
+       -DVERSION=\"3.09b\"
 )
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+	target_compile_definitions(p0f-engine
+	PUBLIC
+	    -DDEBUG_BUILD
+	)
+endif ()
+
 
 target_include_directories(p0f-engine 
 PUBLIC 
