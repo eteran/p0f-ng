@@ -68,7 +68,7 @@
 
 namespace {
 
-void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
+void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f, libp0f_context_t *ctx);
 void add_observation_field(const char *key, const char *value);
 
 libp0f_context_t libp0f_context = {
@@ -564,7 +564,7 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 
 void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 	auto ctx = reinterpret_cast<libp0f_context_t *>(junk);
-	process_context.parse_packet(ctx, hdr, data);
+	ctx->process_context.parse_packet(hdr, data);
 }
 
 // Process API queries.
@@ -583,7 +583,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	switch (q->addr_type) {
 	case P0F_ADDR_IPV4:
 	case P0F_ADDR_IPV6:
-		h = process_context.lookup_host(q->addr, q->addr_type);
+		h = libp0f_context.process_context.lookup_host(q->addr, q->addr_type);
 		break;
 	default:
 		WARN("Query with unknown address type %u.\n", q->addr_type);
@@ -602,7 +602,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	r->total_conn = h->total_conn;
 
 	if (h->last_name_id != InvalidId) {
-		strncpy(r->os_name, fp_context.fp_os_names_[h->last_name_id].c_str(), P0F_STR_MAX + 1);
+		strncpy(r->os_name, libp0f_context.fp_context.fp_os_names_[h->last_name_id].c_str(), P0F_STR_MAX + 1);
 		r->os_name[P0F_STR_MAX] = '\0';
 
 		if (h->last_flavor) {
@@ -612,7 +612,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	}
 
 	if (h->http_name_id != InvalidId) {
-		strncpy(r->http_name, fp_context.fp_os_names_[h->http_name_id].c_str(), P0F_STR_MAX + 1);
+		strncpy(r->http_name, libp0f_context.fp_context.fp_os_names_[h->http_name_id].c_str(), P0F_STR_MAX + 1);
 		r->http_name[P0F_STR_MAX] = '\0';
 
 		if (h->http_flavor) {
@@ -827,7 +827,7 @@ void offline_event_loop() {
 }
 
 // Open log entry.
-void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {
+void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f, libp0f_context_t *ctx) {
 
 	if (p0f_context.obs_fields) {
 		FATAL("Premature end of observation.");
@@ -851,7 +851,7 @@ void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, cons
 	if (p0f_context.log_file) {
 		char tmp[64];
 
-		const time_t ut = process_context.get_unix_time();
+		const time_t ut = ctx->process_context.get_unix_time();
 		strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", localtime(&ut));
 
 		LOGF("[%s] mod=%s|cli=%s/%u|",
@@ -1026,7 +1026,7 @@ int main(int argc, char *argv[]) {
 	close_spare_fds();
 
 	// Initialize the p0f library
-	auto p0f_engine = std::make_unique<engine>(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE);
+	auto p0f_engine = std::make_unique<engine>(p0f_context.fp_file ? p0f_context.fp_file : FP_FILE, &libp0f_context);
 
 	prepare_pcap();
 	prepare_bpf();

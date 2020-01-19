@@ -31,15 +31,19 @@
 #include "p0f/tcp.h"
 #include "p0f/util.h"
 
-tcp_context_t tcp_context;
-
 namespace {
 
 // Figure out what the TTL distance might have been for an unknown sig.
 constexpr uint8_t guess_dist(uint8_t ttl) {
-	if (ttl <= 32) return 32 - ttl;
-	if (ttl <= 64) return 64 - ttl;
-	if (ttl <= 128) return 128 - ttl;
+	if (ttl <= 32)
+		return 32 - ttl;
+
+	if (ttl <= 64)
+		return 64 - ttl;
+
+	if (ttl <= 128)
+		return 128 - ttl;
+
 	return 255 - ttl;
 }
 
@@ -97,30 +101,6 @@ int16_t detect_win_multi(const std::unique_ptr<tcp_sig> &ts, bool *use_mtu, uint
 #undef RET_IF_DIV
 
 	return -1;
-}
-
-/* Convert packet_data to a simplified tcp_sig representation
-   suitable for signature matching. Compute hashes. */
-void packet_to_sig(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
-
-	ts->opt_hash = hash32(pk->opt_layout.data(), pk->opt_layout.size());
-
-	ts->quirks      = pk->quirks;
-	ts->opt_eol_pad = pk->opt_eol_pad;
-	ts->ip_opt_len  = pk->ip_opt_len;
-	ts->ip_ver      = pk->ip_ver;
-	ts->ttl         = pk->ttl;
-	ts->mss         = pk->mss;
-	ts->win         = pk->win;
-	ts->win_type    = WIN_TYPE_NORMAL; // Keep as-is.
-	ts->wscale      = pk->wscale;
-	ts->pay_class   = !!pk->pay_len;
-	ts->tot_hdr     = pk->tot_hdr;
-	ts->ts1         = pk->ts1;
-	ts->recv_ms     = process_context.get_unix_time_ms();
-	ts->matched     = nullptr;
-	ts->fuzzy       = 0;
-	ts->dist        = 0;
 }
 
 // Dump unknown signature.
@@ -270,9 +250,35 @@ std::string dump_flags(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
 		return "none";
 }
 
+}
+
+/* Convert packet_data to a simplified tcp_sig representation
+   suitable for signature matching. Compute hashes. */
+void tcp_context_t::packet_to_sig(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
+
+	ts->opt_hash = hash32(pk->opt_layout.data(), pk->opt_layout.size());
+
+	ts->quirks      = pk->quirks;
+	ts->opt_eol_pad = pk->opt_eol_pad;
+	ts->ip_opt_len  = pk->ip_opt_len;
+	ts->ip_ver      = pk->ip_ver;
+	ts->ttl         = pk->ttl;
+	ts->mss         = pk->mss;
+	ts->win         = pk->win;
+	ts->win_type    = WIN_TYPE_NORMAL; // Keep as-is.
+	ts->wscale      = pk->wscale;
+	ts->pay_class   = !!pk->pay_len;
+	ts->tot_hdr     = pk->tot_hdr;
+	ts->ts1         = pk->ts1;
+	ts->recv_ms     = ctx_->process_context.get_unix_time_ms();
+	ts->matched     = nullptr;
+	ts->fuzzy       = 0;
+	ts->dist        = 0;
+}
+
 /* Compare current signature with historical data, draw conclusions. This
    is called only for OS sigs. */
-void score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, packet_flow *f, libp0f_context_t *libp0f_context) {
+void tcp_context_t::score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, packet_flow *f) {
 
 	uint8_t score        = 0;
 	uint8_t diff_already = 0;
@@ -472,7 +478,7 @@ void score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, packet_flow *f,
 
 log_and_update:
 
-	process_context.add_nat_score(to_srv, f, reason, score, libp0f_context);
+	ctx_->process_context.add_nat_score(to_srv, f, reason, score);
 
 	// Update some of the essential records.
 	if (sig->matched) {
@@ -483,8 +489,6 @@ log_and_update:
 	}
 
 	hd->last_port = f->cli_port;
-}
-
 }
 
 /* Parse TCP-specific bits and register a signature read from p0f.fp.
@@ -843,7 +847,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 }
 
 // Fingerprint SYN or SYN+ACK.
-std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
+std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 
 	auto sig = std::make_unique<tcp_sig>();
 	packet_to_sig(pk, sig);
@@ -855,44 +859,44 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 		f->sendsyn = 1;
 
 	if (to_srv)
-		libp0f_context->start_observation(f->sendsyn ? "sendsyn probe" : "syn", 4, 1, f);
+		ctx_->start_observation(f->sendsyn ? "sendsyn probe" : "syn", 4, 1, f, ctx_);
 	else
-		libp0f_context->start_observation(f->sendsyn ? "sendsyn response" : "syn+ack", 4, 0, f);
+		ctx_->start_observation(f->sendsyn ? "sendsyn response" : "syn+ack", 4, 0, f, ctx_);
 
 	tcp_find_match(to_srv, sig, 0, f->syn_mss);
 
 	const tcp_sig_record *const m = sig->matched;
 	if (m) {
-		report_observation(libp0f_context, (m->class_id == InvalidId || f->sendsyn) ? "app" : "os", "%s%s%s",
-						   fp_context.fp_os_names_[m->name_id].c_str(),
+		report_observation(ctx_, (m->class_id == InvalidId || f->sendsyn) ? "app" : "os", "%s%s%s",
+						   ctx_->fp_context.fp_os_names_[m->name_id].c_str(),
 						   m->flavor ? " " : "",
 						   m->flavor ? m->flavor->c_str() : "");
 
 	} else {
-		libp0f_context->observation_field("os", nullptr);
+		ctx_->observation_field("os", nullptr);
 	}
 
 	if (m && m->bad_ttl) {
-		report_observation(libp0f_context, "dist", "<= %u", sig->dist);
+		report_observation(ctx_, "dist", "<= %u", sig->dist);
 	} else {
 		if (to_srv)
 			f->client->distance = sig->dist;
 		else
 			f->server->distance = sig->dist;
 
-		report_observation(libp0f_context, "dist", "%u", sig->dist);
+		report_observation(ctx_, "dist", "%u", sig->dist);
 	}
 
-	libp0f_context->observation_field("params", dump_flags(pk, sig).c_str());
+	ctx_->observation_field("params", dump_flags(pk, sig).c_str());
 
-	libp0f_context->observation_field("raw_sig", dump_sig(pk, sig, f->syn_mss).c_str());
+	ctx_->observation_field("raw_sig", dump_sig(pk, sig, f->syn_mss).c_str());
 
 	if (pk->tcp_type == TCP_SYN)
 		f->syn_mss = pk->mss;
 
 	// That's about as far as we go with non-OS signatures.
 	if (m && m->class_id == InvalidId) {
-		process_context.verify_tool_class(to_srv, f, m->sys, libp0f_context);
+		ctx_->process_context.verify_tool_class(to_srv, f, m->sys);
 		return nullptr;
 	}
 
@@ -900,13 +904,13 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 		return nullptr;
 	}
 
-	score_nat(to_srv, sig, f, libp0f_context);
+	score_nat(to_srv, sig, f);
 	return sig;
 }
 
 /* Perform uptime detection. This is the only FP function that gets called not
    only on SYN or SYN+ACK, but also on ACK traffic. */
-void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
+void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f) {
 
 	uint32_t ts_diff;
 	uint64_t ms_diff;
@@ -927,14 +931,14 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, l
 		if (f->cli_tps || !f->client->last_syn || !f->client->last_syn->ts1)
 			return;
 
-		ms_diff = process_context.get_unix_time_ms() - f->client->last_syn->recv_ms;
+		ms_diff = ctx_->process_context.get_unix_time_ms() - f->client->last_syn->recv_ms;
 		ts_diff = pk->ts1 - f->client->last_syn->ts1;
 
 	} else {
 		if (f->srv_tps || !f->server->last_synack || !f->server->last_synack->ts1)
 			return;
 
-		ms_diff = process_context.get_unix_time_ms() - f->server->last_synack->recv_ms;
+		ms_diff = ctx_->process_context.get_unix_time_ms() - f->server->last_synack->recv_ms;
 		ts_diff = pk->ts1 - f->server->last_synack->ts1;
 	}
 
@@ -995,7 +999,7 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, l
 	up_min      = pk->ts1 / freq / 60;
 	up_mod_days = 0xFFFFFFFF / (freq * 60 * 60 * 24);
 
-	libp0f_context->start_observation("uptime", 2, to_srv, f);
+	ctx_->start_observation("uptime", 2, to_srv, f, ctx_);
 
 	if (to_srv) {
 
@@ -1008,11 +1012,11 @@ void tcp_context_t::check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, l
 		f->server->up_mod_days = up_mod_days;
 	}
 
-	report_observation(libp0f_context, "uptime", "%u days %u hrs %u min (modulo %u days)",
+	report_observation(ctx_, "uptime", "%u days %u hrs %u min (modulo %u days)",
 					   (up_min / 60 / 24), (up_min / 60) % 24, up_min % 60,
 					   up_mod_days);
 
-	report_observation(libp0f_context, "raw_freq", "%.02f Hz", ffreq);
+	report_observation(ctx_, "raw_freq", "%.02f Hz", ffreq);
 }
 
 // See if any of the p0f.fp signatures matches the collected data.

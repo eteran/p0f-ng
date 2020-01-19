@@ -35,8 +35,6 @@
 #include "p0f/readfp.h"
 #include "p0f/util.h"
 
-fp_context_t fp_context;
-
 // Parse 'classes' parameter by populating fp_os_classes_.
 void fp_context_t::config_parse_classes(ext::string_view value) {
 
@@ -256,7 +254,7 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 		std::string value;
 		in.match_any(&value);
 
-		http_context.http_parse_ua(value, line_no_);
+		ctx_->http_context.http_parse_ua(value, line_no_);
 
 	} else if (in.match("label")) {
 
@@ -319,7 +317,7 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 
 		switch (mod_type_) {
 		case CF_MOD_TCP:
-			tcp_context.tcp_register_sig(
+			ctx_->tcp_context.tcp_register_sig(
 				mod_to_srv_,
 				generic_,
 				sig_class_,
@@ -331,13 +329,13 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 				line_no_);
 			break;
 		case CF_MOD_MTU:
-			mtu_context.mtu_register_sig(
+			ctx_->mtu_context.mtu_register_sig(
 				sig_flavor_,
 				value,
 				line_no_);
 			break;
 		case CF_MOD_HTTP:
-			http_context.http_register_sig(
+			ctx_->http_context.http_register_sig(
 				mod_to_srv_,
 				generic_,
 				sig_class_,

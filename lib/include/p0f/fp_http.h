@@ -81,10 +81,10 @@ struct http_sig_record {
 
 struct http_context_t {
 public:
-	http_context_t();
+	http_context_t(libp0f_context_t *ctx);
 
 public:
-	bool process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context);
+	bool process_http(bool to_srv, packet_flow *f);
 	void http_parse_ua(ext::string_view value, uint32_t line_no);
 	void http_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
 
@@ -93,9 +93,9 @@ private:
 	void http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det);
 	void http_find_match(bool to_srv, const std::unique_ptr<http_sig> &ts, uint8_t dupe_det);
 	std::string dump_sig(bool to_srv, const http_sig *hsig);
-	void score_nat(bool to_srv, const packet_flow *f, libp0f_context_t *libp0f_context);
-	void fingerprint_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context);
-	bool parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context);
+	void score_nat(bool to_srv, const packet_flow *f);
+	void fingerprint_http(bool to_srv, packet_flow *f);
+	bool parse_pairs(bool to_srv, packet_flow *f, bool can_get_more);
 
 private:
 	http_id req_optional_[sizeof(req_optional_init) / sizeof(http_id)];
@@ -113,8 +113,8 @@ private:
 	std::vector<http_sig_record> sigs_[2];
 
 	std::vector<ua_map_record> ua_map_; // Mappings between U-A and OS
+private:
+	libp0f_context_t *ctx_ = nullptr;
 };
-
-extern http_context_t http_context;
 
 #endif

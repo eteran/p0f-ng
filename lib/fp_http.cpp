@@ -33,8 +33,6 @@
 #include "p0f/tcp.h"
 #include "p0f/util.h"
 
-http_context_t http_context;
-
 namespace {
 
 constexpr int HDR_UA  = 0;
@@ -392,7 +390,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 /* Score signature differences. For unknown signatures, the presumption is that
  * they identify apps, so the logic is quite different from TCP. */
-void http_context_t::score_nat(bool to_srv, const packet_flow *f, libp0f_context_t *libp0f_context) {
+void http_context_t::score_nat(bool to_srv, const packet_flow *f) {
 
 	http_sig_record *m = f->http_tmp.matched;
 	host_data *hd;
@@ -431,7 +429,7 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f, libp0f_context
 	if (m->class_id == InvalidId) {
 		/* Got a match for an application signature. Make sure it runs on the
 		 * OS we have on file... */
-		process_context.verify_tool_class(to_srv, f, m->sys, libp0f_context);
+		ctx_->process_context.verify_tool_class(to_srv, f, m->sys);
 
 		// ...and check for inconsistencies in server behavior.
 		if (!to_srv && ref && ref->matched) {
@@ -546,28 +544,28 @@ header_check:
 		}
 	}
 
-	process_context.add_nat_score(to_srv, f, reason, score, libp0f_context);
+	ctx_->process_context.add_nat_score(to_srv, f, reason, score);
 }
 
 // Look up HTTP signature, create an observation.
-void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context) {
+void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 
 	http_sig_record *m;
 	const char *lang = nullptr;
 
 	http_find_match(to_srv, &f->http_tmp, 0);
 
-	libp0f_context->start_observation(to_srv ? "http request" : "http response", 4, to_srv, f);
+	ctx_->start_observation(to_srv ? "http request" : "http response", 4, to_srv, f, ctx_);
 
 	if ((m = f->http_tmp.matched)) {
 
-		report_observation(libp0f_context, (m->class_id == InvalidId) ? "app" : "os", "%s%s%s",
-						   fp_context.fp_os_names_[m->name_id].c_str(),
+		report_observation(ctx_, (m->class_id == InvalidId) ? "app" : "os", "%s%s%s",
+						   ctx_->fp_context.fp_os_names_[m->name_id].c_str(),
 						   m->flavor ? " " : "",
 						   m->flavor ? m->flavor->c_str() : "");
 
 	} else
-		libp0f_context->observation_field("app", nullptr);
+		ctx_->observation_field("app", nullptr);
 
 	if (f->http_tmp.lang && isalpha((*f->http_tmp.lang)[0]) && isalpha((*f->http_tmp.lang)[1]) && !isalpha((*f->http_tmp.lang)[2])) {
 
@@ -582,20 +580,20 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_contex
 		}
 
 		if (!languages[lh][pos]) {
-			libp0f_context->observation_field("lang", nullptr);
+			ctx_->observation_field("lang", nullptr);
 		} else {
 			lang = languages[lh][pos + 1];
-			libp0f_context->observation_field("lang", lang);
+			ctx_->observation_field("lang", lang);
 		}
 
 	} else {
-		libp0f_context->observation_field("lang", "none");
+		ctx_->observation_field("lang", "none");
 	}
 
-	libp0f_context->observation_field("params", dump_flags(&f->http_tmp, m).c_str());
-	libp0f_context->observation_field("raw_sig", dump_sig(to_srv, &f->http_tmp).c_str());
+	ctx_->observation_field("params", dump_flags(&f->http_tmp, m).c_str());
+	ctx_->observation_field("raw_sig", dump_sig(to_srv, &f->http_tmp).c_str());
 
-	score_nat(to_srv, f, libp0f_context);
+	score_nat(to_srv, f);
 
 	// Save observations needed to score future responses.
 	if (!to_srv) {
@@ -666,7 +664,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f, libp0f_contex
 }
 
 // Parse name=value pairs into a signature.
-bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more, libp0f_context_t *libp0f_context) {
+bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more) {
 
 	size_t plen = to_srv ? f->request.size() : f->response.size();
 
@@ -680,9 +678,9 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more,
 		// Empty line? Dispatch for fingerprinting!
 		if (pay[off] == '\r' || pay[off] == '\n') {
 
-			f->http_tmp.recv_date = process_context.get_unix_time();
+			f->http_tmp.recv_date = ctx_->process_context.get_unix_time();
 
-			fingerprint_http(to_srv, f, libp0f_context);
+			fingerprint_http(to_srv, f);
 
 			/* If this is a request, flush the collected signature and prepare
 			 * for parsing the response. If it's a response, just shut down HTTP
@@ -841,7 +839,8 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more,
 }
 
 // Pre-register essential headers.
-http_context_t::http_context_t() {
+http_context_t::http_context_t(libp0f_context_t *ctx)
+	: ctx_(ctx) {
 
 	memcpy(&req_optional_, &req_optional_init, sizeof(req_optional_));
 	memcpy(&resp_optional_, &resp_optional_init, sizeof(resp_optional_));
@@ -1029,7 +1028,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
-		uint32_t id = fp_context.lookup_name_id(system_str);
+		uint32_t id = ctx_->fp_context.lookup_name_id(system_str);
 
 		ext::optional<std::string> name;
 		if (in.match('=')) {
@@ -1052,7 +1051,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 		ua_map_record record;
 		record.id   = id;
-		record.name = (!name) ? fp_context.fp_os_names_[id] : *name;
+		record.name = (!name) ? ctx_->fp_context.fp_os_names_[id] : *name;
 		ua_map_.push_back(record);
 
 	} while (in.match(','));
@@ -1064,7 +1063,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 /* Examine request or response; returns 1 if more data needed and plausibly
  * can be read. Note that the buffer is always NUL-terminated. */
-bool http_context_t::process_http(bool to_srv, packet_flow *f, libp0f_context_t *libp0f_context) {
+bool http_context_t::process_http(bool to_srv, packet_flow *f) {
 
 	// Already decided this flow is not worth tracking?
 	if (f->in_http < 0)
@@ -1146,7 +1145,7 @@ bool http_context_t::process_http(bool to_srv, packet_flow *f, libp0f_context_t 
 			DEBUG("[#] HTTP detected.\n");
 		}
 
-		return parse_pairs(1, f, can_get_more, libp0f_context);
+		return parse_pairs(1, f, can_get_more);
 
 	} else {
 
@@ -1210,6 +1209,6 @@ bool http_context_t::process_http(bool to_srv, packet_flow *f, libp0f_context_t 
 			DEBUG("[#] HTTP response starts correctly.\n");
 		}
 
-		return parse_pairs(0, f, can_get_more, libp0f_context);
+		return parse_pairs(0, f, can_get_more);
 	}
 }

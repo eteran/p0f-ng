@@ -26,8 +26,6 @@
 #include "p0f/tcp.h"
 #include "p0f/util.h"
 
-mtu_context_t mtu_context;
-
 // Register a new MTU signature.
 void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext::string_view val, uint32_t line_no) {
 
@@ -51,7 +49,7 @@ void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext
 	sigs_[bucket].push_back(sig);
 }
 
-void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context) {
+void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f) {
 
 	uint32_t bucket;
 	uint32_t i;
@@ -60,7 +58,7 @@ void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f
 	if (!pk->mss || f->sendsyn)
 		return;
 
-	libp0f_context->start_observation("mtu", 2, to_srv, f);
+	ctx_->start_observation("mtu", 2, to_srv, f, ctx_);
 
 	if (pk->ip_ver == IP_VER4)
 		mtu = pk->mss + MIN_TCP4;
@@ -74,10 +72,10 @@ void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f
 			break;
 
 	if (i == sigs_[bucket].size())
-		libp0f_context->observation_field("link", nullptr);
+		ctx_->observation_field("link", nullptr);
 	else {
 
-		libp0f_context->observation_field("link", sigs_[bucket][i].name->c_str());
+		ctx_->observation_field("link", sigs_[bucket][i].name->c_str());
 
 		if (to_srv)
 			f->client->link_type = sigs_[bucket][i].name;
@@ -85,5 +83,5 @@ void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f
 			f->server->link_type = sigs_[bucket][i].name;
 	}
 
-	report_observation(libp0f_context, "raw_mtu", "%u", mtu);
+	report_observation(ctx_, "raw_mtu", "%u", mtu);
 }

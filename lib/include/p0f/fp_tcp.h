@@ -81,18 +81,25 @@ struct tcp_sig_record {
 
 struct tcp_context_t {
 public:
+	tcp_context_t(libp0f_context_t *ctx)
+		: ctx_(ctx) {}
+
+public:
 	void tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
-	std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context);
-	void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context);
+	std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f);
+	void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f);
 
 private:
 	void tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &ts, uint8_t dupe_det, uint16_t syn_mss);
+	void score_nat(bool to_srv, const std::unique_ptr<tcp_sig> &sig, packet_flow *f);
+	void packet_to_sig(packet_data *pk, const std::unique_ptr<tcp_sig> &ts);
 
 private:
 	// TCP signature buckets:
 	std::vector<tcp_sig_record> sigs_[2][SIG_BUCKETS];
-};
 
-extern tcp_context_t tcp_context;
+private:
+	libp0f_context_t *ctx_ = nullptr;
+};
 
 #endif

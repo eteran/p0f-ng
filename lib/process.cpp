@@ -37,8 +37,6 @@
 #include "p0f/tcp.h"
 #include "p0f/util.h"
 
-process_context_t process_context;
-
 namespace {
 
 /* Calculate hash bucket for packet_flow. Keep the hash symmetrical: switching
@@ -171,13 +169,13 @@ void process_context_t::touch_host(host_data *h) {
 }
 
 // Indiscriminately kill some of the oldest flows.
-void process_context_t::nuke_flows(bool silent, libp0f_context_t *libp0f_context) {
+void process_context_t::nuke_flows(bool silent) {
 
 	uint32_t kcnt = 1 + (flow_cnt_ * KILL_PERCENT / 100);
 
 	if (silent) {
 		DEBUG("[#] Pruning connections - trying to delete %u...\n", kcnt);
-	} else if (!libp0f_context->read_file) {
+	} else if (!ctx_->read_file) {
 		WARN("Too many tracked connections, deleting %u. "
 			 "Use -m to adjust.",
 			 kcnt);
@@ -225,15 +223,15 @@ void process_context_t::destroy_host(host_data *h) {
 }
 
 // Indiscriminately kill some of the older hosts.
-void process_context_t::nuke_hosts(libp0f_context_t *libp0f_context) {
+void process_context_t::nuke_hosts() {
 
 	uint32_t kcnt     = 1 + (host_cnt_ * KILL_PERCENT / 100);
 	host_data *target = host_by_age_;
 
-	if (!libp0f_context->read_file)
+	if (!ctx_->read_file)
 		WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
 
-	nuke_flows(true, libp0f_context);
+	nuke_flows(true);
 
 	while (kcnt && target) {
 		host_data *next = target->older;
@@ -246,12 +244,12 @@ void process_context_t::nuke_hosts(libp0f_context_t *libp0f_context) {
 }
 
 // Create a minimal host data.
-host_data *process_context_t::create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *libp0f_context) {
+host_data *process_context_t::create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
 
-	if (host_cnt_ > libp0f_context->max_hosts)
-		nuke_hosts(libp0f_context);
+	if (host_cnt_ > ctx_->max_hosts)
+		nuke_hosts();
 
 	DEBUG("[#] Creating host data: %s (bucket %u)\n",
 		  addr_to_str(addr, ip_ver), bucket);
@@ -294,12 +292,12 @@ host_data *process_context_t::create_host(uint8_t *addr, uint8_t ip_ver, libp0f_
 }
 
 // Create flow, and host data if necessary. If counts exceeded, prune old.
-packet_flow *process_context_t::create_flow_from_syn(packet_data *pk, libp0f_context_t *libp0f_context) {
+packet_flow *process_context_t::create_flow_from_syn(packet_data *pk) {
 
 	uint32_t bucket = get_flow_bucket(pk);
 
-	if (flow_cnt_ > libp0f_context->max_conn) {
-		nuke_flows(false, libp0f_context);
+	if (flow_cnt_ > ctx_->max_conn) {
+		nuke_flows(false);
 	}
 
 	DEBUG("[#] Creating flow from SYN: %s/%u -> ",
@@ -315,14 +313,14 @@ packet_flow *process_context_t::create_flow_from_syn(packet_data *pk, libp0f_con
 	if (nf->client)
 		touch_host(nf->client);
 	else
-		nf->client = create_host(pk->src, pk->ip_ver, libp0f_context);
+		nf->client = create_host(pk->src, pk->ip_ver);
 
 	nf->server = lookup_host(pk->dst, pk->ip_ver);
 
 	if (nf->server)
 		touch_host(nf->server);
 	else
-		nf->server = create_host(pk->dst, pk->ip_ver, libp0f_context);
+		nf->server = create_host(pk->dst, pk->ip_ver);
 
 	nf->client->use_cnt++;
 	nf->server->use_cnt++;
@@ -360,7 +358,7 @@ packet_flow *process_context_t::create_flow_from_syn(packet_data *pk, libp0f_con
 }
 
 // Insert data from a packet into a flow, call handlers as appropriate.
-void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context) {
+void process_context_t::flow_dispatch(packet_data *pk) {
 
 	std::unique_ptr<tcp_sig> tsig;
 	bool to_srv       = false;
@@ -388,9 +386,9 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 			destroy_flow(f);
 		}
 
-		f = create_flow_from_syn(pk, libp0f_context);
+		f = create_flow_from_syn(pk);
 
-		tsig = tcp_context.fingerprint_tcp(1, pk, f, libp0f_context);
+		tsig = ctx_->tcp_context.fingerprint_tcp(1, pk, f);
 
 		/* We don't want to do any further processing on generic non-OS
 		 signatures (e.g. NMap). The easiest way to guarantee that is to
@@ -401,8 +399,8 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 			return;
 		}
 
-		mtu_context.fingerprint_mtu(1, pk, f, libp0f_context);
-		tcp_context.check_ts_tcp(1, pk, f, libp0f_context);
+		ctx_->mtu_context.fingerprint_mtu(1, pk, f);
+		ctx_->tcp_context.check_ts_tcp(1, pk, f);
 
 		if (tsig) {
 			/* This can't be done in fingerprint_tcp because check_ts_tcp()
@@ -421,7 +419,7 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 		// This is about as far as we want to go with p0f-sendsyn.
 		if (f->sendsyn) {
 
-			tcp_context.fingerprint_tcp(0, pk, f, libp0f_context);
+			ctx_->tcp_context.fingerprint_tcp(0, pk, f);
 			destroy_flow(f);
 			return;
 		}
@@ -443,7 +441,7 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 
 		f->acked = true;
 
-		tsig = tcp_context.fingerprint_tcp(0, pk, f, libp0f_context);
+		tsig = ctx_->tcp_context.fingerprint_tcp(0, pk, f);
 
 		// SYN from real OS, SYN+ACK from a client stack. Weird, but whatever.
 		if (!tsig) {
@@ -451,8 +449,8 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 			return;
 		}
 
-		mtu_context.fingerprint_mtu(0, pk, f, libp0f_context);
-		tcp_context.check_ts_tcp(0, pk, f, libp0f_context);
+		ctx_->mtu_context.fingerprint_mtu(0, pk, f);
+		ctx_->tcp_context.check_ts_tcp(0, pk, f);
 
 		f->server->last_synack = std::move(tsig);
 		f->next_srv_seq        = pk->seq + 1;
@@ -463,7 +461,7 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 	case TCP_FIN | TCP_ACK:
 	case TCP_FIN:
 		if (f) {
-			tcp_context.check_ts_tcp(to_srv, pk, f, libp0f_context);
+			ctx_->tcp_context.check_ts_tcp(to_srv, pk, f);
 			destroy_flow(f);
 		}
 		break;
@@ -502,7 +500,7 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 				f->request.append(reinterpret_cast<const char *>(pk->payload), read_amt);
 			}
 
-			tcp_context.check_ts_tcp(1, pk, f, libp0f_context);
+			ctx_->tcp_context.check_ts_tcp(1, pk, f);
 
 			f->next_cli_seq += pk->pay_len;
 
@@ -524,7 +522,7 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 				f->response.append(reinterpret_cast<const char *>(pk->payload), read_amt);
 			}
 
-			tcp_context.check_ts_tcp(0, pk, f, libp0f_context);
+			ctx_->tcp_context.check_ts_tcp(0, pk, f);
 
 			f->next_srv_seq += pk->pay_len;
 		}
@@ -532,7 +530,7 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 		if (!pk->pay_len)
 			return;
 
-		need_more |= http_context.process_http(to_srv, f, libp0f_context);
+		need_more |= ctx_->http_context.process_http(to_srv, f);
 
 		if (!need_more) {
 			DEBUG("[#] All modules done, no need to keep tracking flow.\n");
@@ -548,7 +546,7 @@ void process_context_t::flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_
 }
 
 // Go through host and flow cache, expire outdated items.
-void process_context_t::expire_cache(libp0f_context_t *libp0f_context) {
+void process_context_t::expire_cache() {
 
 	static time_t pt;
 	const time_t ct = get_unix_time();
@@ -561,13 +559,13 @@ void process_context_t::expire_cache(libp0f_context_t *libp0f_context) {
 
 	DEBUG("[#] Cache expiration kicks in...\n");
 
-	while (flow_by_age_ && ct - flow_by_age_->created > libp0f_context->conn_max_age) {
+	while (flow_by_age_ && ct - flow_by_age_->created > ctx_->conn_max_age) {
 		destroy_flow(flow_by_age_);
 	}
 
 	host_data *target = host_by_age_;
 
-	while (target && ct - target->last_seen > libp0f_context->host_idle_limit * 60) {
+	while (target && ct - target->last_seen > ctx_->host_idle_limit * 60) {
 		host_data *newer = target->newer;
 		if (!target->use_cnt) {
 			destroy_host(target);
@@ -577,10 +575,10 @@ void process_context_t::expire_cache(libp0f_context_t *libp0f_context) {
 }
 
 // Find link-specific offset (pcap knows, but won't tell).
-void process_context_t::find_offset(const uint8_t *data, uint32_t total_len, libp0f_context_t *libp0f_context) {
+void process_context_t::find_offset(const uint8_t *data, uint32_t total_len) {
 
 	// Check hardcoded values for some of the most common options.
-	switch (libp0f_context->link_type) {
+	switch (ctx_->link_type) {
 	case DLT_RAW:
 		link_off_ = 0;
 		return;
@@ -627,7 +625,7 @@ void process_context_t::find_offset(const uint8_t *data, uint32_t total_len, lib
 		if (total_len >= MIN_TCP6 && (data[i] >> 4) == IP_VER6) {
 			auto hdr = reinterpret_cast<const ipv6_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
-				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, libp0f_context->link_type);
+				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, ctx_->link_type);
 				link_off_ = i;
 				break;
 			}
@@ -639,7 +637,7 @@ void process_context_t::find_offset(const uint8_t *data, uint32_t total_len, lib
 		if ((data[i] >> 4) == IP_VER4) {
 			auto hdr = reinterpret_cast<const ipv4_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
-				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, libp0f_context->link_type);
+				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, ctx_->link_type);
 				link_off_ = i;
 				break;
 			}
@@ -669,7 +667,7 @@ time_t process_context_t::get_unix_time() {
 
 /* Parse PCAP input, with plenty of sanity checking. Store interesting details
  * in a protocol-agnostic buffer that will be then examined upstream. */
-void process_context_t::parse_packet(libp0f_context_t *libp0f_context, const pcap_pkthdr *hdr, const uint8_t *data) {
+void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data) {
 
 	const tcp_hdr *tcp = nullptr;
 	packet_data pk     = {};
@@ -678,12 +676,12 @@ void process_context_t::parse_packet(libp0f_context_t *libp0f_context, const pca
 
 	const uint8_t *opt_end;
 
-	libp0f_context->packet_cnt++;
+	ctx_->packet_cnt++;
 
 	cur_time_ = hdr->ts;
 
-	if (!(libp0f_context->packet_cnt % EXPIRE_INTERVAL))
-		expire_cache(libp0f_context);
+	if (!(ctx_->packet_cnt % EXPIRE_INTERVAL))
+		expire_cache();
 
 	// Be paranoid about how much data we actually have off the wire.
 	uint32_t packet_len = std::min(hdr->len, hdr->caplen);
@@ -695,7 +693,7 @@ void process_context_t::parse_packet(libp0f_context_t *libp0f_context, const pca
 
 	// Account for link-level headers.
 	if (link_off_ < 0) {
-		find_offset(data, packet_len, libp0f_context);
+		find_offset(data, packet_len);
 	}
 
 	if (link_off_ > 0) {
@@ -1133,7 +1131,7 @@ void process_context_t::parse_packet(libp0f_context_t *libp0f_context, const pca
 		pk.quirks |= QUIRK_OPT_BAD;
 	}
 
-	flow_dispatch(&pk, libp0f_context);
+	flow_dispatch(&pk);
 }
 
 // Look up host data.
@@ -1155,7 +1153,7 @@ host_data *process_context_t::lookup_host(const uint8_t *addr, uint8_t ip_ver) {
 }
 
 // Add NAT score, check if alarm due.
-void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context) {
+void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score) {
 
 	host_data *hd   = nullptr;
 	uint8_t *scores = nullptr;
@@ -1203,7 +1201,7 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 
 	if (over_5 > 2 || over_2 > 4 || over_1 > 6 || over_0 > 8) {
 
-		libp0f_context->start_observation("ip sharing", 2, to_srv, f);
+		ctx_->start_observation("ip sharing", 2, to_srv, f, ctx_);
 
 		reason = hd->nat_reasons;
 
@@ -1218,7 +1216,7 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 		if (score == 1)
 			return;
 
-		libp0f_context->start_observation("host change", 2, to_srv, f);
+		ctx_->start_observation("host change", 2, to_srv, f, ctx_);
 
 		hd->last_chg = get_unix_time();
 	}
@@ -1240,13 +1238,13 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 
 	std::string rea = ss.str();
 
-	libp0f_context->observation_field("reason", !rea.empty() ? (rea.c_str() + 1) : nullptr);
+	ctx_->observation_field("reason", !rea.empty() ? (rea.c_str() + 1) : nullptr);
 
-	report_observation(libp0f_context, "raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
+	report_observation(ctx_, "raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
 }
 
 // Verify if tool class (called from modules).
-void process_context_t::verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys, libp0f_context_t *libp0f_context) {
+void process_context_t::verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys) {
 
 	host_data *hd = nullptr;
 	if (to_srv)
@@ -1273,10 +1271,10 @@ void process_context_t::verify_tool_class(bool to_srv, const packet_flow *f, con
 	// Oops, a mismatch.
 	if (i == sys.size()) {
 		DEBUG("[#] Detected app not supposed to run on host OS.\n");
-		add_nat_score(to_srv, f, NAT_APP_SIG, 4, libp0f_context);
+		add_nat_score(to_srv, f, NAT_APP_SIG, 4);
 	} else {
 		DEBUG("[#] Detected app supported on host OS.\n");
-		add_nat_score(to_srv, f, 0, 0, libp0f_context);
+		add_nat_score(to_srv, f, 0, 0);
 	}
 }
 

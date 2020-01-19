@@ -194,12 +194,15 @@ struct packet_flow {
 };
 
 struct process_context_t {
+	process_context_t(libp0f_context_t *ctx)
+		: ctx_(ctx) {}
+
 public:
-	void parse_packet(libp0f_context_t *libp0f_context, const pcap_pkthdr *hdr, const uint8_t *data);
+	void parse_packet(const pcap_pkthdr *hdr, const uint8_t *data);
 	uint64_t get_unix_time_ms();
 	time_t get_unix_time();
-	void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score, libp0f_context_t *libp0f_context);
-	void verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys, libp0f_context_t *libp0f_context);
+	void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score);
+	void verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys);
 	host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver);
 	void destroy_all_hosts();
 
@@ -207,14 +210,14 @@ private:
 	packet_flow *lookup_flow(packet_data *pk, bool *to_srv);
 	void destroy_flow(packet_flow *f);
 	void touch_host(host_data *h);
-	void nuke_flows(bool silent, libp0f_context_t *libp0f_context);
+	void nuke_flows(bool silent);
 	void destroy_host(host_data *h);
-	void find_offset(const uint8_t *data, uint32_t total_len, libp0f_context_t *libp0f_context);
-	void nuke_hosts(libp0f_context_t *libp0f_context);
-	host_data *create_host(uint8_t *addr, uint8_t ip_ver, libp0f_context_t *libp0f_context);
-	void flow_dispatch(packet_data *pk, libp0f_context_t *libp0f_context);
-	packet_flow *create_flow_from_syn(packet_data *pk, libp0f_context_t *libp0f_context);
-	void expire_cache(libp0f_context_t *libp0f_context);
+	void find_offset(const uint8_t *data, uint32_t total_len);
+	void nuke_hosts();
+	host_data *create_host(uint8_t *addr, uint8_t ip_ver);
+	void flow_dispatch(packet_data *pk);
+	packet_flow *create_flow_from_syn(packet_data *pk);
+	void expire_cache();
 
 private:
 	host_data *host_by_age_ = nullptr; // All host entries, by last mod
@@ -235,8 +238,9 @@ private:
 
 	int8_t link_off_     = -1; // Link-specific IP header offset
 	uint8_t bad_packets_ = 0;  // Seen non-IP packets?
-};
 
-extern process_context_t process_context;
+private:
+	libp0f_context_t *ctx_ = nullptr;
+};
 
 #endif

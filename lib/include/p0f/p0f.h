@@ -11,16 +11,18 @@
 #ifndef HAVE_P0F_H_
 #define HAVE_P0F_H_
 
+#include "fp_mtu.h"
 #include "process.h"
+#include "readfp.h"
 #include <cstdint>
 #include <vector>
 
 struct libp0f_context_t {
-	using observation_begin_t = void (*)(const char *, uint8_t, bool, const packet_flow *);
+	using observation_begin_t = void (*)(const char *, uint8_t, bool, const packet_flow *, libp0f_context_t *);
 	using observation_field_t = void (*)(const char *, const char *);
 
 	// Observation hooks
-	observation_begin_t start_observation = [](const char *, uint8_t, bool, const packet_flow *) {};
+	observation_begin_t start_observation = [](const char *, uint8_t, bool, const packet_flow *, libp0f_context_t *) {};
 	observation_field_t observation_field = [](const char *, const char *) {};
 
 	// Fill in by the one driving things
@@ -33,6 +35,13 @@ struct libp0f_context_t {
 
 	// Results
 	uint64_t packet_cnt = 0; // Total number of packets processed
+
+public:
+	http_context_t http_context{this};
+	mtu_context_t mtu_context{this};
+	tcp_context_t tcp_context{this};
+	process_context_t process_context{this};
+	fp_context_t fp_context{this};
 };
 
 #endif

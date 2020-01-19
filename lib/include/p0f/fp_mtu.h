@@ -28,13 +28,18 @@ struct mtu_sig_record {
 
 struct mtu_context_t {
 public:
+	mtu_context_t(libp0f_context_t *ctx)
+		: ctx_(ctx) {}
+
+public:
 	void mtu_register_sig(const ext::optional<std::string> &name, ext::string_view val, uint32_t line_no);
-	void fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f, libp0f_context_t *libp0f_context);
+	void fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f);
 
 private:
 	std::vector<mtu_sig_record> sigs_[SIG_BUCKETS];
-};
 
-extern mtu_context_t mtu_context;
+private:
+	libp0f_context_t *ctx_ = nullptr;
+};
 
 #endif

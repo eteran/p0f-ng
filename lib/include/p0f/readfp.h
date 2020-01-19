@@ -17,6 +17,8 @@
 #include <string>
 #include <vector>
 
+struct libp0f_context_t;
+
 // List of fingerprinting modules:
 enum Modules : uint8_t {
 	CF_MOD_TCP  = 0x00, // fp_tcp.c
@@ -40,6 +42,10 @@ constexpr uint32_t SYS_NF(uint32_t x) {
 }
 
 struct fp_context_t {
+public:
+	fp_context_t(libp0f_context_t *ctx)
+		: ctx_(ctx) {}
+
 public:
 	void read_config(const char *fname);
 	uint32_t lookup_name_id(ext::string_view name);
@@ -73,8 +79,9 @@ private:
 
 public:
 	std::vector<std::string> fp_os_names_;
-};
 
-extern fp_context_t fp_context;
+private:
+	libp0f_context_t *ctx_ = nullptr;
+};
 
 #endif
