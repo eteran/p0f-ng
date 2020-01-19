@@ -90,11 +90,6 @@ uint8_t daemon_mode   = 0;            // Running in daemon mode?
 void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f, libp0f_context_t *ctx);
 void add_observation_field(const char *key, const char *value);
 
-libp0f_context_t libp0f_context = {
-	start_observation,
-	add_observation_field,
-};
-
 // Display usage information
 [[noreturn]] void usage() {
 
@@ -303,12 +298,12 @@ void list_interfaces() {
 }
 
 // Initialize PCAP capture
-void prepare_pcap() {
+int prepare_pcap(const char *read_file) {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
 	const std::string orig_iface = use_iface;
 
-	if (libp0f_context.read_file) {
+	if (read_file) {
 
 		if (set_promisc)
 			FATAL("Dude, how am I supposed to make a file promiscuous?");
@@ -316,15 +311,15 @@ void prepare_pcap() {
 		if (!use_iface.empty())
 			FATAL("Options -i and -r are mutually exclusive.");
 
-		if (access(libp0f_context.read_file, R_OK))
-			PFATAL("Can't access file '%s'.", libp0f_context.read_file);
+		if (access(read_file, R_OK))
+			PFATAL("Can't access file '%s'.", read_file);
 
-		pt = pcap_open_offline(libp0f_context.read_file, pcap_err);
+		pt = pcap_open_offline(read_file, pcap_err);
 
 		if (!pt)
 			FATAL("pcap_open_offline: %s", pcap_err);
 
-		SAYF("[+] Will read pcap data from file '%s'.\n", libp0f_context.read_file);
+		SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
 
 	} else {
 		if (use_iface.empty()) {
@@ -361,7 +356,7 @@ void prepare_pcap() {
 		}
 	}
 
-	libp0f_context.link_type = pcap_datalink(pt);
+	return pcap_datalink(pt);
 }
 
 // Initialize BPF filtering
@@ -564,7 +559,7 @@ void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 }
 
 // Process API queries.
-void handle_query(const p0f_api_query *q, p0f_api_response *r) {
+void handle_query(libp0f_context_t *ctx, const p0f_api_query *q, p0f_api_response *r) {
 
 	r        = {};
 	r->magic = P0F_RESP_MAGIC;
@@ -579,7 +574,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	switch (q->addr_type) {
 	case P0F_ADDR_IPV4:
 	case P0F_ADDR_IPV6:
-		h = libp0f_context.process_context.lookup_host(q->addr, q->addr_type);
+		h = ctx->process_context.lookup_host(q->addr, q->addr_type);
 		break;
 	default:
 		WARN("Query with unknown address type %u.\n", q->addr_type);
@@ -598,7 +593,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	r->total_conn = h->total_conn;
 
 	if (h->last_name_id != InvalidId) {
-		strncpy(r->os_name, libp0f_context.fp_context.fp_os_names_[h->last_name_id].c_str(), P0F_STR_MAX + 1);
+		strncpy(r->os_name, ctx->fp_context.fp_os_names_[h->last_name_id].c_str(), P0F_STR_MAX + 1);
 		r->os_name[P0F_STR_MAX] = '\0';
 
 		if (h->last_flavor) {
@@ -608,7 +603,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	}
 
 	if (h->http_name_id != InvalidId) {
-		strncpy(r->http_name, libp0f_context.fp_context.fp_os_names_[h->http_name_id].c_str(), P0F_STR_MAX + 1);
+		strncpy(r->http_name, ctx->fp_context.fp_os_names_[h->http_name_id].c_str(), P0F_STR_MAX + 1);
 		r->http_name[P0F_STR_MAX] = '\0';
 
 		if (h->http_flavor) {
@@ -640,7 +635,7 @@ void handle_query(const p0f_api_query *q, p0f_api_response *r) {
 }
 
 // Event loop! Accepts and dispatches pcap data, API queries, etc.
-void live_event_loop() {
+void live_event_loop(libp0f_context_t *ctx) {
 
 	/* The huge problem with winpcap on cygwin is that you can't get a file
 	 * descriptor suitable for poll() / select() out of it:
@@ -735,7 +730,7 @@ void live_event_loop() {
 				switch (cur) {
 				case 0:
 					// Process traffic on the capture interface.
-					if (pcap_dispatch(pt, -1, parse_packet, reinterpret_cast<u_char *>(&libp0f_context)) < 0)
+					if (pcap_dispatch(pt, -1, parse_packet, reinterpret_cast<u_char *>(ctx)) < 0)
 						FATAL("Packet capture interface is down.");
 					break;
 				case 1:
@@ -789,7 +784,7 @@ void live_event_loop() {
 					// Query in place? Compute response and prepare to send it back.
 					if (ctable[cur]->in_off == sizeof(p0f_api_query)) {
 
-						handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
+						handle_query(ctx, &ctable[cur]->in_data, &ctable[cur]->out_data);
 						pfds[cur].events = (POLLOUT | POLLERR | POLLHUP);
 					}
 				}
@@ -807,14 +802,14 @@ void live_event_loop() {
 }
 
 // Simple event loop for processing offline captures.
-void offline_event_loop() {
+void offline_event_loop(libp0f_context_t *ctx) {
 
 	if (!daemon_mode) {
 		SAYF("[+] Processing capture data.\n\n");
 	}
 
 	while (!stop_soon) {
-		if (pcap_dispatch(pt, -1, parse_packet, reinterpret_cast<u_char *>(&libp0f_context)) <= 0) {
+		if (pcap_dispatch(pt, -1, parse_packet, reinterpret_cast<u_char *>(ctx)) <= 0) {
 			return;
 		}
 	}
@@ -892,6 +887,11 @@ void add_observation_field(const char *key, const char *value) {
 
 // Main entry point
 int main(int argc, char *argv[]) {
+
+	libp0f_context_t libp0f_context = {
+		start_observation,
+		add_observation_field,
+	};
 
 	setlinebuf(stdout);
 
@@ -1024,7 +1024,7 @@ int main(int argc, char *argv[]) {
 	// Initialize the p0f library
 	auto p0f_engine = std::make_unique<engine>(fp_file ? fp_file : FP_FILE, &libp0f_context);
 
-	prepare_pcap();
+	libp0f_context.link_type = prepare_pcap(libp0f_context.read_file);
 	prepare_bpf();
 
 	if (log_file) {
@@ -1055,11 +1055,12 @@ int main(int argc, char *argv[]) {
 	signal(SIGTERM, abort_handler);
 
 	if (libp0f_context.read_file) {
-		offline_event_loop();
+		offline_event_loop(&libp0f_context);
 	} else {
-		live_event_loop();
+		live_event_loop(&libp0f_context);
 	}
 
-	if (!daemon_mode)
+	if (!daemon_mode) {
 		SAYF("\nAll done. Processed %lu packets.\n", libp0f_context.packet_cnt);
+	}
 }

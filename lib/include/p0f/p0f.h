@@ -31,7 +31,7 @@ struct libp0f_context_t {
 	uint32_t max_hosts       = MAX_HOSTS;       // Host cache entry count limit
 	uint32_t conn_max_age    = CONN_MAX_AGE;    // Maximum age of a connection entry
 	uint32_t host_idle_limit = HOST_IDLE_LIMIT; // Host cache idle timeout
-	int32_t link_type        = 0;               // PCAP link type
+	int link_type            = 0;               // PCAP link type
 
 	// Results
 	uint64_t packet_cnt = 0; // Total number of packets processed
