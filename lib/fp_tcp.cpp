@@ -79,7 +79,7 @@ int16_t detect_win_multi(const std::unique_ptr<tcp_sig> &ts, bool *use_mtu, uint
 	}
 
 	/* Some systems use MTU on the wrong interface, so let's check for the most
-	 common case. */
+	 * common case. */
 
 	RET_IF_DIV(1500 - MIN_TCP4, false, "MSS (MTU = 1500, IPv4)");
 	RET_IF_DIV(1500 - MIN_TCP4 - 12, false, "MSS (MTU = 1500, IPv4 - 12)");

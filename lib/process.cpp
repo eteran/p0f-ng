@@ -288,9 +288,9 @@ host_data *process_context_t::create_host(uint8_t *addr, uint8_t ip_ver) {
 	nh->last_seen = nh->first_seen = get_unix_time();
 
 	nh->last_up_min   = -1;
-	nh->last_class_id = -1;
-	nh->last_name_id  = -1;
-	nh->http_name_id  = -1;
+	nh->last_class_id = InvalidId;
+	nh->last_name_id  = InvalidId;
+	nh->http_name_id  = InvalidId;
 	nh->distance      = -1;
 
 	host_cnt_++;
@@ -378,7 +378,7 @@ void process_context_t::flow_dispatch(packet_data *pk) {
 		  addr_to_str(pk->src, pk->ip_ver),
 		  pk->sport);
 
-	DEBUG("%s/%u (type 0x%02x, pay_len = %u)\n",
+	DEBUG("%s/%u (type 0x%02x, pay_len = %lu)\n",
 		  addr_to_str(pk->dst, pk->ip_ver),
 		  pk->dport,
 		  pk->tcp_type,
@@ -867,7 +867,6 @@ void process_context_t::parse_packet_frame(struct timeval ts, const uint8_t *dat
 		packet_len -= sizeof(ipv6_hdr);
 
 	} else {
-
 		if (!bad_packets_) {
 			WARN("Unknown packet type %u, link detection issue?", *data >> 4);
 			bad_packets_ = 1;
