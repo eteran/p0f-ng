@@ -21,7 +21,7 @@
 #include <vector>
 
 struct packet_flow;
-struct libp0f_context_t;
+struct libp0f;
 struct http_sig_record;
 
 // Another internal structure for UA -> OS maps:
@@ -81,7 +81,7 @@ struct http_sig_record {
 
 struct http_context_t {
 public:
-	http_context_t(libp0f_context_t *ctx);
+	http_context_t(libp0f *ctx);
 
 public:
 	bool process_http(bool to_srv, packet_flow *f);
@@ -114,7 +114,7 @@ private:
 
 	std::vector<ua_map_record> ua_map_; // Mappings between U-A and OS
 private:
-	libp0f_context_t *ctx_ = nullptr;
+	libp0f *ctx_ = nullptr;
 };
 
 #endif

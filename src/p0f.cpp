@@ -550,12 +550,12 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 }
 
 void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
-	auto ctx = reinterpret_cast<libp0f_context_t *>(junk);
+	auto ctx = reinterpret_cast<libp0f *>(junk);
 	ctx->process_context.parse_packet(hdr, data);
 }
 
 // Process API queries.
-void handle_query(libp0f_context_t *ctx, const p0f_api_query *q, p0f_api_response *r) {
+void handle_query(libp0f *ctx, const p0f_api_query *q, p0f_api_response *r) {
 
 	r        = {};
 	r->magic = P0F_RESP_MAGIC;
@@ -631,7 +631,7 @@ void handle_query(libp0f_context_t *ctx, const p0f_api_query *q, p0f_api_respons
 }
 
 // Event loop! Accepts and dispatches pcap data, API queries, etc.
-void live_event_loop(libp0f_context_t *ctx) {
+void live_event_loop(libp0f *ctx) {
 
 	/* The huge problem with winpcap on cygwin is that you can't get a file
 	 * descriptor suitable for poll() / select() out of it:
@@ -798,7 +798,7 @@ void live_event_loop(libp0f_context_t *ctx) {
 }
 
 // Simple event loop for processing offline captures.
-void offline_event_loop(libp0f_context_t *ctx) {
+void offline_event_loop(libp0f *ctx) {
 
 	if (!daemon_mode) {
 		SAYF("[+] Processing capture data.\n\n");
@@ -813,81 +813,82 @@ void offline_event_loop(libp0f_context_t *ctx) {
 	WARN("User-initiated shutdown.");
 }
 
-// Open log entry.
-void start_observation(time_t time, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {
+//
+struct libp0f_app : public libp0f {
+public:
+	// Open log entry.
+	void start_observation(time_t time, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) override {
 
-	if (obs_fields) {
-		FATAL("Premature end of observation.");
+		if (obs_fields) {
+			FATAL("Premature end of observation.");
+		}
+
+		if (!daemon_mode) {
+			SAYF(".-[ %s/%u -> ",
+				 addr_to_str(f->client->addr, f->client->ip_ver),
+				 f->cli_port);
+
+			SAYF("%s/%u (%s) ]-\n|\n",
+				 addr_to_str(f->server->addr, f->client->ip_ver),
+				 f->srv_port,
+				 keyword);
+
+			SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server",
+				 addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
+				 to_srv ? f->cli_port : f->srv_port);
+		}
+
+		if (log_file) {
+			char tmp[64];
+
+			const time_t ut = time;
+			strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", localtime(&ut));
+
+			LOGF("[%s] mod=%s|cli=%s/%u|",
+				 tmp,
+				 keyword,
+				 addr_to_str(f->client->addr, f->client->ip_ver),
+				 f->cli_port);
+
+			LOGF("srv=%s/%u|subj=%s",
+				 addr_to_str(f->server->addr, f->server->ip_ver),
+				 f->srv_port,
+				 to_srv ? "cli" : "srv");
+		}
+
+		obs_fields = field_cnt;
 	}
 
-	if (!daemon_mode) {
-		SAYF(".-[ %s/%u -> ",
-			 addr_to_str(f->client->addr, f->client->ip_ver),
-			 f->cli_port);
+	// Add log item.
+	void observation_field(const char *key, const char *value) override {
 
-		SAYF("%s/%u (%s) ]-\n|\n",
-			 addr_to_str(f->server->addr, f->client->ip_ver),
-			 f->srv_port,
-			 keyword);
+		if (!obs_fields)
+			FATAL("Unexpected observation field ('%s').", key);
 
-		SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server",
-			 addr_to_str(to_srv ? f->client->addr : f->server->addr, f->client->ip_ver),
-			 to_srv ? f->cli_port : f->srv_port);
-	}
-
-	if (log_file) {
-		char tmp[64];
-
-		const time_t ut = time;
-		strftime(tmp, sizeof(tmp), "%Y/%m/%d %H:%M:%S", localtime(&ut));
-
-		LOGF("[%s] mod=%s|cli=%s/%u|",
-			 tmp,
-			 keyword,
-			 addr_to_str(f->client->addr, f->client->ip_ver),
-			 f->cli_port);
-
-		LOGF("srv=%s/%u|subj=%s",
-			 addr_to_str(f->server->addr, f->server->ip_ver),
-			 f->srv_port,
-			 to_srv ? "cli" : "srv");
-	}
-
-	obs_fields = field_cnt;
-}
-
-// Add log item.
-void add_observation_field(const char *key, const char *value) {
-
-	if (!obs_fields)
-		FATAL("Unexpected observation field ('%s').", key);
-
-	if (!daemon_mode)
-		SAYF("| %-8s = %s\n", key, value ? value : "???");
-
-	if (log_file)
-		LOGF("|%s=%s", key, value ? value : "???");
-
-	obs_fields--;
-
-	if (!obs_fields) {
 		if (!daemon_mode)
-			SAYF("|\n`----\n\n");
+			SAYF("| %-8s = %s\n", key, value ? value : "???");
 
 		if (log_file)
-			LOGF("\n");
+			LOGF("|%s=%s", key, value ? value : "???");
+
+		obs_fields--;
+
+		if (!obs_fields) {
+			if (!daemon_mode)
+				SAYF("|\n`----\n\n");
+
+			if (log_file)
+				LOGF("\n");
+		}
 	}
-}
+};
 
 }
 
 // Main entry point
 int main(int argc, char *argv[]) {
 
-	libp0f_context_t libp0f_context = {
-		start_observation,
-		add_observation_field,
-	};
+	libp0f_app p0f;
 
 	setlinebuf(stdout);
 
@@ -932,12 +933,12 @@ int main(int argc, char *argv[]) {
 			use_iface = optarg;
 			break;
 		case 'm':
-			if (libp0f_context.max_conn != MAX_CONN || libp0f_context.max_hosts != MAX_HOSTS)
+			if (p0f.max_conn != MAX_CONN || p0f.max_hosts != MAX_HOSTS)
 				FATAL("Multiple -m options not supported.");
 
-			if (sscanf(optarg, "%u,%u", &libp0f_context.max_conn, &libp0f_context.max_hosts) != 2 ||
-				!libp0f_context.max_conn || libp0f_context.max_conn > 100000 ||
-				!libp0f_context.max_hosts || libp0f_context.max_hosts > 500000)
+			if (sscanf(optarg, "%u,%u", &p0f.max_conn, &p0f.max_hosts) != 2 ||
+				!p0f.max_conn || p0f.max_conn > 100000 ||
+				!p0f.max_hosts || p0f.max_hosts > 500000)
 				FATAL("Outlandish value specified for -m.");
 
 			break;
@@ -954,9 +955,9 @@ int main(int argc, char *argv[]) {
 			set_promisc = true;
 			break;
 		case 'r':
-			if (libp0f_context.read_file)
+			if (p0f.read_file)
 				FATAL("Multiple -r options not supported.");
-			libp0f_context.read_file = optarg;
+			p0f.read_file = optarg;
 			break;
 		case 's':
 			if (api_sock)
@@ -966,12 +967,12 @@ int main(int argc, char *argv[]) {
 			break;
 		case 't':
 
-			if (libp0f_context.conn_max_age != CONN_MAX_AGE || libp0f_context.host_idle_limit != HOST_IDLE_LIMIT)
+			if (p0f.conn_max_age != CONN_MAX_AGE || p0f.host_idle_limit != HOST_IDLE_LIMIT)
 				FATAL("Multiple -t options not supported.");
 
-			if (sscanf(optarg, "%u,%u", &libp0f_context.conn_max_age, &libp0f_context.host_idle_limit) != 2 ||
-				!libp0f_context.conn_max_age || libp0f_context.conn_max_age > 1000000 ||
-				!libp0f_context.host_idle_limit || libp0f_context.host_idle_limit > 1000000)
+			if (sscanf(optarg, "%u,%u", &p0f.conn_max_age, &p0f.host_idle_limit) != 2 ||
+				!p0f.conn_max_age || p0f.conn_max_age > 1000000 ||
+				!p0f.host_idle_limit || p0f.host_idle_limit > 1000000)
 				FATAL("Outlandish value specified for -t.");
 
 			break;
@@ -994,7 +995,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (libp0f_context.read_file && api_sock)
+	if (p0f.read_file && api_sock)
 		FATAL("API mode looks down on ofline captures.");
 
 	if (!api_sock && api_max_conn != API_MAX_CONN)
@@ -1002,7 +1003,7 @@ int main(int argc, char *argv[]) {
 
 	if (daemon_mode) {
 
-		if (libp0f_context.read_file)
+		if (p0f.read_file)
 			FATAL("Daemon mode and offline captures don't mix.");
 
 		if (!log_file && !api_sock)
@@ -1018,9 +1019,9 @@ int main(int argc, char *argv[]) {
 	close_spare_fds();
 
 	// Initialize the p0f library
-	libp0f_context.read_fingerprints(fp_file ? fp_file : FP_FILE);
+	p0f.read_fingerprints(fp_file ? fp_file : FP_FILE);
 
-	libp0f_context.link_type = prepare_pcap(libp0f_context.read_file);
+	p0f.link_type = prepare_pcap(p0f.read_file);
 	prepare_bpf();
 
 	if (log_file) {
@@ -1050,13 +1051,13 @@ int main(int argc, char *argv[]) {
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
 
-	if (libp0f_context.read_file) {
-		offline_event_loop(&libp0f_context);
+	if (p0f.read_file) {
+		offline_event_loop(&p0f);
 	} else {
-		live_event_loop(&libp0f_context);
+		live_event_loop(&p0f);
 	}
 
 	if (!daemon_mode) {
-		SAYF("\nAll done. Processed %lu packets.\n", libp0f_context.packet_cnt);
+		SAYF("\nAll done. Processed %lu packets.\n", p0f.packet_cnt);
 	}
 }

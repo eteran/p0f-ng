@@ -19,7 +19,7 @@
 #include "fp_tcp.h"
 
 struct tcp_sig;
-struct libp0f_context_t;
+struct libp0f;
 
 // Parsed information handed over by the pcap callback:
 struct packet_data {
@@ -194,7 +194,7 @@ struct packet_flow {
 };
 
 struct process_context_t {
-	process_context_t(libp0f_context_t *ctx)
+	process_context_t(libp0f *ctx)
 		: ctx_(ctx) {}
 
 public:
@@ -240,7 +240,7 @@ private:
 	uint8_t bad_packets_ = 0;  // Seen non-IP packets?
 
 private:
-	libp0f_context_t *ctx_ = nullptr;
+	libp0f *ctx_ = nullptr;
 };
 
 #endif

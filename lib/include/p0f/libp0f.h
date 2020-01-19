@@ -17,10 +17,10 @@
 #include <cstdint>
 #include <vector>
 
-struct libp0f_context_t {
+struct libp0f {
 public:
-	libp0f_context_t() = default;
-	~libp0f_context_t();
+	libp0f() = default;
+	virtual ~libp0f();
 
 public:
 	void read_fingerprints(const char *filename);
@@ -29,12 +29,19 @@ public:
 	void begin_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
 
 public:
-	using observation_begin_t = void (*)(time_t, const char *, uint8_t, bool, const packet_flow *);
-	using observation_field_t = void (*)(const char *, const char *);
-
 	// Observation hooks
-	observation_begin_t start_observation = [](time_t, const char *, uint8_t, bool, const packet_flow *) {};
-	observation_field_t observation_field = [](const char *, const char *) {};
+	virtual void start_observation(time_t time, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {
+		(void)time;
+		(void)keyword;
+		(void)field_cnt;
+		(void)to_srv;
+		(void)f;
+	}
+
+	virtual void observation_field(const char *key, const char *value) {
+		(void)key;
+		(void)value;
+	}
 
 	// Fill in by the one driving things
 	const char *read_file    = nullptr;         // File to read pcap data from

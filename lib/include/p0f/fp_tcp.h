@@ -81,7 +81,7 @@ struct tcp_sig_record {
 
 struct tcp_context_t {
 public:
-	tcp_context_t(libp0f_context_t *ctx)
+	tcp_context_t(libp0f *ctx)
 		: ctx_(ctx) {}
 
 public:
@@ -99,7 +99,7 @@ private:
 	std::vector<tcp_sig_record> sigs_[2][SIG_BUCKETS];
 
 private:
-	libp0f_context_t *ctx_ = nullptr;
+	libp0f *ctx_ = nullptr;
 };
 
 #endif

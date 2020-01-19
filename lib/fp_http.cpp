@@ -839,7 +839,7 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more)
 }
 
 // Pre-register essential headers.
-http_context_t::http_context_t(libp0f_context_t *ctx)
+http_context_t::http_context_t(libp0f *ctx)
 	: ctx_(ctx) {
 
 	memcpy(&req_optional_, &req_optional_init, sizeof(req_optional_));

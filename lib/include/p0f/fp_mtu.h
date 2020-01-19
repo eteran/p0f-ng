@@ -28,7 +28,7 @@ struct mtu_sig_record {
 
 struct mtu_context_t {
 public:
-	mtu_context_t(libp0f_context_t *ctx)
+	mtu_context_t(libp0f *ctx)
 		: ctx_(ctx) {}
 
 public:
@@ -39,7 +39,7 @@ private:
 	std::vector<mtu_sig_record> sigs_[SIG_BUCKETS];
 
 private:
-	libp0f_context_t *ctx_ = nullptr;
+	libp0f *ctx_ = nullptr;
 };
 
 #endif

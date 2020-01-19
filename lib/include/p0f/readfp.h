@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-struct libp0f_context_t;
+struct libp0f;
 
 // List of fingerprinting modules:
 enum Modules : uint8_t {
@@ -43,7 +43,7 @@ constexpr uint32_t SYS_NF(uint32_t x) {
 
 struct fp_context_t {
 public:
-	fp_context_t(libp0f_context_t *ctx)
+	fp_context_t(libp0f *ctx)
 		: ctx_(ctx) {}
 
 public:
@@ -81,7 +81,7 @@ public:
 	std::vector<std::string> fp_os_names_;
 
 private:
-	libp0f_context_t *ctx_ = nullptr;
+	libp0f *ctx_ = nullptr;
 };
 
 #endif
