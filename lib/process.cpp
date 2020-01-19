@@ -13,7 +13,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
-#include <pcap/pcap.h>
 #include <sstream>
 #include <unistd.h>
 

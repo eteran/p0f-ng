@@ -11,7 +11,6 @@
 #ifndef HAVE_PROCESS_H_
 #define HAVE_PROCESS_H_
 
-#include <pcap/pcap.h>
 #include <string>
 #include <vector>
 
