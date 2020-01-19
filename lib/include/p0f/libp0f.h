@@ -17,6 +17,9 @@
 #include <cstdint>
 #include <vector>
 
+struct p0f_api_query;
+struct p0f_api_response;
+
 struct libp0f {
 public:
 	libp0f() = default;
@@ -24,6 +27,7 @@ public:
 
 public:
 	void read_fingerprints(const char *filename);
+	void handle_query(const p0f_api_query *q, p0f_api_response *r);
 
 public:
 	void begin_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);

@@ -169,29 +169,35 @@ void open_log() {
 	if (log_fd >= 0) {
 
 		struct stat st;
-		if (fstat(log_fd, &st))
+		if (fstat(log_fd, &st)) {
 			PFATAL("fstat() on '%s' failed.", log_file);
+		}
 
-		if (!S_ISREG(st.st_mode))
+		if (!S_ISREG(st.st_mode)) {
 			FATAL("'%s' is not a regular file.", log_file);
+		}
 
 	} else {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			PFATAL("Cannot open '%s'.", log_file);
+		}
 
 		log_fd = open(log_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, LOG_MODE);
 
-		if (log_fd < 0)
+		if (log_fd < 0) {
 			PFATAL("Cannot open '%s'.", log_file);
+		}
 	}
 
-	if (flock(log_fd, LOCK_EX | LOCK_NB))
+	if (flock(log_fd, LOCK_EX | LOCK_NB)) {
 		FATAL("'%s' is being used by another process.", log_file);
+	}
 
 	lf = fdopen(log_fd, "a");
 
-	if (!lf)
+	if (!lf) {
 		FATAL("fdopen() on '%s' failed.", log_file);
+	}
 
 	SAYF("[+] Log file '%s' opened for writing.\n", log_file);
 }
@@ -201,38 +207,45 @@ void open_api() {
 
 	api_fd = socket(PF_UNIX, SOCK_STREAM, 0);
 
-	if (api_fd < 0)
+	if (api_fd < 0) {
 		PFATAL("socket(PF_UNIX) failed.");
+	}
 
 	struct sockaddr_un u = {};
 	u.sun_family         = AF_UNIX;
 
-	if (strlen(api_sock) >= sizeof(u.sun_path))
+	if (strlen(api_sock) >= sizeof(u.sun_path)) {
 		FATAL("API socket filename is too long for sockaddr_un (blame Unix).");
+	}
 
 	strcpy(u.sun_path, api_sock);
 
 	/* This is bad, but you can't do any better with standard unix socket
 	 * semantics today :-( */
 	struct stat st;
-	if (!stat(api_sock, &st) && !S_ISSOCK(st.st_mode))
+	if (!stat(api_sock, &st) && !S_ISSOCK(st.st_mode)) {
 		FATAL("'%s' exists but is not a socket.", api_sock);
+	}
 
-	if (unlink(api_sock) && errno != ENOENT)
+	if (unlink(api_sock) && errno != ENOENT) {
 		PFATAL("unlink('%s') failed.", api_sock);
+	}
 
 	mode_t old_umask = umask(0777 ^ API_MODE);
 
-	if (bind(api_fd, reinterpret_cast<struct sockaddr *>(&u), sizeof(u)))
+	if (bind(api_fd, reinterpret_cast<struct sockaddr *>(&u), sizeof(u))) {
 		PFATAL("bind() on '%s' failed.", api_sock);
+	}
 
 	umask(old_umask);
 
-	if (listen(api_fd, api_max_conn))
+	if (listen(api_fd, api_max_conn)) {
 		PFATAL("listen() on '%s' failed.", api_sock);
+	}
 
-	if (fcntl(api_fd, F_SETFL, O_NONBLOCK))
+	if (fcntl(api_fd, F_SETFL, O_NONBLOCK)) {
 		PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
+	}
 
 	api_cl = std::make_unique<api_client[]>(api_max_conn);
 
@@ -279,13 +292,15 @@ void list_interfaces() {
 		}
 
 		if (a) {
-			if (a->addr->sa_family == PF_INET)
+			if (a->addr->sa_family == PF_INET) {
 				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 4, IP_VER4));
-			else
+			} else {
 				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 8, IP_VER6));
+			}
 
-		} else
+		} else {
 			SAYF("     IP address  : (none)\n");
+		}
 
 	} while ((dev = dev->next));
 	SAYF("\n");
@@ -301,19 +316,23 @@ int prepare_pcap(const char *read_file) {
 
 	if (read_file) {
 
-		if (set_promisc)
+		if (set_promisc) {
 			FATAL("Dude, how am I supposed to make a file promiscuous?");
+		}
 
-		if (!use_iface.empty())
+		if (!use_iface.empty()) {
 			FATAL("Options -i and -r are mutually exclusive.");
+		}
 
-		if (access(read_file, R_OK))
+		if (access(read_file, R_OK)) {
 			PFATAL("Can't access file '%s'.", read_file);
+		}
 
 		pt = pcap_open_offline(read_file, pcap_err);
 
-		if (!pt)
+		if (!pt) {
 			FATAL("pcap_open_offline: %s", pcap_err);
+		}
 
 		SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
 
@@ -397,14 +416,16 @@ retry_no_vlan:
 
 		pcap_perror(pt, "[-] pcap_compile");
 
-		if (!orig_rule)
+		if (!orig_rule) {
 			FATAL("pcap_compile() didn't work, strange");
-		else
+		} else {
 			FATAL("Syntax error! See 'man tcpdump' for help on filters.");
+		}
 	}
 
-	if (pcap_setfilter(pt, &flt))
+	if (pcap_setfilter(pt, &flt)) {
 		FATAL("pcap_setfilter() didn't work, strange.");
+	}
 
 	pcap_freecode(&flt);
 
@@ -423,38 +444,49 @@ void drop_privs() {
 
 	struct passwd *const pw = getpwnam(switch_user);
 
-	if (!pw)
+	if (!pw) {
 		FATAL("User '%s' not found.", switch_user);
+	}
 
-	if (!strcmp(pw->pw_dir, "/"))
+	if (!strcmp(pw->pw_dir, "/")) {
 		FATAL("User '%s' must have a dedicated home directory.", switch_user);
+	}
 
-	if (!pw->pw_uid || !pw->pw_gid)
+	if (!pw->pw_uid || !pw->pw_gid) {
 		FATAL("User '%s' must be non-root.", switch_user);
+	}
 
-	if (initgroups(pw->pw_name, pw->pw_gid))
+	if (initgroups(pw->pw_name, pw->pw_gid)) {
 		PFATAL("initgroups() for '%s' failed.", switch_user);
+	}
 
-	if (chdir(pw->pw_dir))
+	if (chdir(pw->pw_dir)) {
 		PFATAL("chdir('%s') failed.", pw->pw_dir);
+	}
 
-	if (chroot(pw->pw_dir))
+	if (chroot(pw->pw_dir)) {
 		PFATAL("chroot('%s') failed.", pw->pw_dir);
+	}
 
-	if (chdir("/"))
+	if (chdir("/")) {
 		PFATAL("chdir('/') after chroot('%s') failed.", pw->pw_dir);
+	}
 
-	if (!access("/proc/", F_OK) || !access("/sys/", F_OK))
+	if (!access("/proc/", F_OK) || !access("/sys/", F_OK)) {
 		FATAL("User '%s' must have a dedicated home directory.", switch_user);
+	}
 
-	if (setgid(pw->pw_gid))
+	if (setgid(pw->pw_gid)) {
 		PFATAL("setgid(%u) failed.", pw->pw_gid);
+	}
 
-	if (setuid(pw->pw_uid))
+	if (setuid(pw->pw_uid)) {
 		PFATAL("setuid(%u) failed.", pw->pw_uid);
+	}
 
-	if (getegid() != pw->pw_gid || geteuid() != pw->pw_uid)
+	if (getegid() != pw->pw_gid || geteuid() != pw->pw_uid) {
 		FATAL("Inconsistent euid / egid after dropping privs.");
+	}
 
 	SAYF("[+] Privileges dropped: uid %u, gid %u, root '%s'.\n",
 		 pw->pw_uid, pw->pw_gid, pw->pw_dir);
@@ -472,24 +504,28 @@ void fork_off() {
 		/* Let's assume all this is fairly unlikely to fail, so we can live
 		 * with the parent possibly proclaiming success prematurely. */
 
-		if (dup2(null_fd, 0) < 0)
+		if (dup2(null_fd, 0) < 0) {
 			PFATAL("dup2() failed.");
+		}
 
 		/* If stderr is redirected to a file, keep that fd and use it for
 		 * normal output. */
 		if (isatty(2)) {
-			if (dup2(null_fd, 1) < 0 || dup2(null_fd, 2) < 0)
+			if (dup2(null_fd, 1) < 0 || dup2(null_fd, 2) < 0) {
 				PFATAL("dup2() failed.");
+			}
 		} else {
-			if (dup2(2, 1) < 0)
+			if (dup2(2, 1) < 0) {
 				PFATAL("dup2() failed.");
+			}
 		}
 
 		close(null_fd);
 		null_fd = -1;
 
-		if (chdir("/"))
+		if (chdir("/")) {
 			PFATAL("chdir('/') failed.");
+		}
 
 		setsid();
 		break;
@@ -522,8 +558,9 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 
 	DEBUG("[#] Recomputing pollfd data, pcap_fd = %d.\n", pfds[0].fd);
 
-	if (!api_sock)
+	if (!api_sock) {
 		return 1;
+	}
 
 	pfds[1].fd     = api_fd;
 	pfds[1].events = (POLLIN | POLLERR | POLLHUP);
@@ -538,10 +575,11 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 
 		/* If we haven't received a complete query yet, wait for POLLIN.
 		 * Otherwise, we want to write stuff. */
-		if (api_cl[i].in_off < sizeof(p0f_api_query))
+		if (api_cl[i].in_off < sizeof(p0f_api_query)) {
 			pfds[count].events = (POLLIN | POLLERR | POLLHUP);
-		else
+		} else {
 			pfds[count].events = (POLLOUT | POLLERR | POLLHUP);
+		}
 
 		pfds[count++].fd = api_cl[i].fd;
 	}
@@ -552,82 +590,6 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
 	auto ctx = reinterpret_cast<libp0f *>(junk);
 	ctx->process_context.parse_packet(hdr, data);
-}
-
-// Process API queries.
-void handle_query(libp0f *ctx, const p0f_api_query *q, p0f_api_response *r) {
-
-	r        = {};
-	r->magic = P0F_RESP_MAGIC;
-
-	if (q->magic != P0F_QUERY_MAGIC) {
-		WARN("Query with bad magic (0x%x).", q->magic);
-		r->status = P0F_STATUS_BADQUERY;
-		return;
-	}
-
-	const host_data *h = nullptr;
-	switch (q->addr_type) {
-	case P0F_ADDR_IPV4:
-	case P0F_ADDR_IPV6:
-		h = ctx->process_context.lookup_host(q->addr, q->addr_type);
-		break;
-	default:
-		WARN("Query with unknown address type %u.\n", q->addr_type);
-		r->status = P0F_STATUS_BADQUERY;
-		return;
-	}
-
-	if (!h) {
-		r->status = P0F_STATUS_NOMATCH;
-		return;
-	}
-
-	r->status     = P0F_STATUS_OK;
-	r->first_seen = h->first_seen;
-	r->last_seen  = h->last_seen;
-	r->total_conn = h->total_conn;
-
-	if (h->last_name_id != InvalidId) {
-		strncpy(r->os_name, ctx->fp_context.fp_os_names_[h->last_name_id].c_str(), P0F_STR_MAX + 1);
-		r->os_name[P0F_STR_MAX] = '\0';
-
-		if (h->last_flavor) {
-			strncpy(r->os_flavor, h->last_flavor->c_str(), P0F_STR_MAX + 1);
-			r->os_flavor[P0F_STR_MAX] = '\0';
-		}
-	}
-
-	if (h->http_name_id != InvalidId) {
-		strncpy(r->http_name, ctx->fp_context.fp_os_names_[h->http_name_id].c_str(), P0F_STR_MAX + 1);
-		r->http_name[P0F_STR_MAX] = '\0';
-
-		if (h->http_flavor) {
-			strncpy(r->http_flavor, h->http_flavor->c_str(), P0F_STR_MAX + 1);
-			r->http_flavor[P0F_STR_MAX] = '\0';
-		}
-	}
-
-	if (h->link_type) {
-		strncpy(r->link_type, h->link_type->c_str(), P0F_STR_MAX + 1);
-		r->link_type[P0F_STR_MAX] = '\0';
-	}
-
-	if (h->language) {
-		strncpy(r->language, h->language, P0F_STR_MAX + 1);
-		r->language[P0F_STR_MAX] = '\0';
-	}
-
-	r->bad_sw      = h->bad_sw;
-	r->last_nat    = h->last_nat;
-	r->last_chg    = h->last_chg;
-	r->up_mod_days = h->up_mod_days;
-	r->distance    = h->distance;
-	r->os_match_q  = h->last_quality;
-
-	if (h->last_up_min != -1) {
-		r->uptime_min = h->last_up_min;
-	}
 }
 
 // Event loop! Accepts and dispatches pcap data, API queries, etc.
@@ -649,8 +611,9 @@ void live_event_loop(libp0f *ctx) {
 
 	uint32_t pfd_count = regen_pfds(pfds, ctable);
 
-	if (!daemon_mode)
+	if (!daemon_mode) {
 		SAYF("[+] Entered main event loop.\n\n");
+	}
 
 	while (!stop_soon) {
 
@@ -664,14 +627,16 @@ void live_event_loop(libp0f *ctx) {
 
 		int pret = poll(&pfds[0], pfd_count, 10);
 		if (pret < 0) {
-			if (errno == EINTR)
+			if (errno == EINTR) {
 				break;
+			}
 			PFATAL("poll() failed.");
 		}
 
 		if (!pret) {
-			if (log_file)
+			if (log_file) {
 				fflush(lf);
+			}
 			continue;
 		}
 
@@ -703,12 +668,15 @@ void live_event_loop(libp0f *ctx) {
 				default: {
 
 					// Write API response, restart state when complete.
-					if (ctable[cur]->in_off < sizeof(p0f_api_query))
+					if (ctable[cur]->in_off < sizeof(p0f_api_query)) {
 						FATAL("Inconsistent p0f_api_response state.\n");
+					}
 
 					ssize_t i = write(pfds[cur].fd, (&ctable[cur]->out_data) + ctable[cur]->out_off, sizeof(p0f_api_response) - ctable[cur]->out_off);
 
-					if (i <= 0) PFATAL("write() on API socket fails despite POLLOUT.");
+					if (i <= 0) {
+						PFATAL("write() on API socket fails despite POLLOUT.");
+					}
 
 					ctable[cur]->out_off += i;
 
@@ -732,16 +700,18 @@ void live_event_loop(libp0f *ctx) {
 					break;
 				case 1:
 					// Accept new API connection, limits permitting.
-					if (!api_sock)
+					if (!api_sock) {
 						FATAL("Unexpected API connection.");
+					}
 
 					if (pfd_count - 2 < api_max_conn) {
 						uint32_t i;
 						for (i = 0; i < api_max_conn && api_cl[i].fd >= 0; i++) {
 						}
 
-						if (i == api_max_conn)
+						if (i == api_max_conn) {
 							FATAL("Inconsistent API connection data.");
+						}
 
 						api_cl[i].fd = accept(api_fd, nullptr, nullptr);
 
@@ -749,8 +719,9 @@ void live_event_loop(libp0f *ctx) {
 							WARN("Unable to handle API connection: accept() fails.");
 						} else {
 
-							if (fcntl(api_cl[i].fd, F_SETFL, O_NONBLOCK))
+							if (fcntl(api_cl[i].fd, F_SETFL, O_NONBLOCK)) {
 								PFATAL("fcntl() to set O_NONBLOCK on API connection fails.");
+							}
 
 							api_cl[i].in_off  = 0;
 							api_cl[i].out_off = 0;
@@ -769,20 +740,22 @@ void live_event_loop(libp0f *ctx) {
 
 				default: {
 					// Receive API query, dispatch when complete.
-					if (ctable[cur]->in_off >= sizeof(p0f_api_query))
+					if (ctable[cur]->in_off >= sizeof(p0f_api_query)) {
 						FATAL("Inconsistent p0f_api_query state.\n");
+					}
 
 					ssize_t i = read(pfds[cur].fd, (&ctable[cur]->in_data) + ctable[cur]->in_off, sizeof(p0f_api_query) - ctable[cur]->in_off);
 
-					if (i < 0)
+					if (i < 0) {
 						PFATAL("read() on API socket fails despite POLLIN.");
+					}
 
 					ctable[cur]->in_off += i;
 
 					// Query in place? Compute response and prepare to send it back.
 					if (ctable[cur]->in_off == sizeof(p0f_api_query)) {
 
-						handle_query(ctx, &ctable[cur]->in_data, &ctable[cur]->out_data);
+						ctx->handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
 						pfds[cur].events = (POLLOUT | POLLERR | POLLHUP);
 					}
 				}
@@ -864,23 +837,28 @@ public:
 	// Add log item.
 	void observation_field(const char *key, const char *value) override {
 
-		if (!obs_fields)
+		if (!obs_fields) {
 			FATAL("Unexpected observation field ('%s').", key);
+		}
 
-		if (!daemon_mode)
+		if (!daemon_mode) {
 			SAYF("| %-8s = %s\n", key, value ? value : "???");
+		}
 
-		if (log_file)
+		if (log_file) {
 			LOGF("|%s=%s", key, value ? value : "???");
+		}
 
 		obs_fields--;
 
 		if (!obs_fields) {
-			if (!daemon_mode)
+			if (!daemon_mode) {
 				SAYF("|\n`----\n\n");
+			}
 
-			if (log_file)
+			if (log_file) {
 				LOGF("\n");
+			}
 		}
 	}
 };
@@ -907,80 +885,94 @@ int main(int argc, char *argv[]) {
 			list_interfaces();
 			exit(0);
 		case 'S':
-			if (api_max_conn != API_MAX_CONN)
+			if (api_max_conn != API_MAX_CONN) {
 				FATAL("Multiple -S options not supported.");
+			}
 
 			api_max_conn = atoi(optarg);
 
-			if (!api_max_conn || api_max_conn > 100)
+			if (!api_max_conn || api_max_conn > 100) {
 				FATAL("Outlandish value specified for -S.");
+			}
 
 			break;
 		case 'd':
-			if (daemon_mode)
+			if (daemon_mode) {
 				FATAL("Double werewolf mode not supported yet.");
+			}
 
 			daemon_mode = 1;
 			break;
 		case 'f':
-			if (fp_file)
+			if (fp_file) {
 				FATAL("Multiple -f options not supported.");
+			}
 
 			fp_file = optarg;
 			break;
 		case 'i':
-			if (!use_iface.empty())
+			if (!use_iface.empty()) {
 				FATAL("Multiple -i options not supported (try '-i any').");
+			}
 
 			use_iface = optarg;
 			break;
 		case 'm':
-			if (p0f.max_conn != MAX_CONN || p0f.max_hosts != MAX_HOSTS)
+			if (p0f.max_conn != MAX_CONN || p0f.max_hosts != MAX_HOSTS) {
 				FATAL("Multiple -m options not supported.");
+			}
 
 			if (sscanf(optarg, "%u,%u", &p0f.max_conn, &p0f.max_hosts) != 2 ||
 				!p0f.max_conn || p0f.max_conn > 100000 ||
-				!p0f.max_hosts || p0f.max_hosts > 500000)
+				!p0f.max_hosts || p0f.max_hosts > 500000) {
 				FATAL("Outlandish value specified for -m.");
+			}
 
 			break;
 		case 'o':
-			if (log_file)
+			if (log_file) {
 				FATAL("Multiple -o options not supported.");
+			}
 
 			log_file = optarg;
 			break;
 		case 'p':
-			if (set_promisc)
+			if (set_promisc) {
 				FATAL("Even more promiscuous? People will start talking!");
+			}
 
 			set_promisc = true;
 			break;
 		case 'r':
-			if (p0f.read_file)
+			if (p0f.read_file) {
 				FATAL("Multiple -r options not supported.");
+			}
 			p0f.read_file = optarg;
 			break;
 		case 's':
-			if (api_sock)
+			if (api_sock) {
 				FATAL("Multiple -s options not supported.");
+			}
 
 			api_sock = optarg;
 			break;
 		case 't':
 
-			if (p0f.conn_max_age != CONN_MAX_AGE || p0f.host_idle_limit != HOST_IDLE_LIMIT)
+			if (p0f.conn_max_age != CONN_MAX_AGE || p0f.host_idle_limit != HOST_IDLE_LIMIT) {
 				FATAL("Multiple -t options not supported.");
+			}
 
 			if (sscanf(optarg, "%u,%u", &p0f.conn_max_age, &p0f.host_idle_limit) != 2 ||
 				!p0f.conn_max_age || p0f.conn_max_age > 1000000 ||
-				!p0f.host_idle_limit || p0f.host_idle_limit > 1000000)
+				!p0f.host_idle_limit || p0f.host_idle_limit > 1000000) {
 				FATAL("Outlandish value specified for -t.");
+			}
 
 			break;
 		case 'u':
-			if (switch_user)
+			if (switch_user) {
 				FATAL("Split personality mode not supported.");
+			}
 
 			switch_user = optarg;
 			break;
@@ -997,22 +989,27 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (p0f.read_file && api_sock)
+	if (p0f.read_file && api_sock) {
 		FATAL("API mode looks down on ofline captures.");
+	}
 
-	if (!api_sock && api_max_conn != API_MAX_CONN)
+	if (!api_sock && api_max_conn != API_MAX_CONN) {
 		FATAL("Option -S makes sense only with -s.");
+	}
 
 	if (daemon_mode) {
 
-		if (p0f.read_file)
+		if (p0f.read_file) {
 			FATAL("Daemon mode and offline captures don't mix.");
+		}
 
-		if (!log_file && !api_sock)
+		if (!log_file && !api_sock) {
 			FATAL("Daemon mode requires -o or -s.");
+		}
 
-		if (!switch_user)
+		if (!switch_user) {
 			SAYF("[!] Consider specifying -u in daemon mode (see README).\n");
+		}
 	}
 
 	tzset();
