@@ -234,7 +234,6 @@ private:
 	uint32_t host_cnt_ = 0;
 	uint32_t flow_cnt_ = 0;
 
-	int8_t link_off_     = -1; // Link-specific IP header offset
 	uint8_t bad_packets_ = 0;  // Seen non-IP packets?
 
 private:
