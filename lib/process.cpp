@@ -592,39 +592,34 @@ void process_context_t::expire_cache() {
 }
 
 // Find link-specific offset (pcap knows, but won't tell).
-void process_context_t::find_offset(const uint8_t *data, uint32_t total_len) {
+int8_t process_context_t::find_offset(const uint8_t *data, uint32_t total_len) {
 
 	// Check hardcoded values for some of the most common options.
 	switch (ctx_->link_type) {
 	case DLT_RAW:
-		link_off_ = 0;
-		return;
+		return 0;
 	case DLT_NULL:
 	case DLT_PPP:
-		link_off_ = 4;
-		return;
+		return 4;
 	case DLT_LOOP:
 #ifdef DLT_PPP_SERIAL
 	case DLT_PPP_SERIAL:
 #endif // DLT_PPP_SERIAL
 	case DLT_PPP_ETHER:
-		link_off_ = 8;
-		return;
+		return 8;
 	case DLT_EN10MB:
-		link_off_ = 14;
-		return;
+		return 14;
 #ifdef DLT_LINUX_SLL
 	case DLT_LINUX_SLL:
-		link_off_ = 16;
-		return;
+		return 16;
 #endif // DLT_LINUX_SLL
 	case DLT_PFLOG:
-		link_off_ = 28;
-		return;
+		return 28;
 	case DLT_IEEE802_11:
-		link_off_ = 32;
-		return;
+		return 32;
 	}
+
+	int8_t link_off = -1;
 
 	/* If this fails, try to auto-detect. There is a slight risk that if the
 	 * first packet we see is maliciously crafted, and somehow gets past the
@@ -643,7 +638,7 @@ void process_context_t::find_offset(const uint8_t *data, uint32_t total_len) {
 			auto hdr = reinterpret_cast<const ipv6_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
 				DEBUG("[#] Detected packet offset of %u via IPv6 (link type %u).\n", i, ctx_->link_type);
-				link_off_ = i;
+				link_off = i;
 				break;
 			}
 		}
@@ -655,7 +650,7 @@ void process_context_t::find_offset(const uint8_t *data, uint32_t total_len) {
 			auto hdr = reinterpret_cast<const ipv4_hdr *>(data + i);
 			if (hdr->proto == PROTO_TCP) {
 				DEBUG("[#] Detected packet offset of %u via IPv4 (link type %u).\n", i, ctx_->link_type);
-				link_off_ = i;
+				link_off = i;
 				break;
 			}
 		}
@@ -663,13 +658,15 @@ void process_context_t::find_offset(const uint8_t *data, uint32_t total_len) {
 
 	/* If we found something, adjust for VLAN tags (ETH_P_8021Q == 0x8100).
 	 * Else, complain once and try again soon. */
-	if (link_off_ >= 4 && data[i - 4] == 0x81 && data[i - 3] == 0x00) {
+	if (link_off >= 4 && data[i - 4] == 0x81 && data[i - 3] == 0x00) {
 		DEBUG("[#] Adjusting offset due to VLAN tagging.\n");
-		link_off_ -= 4;
-	} else if (link_off_ == -1) {
-		link_off_ = -2;
+		link_off -= 4;
+	} else if (link_off == -1) {
+		link_off = -2;
 		WARN("Unable to find link-specific packet offset. This is bad.");
 	}
+
+	return link_off;
 }
 
 // Get unix time in milliseconds.
@@ -712,7 +709,7 @@ void process_context_t::parse_packet(const pcap_pkthdr *hdr, const uint8_t *data
 
 	// Account for link-level headers.
 	if (link_off_ < 0) {
-		find_offset(data, packet_len);
+		link_off_ = find_offset(data, packet_len);
 	}
 
 	if (link_off_ > 0) {

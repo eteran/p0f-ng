@@ -212,7 +212,7 @@ private:
 	void touch_host(host_data *h);
 	void nuke_flows(bool silent);
 	void destroy_host(host_data *h);
-	void find_offset(const uint8_t *data, uint32_t total_len);
+	int8_t find_offset(const uint8_t *data, uint32_t total_len);
 	void nuke_hosts();
 	host_data *create_host(uint8_t *addr, uint8_t ip_ver);
 	void flow_dispatch(packet_data *pk);
