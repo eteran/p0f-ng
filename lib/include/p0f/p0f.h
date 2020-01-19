@@ -18,6 +18,18 @@
 #include <vector>
 
 struct libp0f_context_t {
+
+	libp0f_context_t() = default;
+
+	~libp0f_context_t() {
+		process_context.destroy_all_hosts();
+	}
+
+	void read_fingerprints(const char *filename) {
+		fp_context.read_config(filename);
+	}
+
+public:
 	using observation_begin_t = void (*)(const char *, uint8_t, bool, const packet_flow *, libp0f_context_t *);
 	using observation_field_t = void (*)(const char *, const char *);
 
@@ -33,6 +45,8 @@ struct libp0f_context_t {
 	uint32_t host_idle_limit = HOST_IDLE_LIMIT; // Host cache idle timeout
 	int link_type            = 0;               // PCAP link type
 
+
+public:
 	// Results
 	uint64_t packet_cnt = 0; // Total number of packets processed
 

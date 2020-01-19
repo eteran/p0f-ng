@@ -44,7 +44,6 @@
 #include "p0f/api.h"
 #include "p0f/api_client.h"
 #include "p0f/debug.h"
-#include "p0f/engine.h"
 #include "p0f/fp_http.h"
 #include "p0f/p0f.h"
 #include "p0f/process.h"
@@ -1022,6 +1021,7 @@ int main(int argc, char *argv[]) {
 	close_spare_fds();
 
 	// Initialize the p0f library
+	libp0f_context.read_fingerprints(fp_file ? fp_file : FP_FILE);
 
 	libp0f_context.link_type = prepare_pcap(libp0f_context.read_file);
 	prepare_bpf();
@@ -1053,8 +1053,7 @@ int main(int argc, char *argv[]) {
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
 
-	auto p0f_engine = std::make_unique<engine>(&libp0f_context);
-	p0f_engine->read_fingerprints(fp_file ? fp_file : FP_FILE);
+
 
 	if (libp0f_context.read_file) {
 		offline_event_loop(&libp0f_context);
