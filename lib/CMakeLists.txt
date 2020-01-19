@@ -17,7 +17,7 @@ add_library(p0f-engine
     include/p0f/fp_tcp.h
     include/p0f/hash.h
     include/p0f/languages.h
-    include/p0f/p0f.h
+	include/p0f/libp0f.h
     include/p0f/parser.h
     include/p0f/process.h
     include/p0f/readfp.h
@@ -28,6 +28,7 @@ add_library(p0f-engine
     parser.cpp
     process.cpp
     readfp.cpp
+	libp0f.cpp
 )
 
 target_compile_definitions(p0f-engine 

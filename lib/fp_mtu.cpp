@@ -19,7 +19,7 @@
 #include "p0f/config.h"
 #include "p0f/debug.h"
 #include "p0f/fp_mtu.h"
-#include "p0f/p0f.h"
+#include "p0f/libp0f.h"
 #include "p0f/parser.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
@@ -56,7 +56,7 @@ void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f
 		return;
 	}
 
-	ctx_->start_observation("mtu", 2, to_srv, f, ctx_);
+	ctx_->start_observation(ctx_, "mtu", 2, to_srv, f);
 
 	uint32_t mtu;
 	if (pk->ip_ver == IP_VER4) {

@@ -26,7 +26,7 @@
 #include "p0f/fp_http.h"
 #include "p0f/hash.h"
 #include "p0f/languages.h"
-#include "p0f/p0f.h"
+#include "p0f/libp0f.h"
 #include "p0f/parser.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
@@ -555,7 +555,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 
 	http_find_match(to_srv, &f->http_tmp, 0);
 
-	ctx_->start_observation(to_srv ? "http request" : "http response", 4, to_srv, f, ctx_);
+	ctx_->start_observation(ctx_, to_srv ? "http request" : "http response", 4, to_srv, f);
 
 	if ((m = f->http_tmp.matched)) {
 

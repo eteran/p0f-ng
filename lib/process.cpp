@@ -31,7 +31,7 @@
 #include "p0f/fp_mtu.h"
 #include "p0f/fp_tcp.h"
 #include "p0f/hash.h"
-#include "p0f/p0f.h"
+#include "p0f/libp0f.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
@@ -1201,7 +1201,7 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 
 	if (over_5 > 2 || over_2 > 4 || over_1 > 6 || over_0 > 8) {
 
-		ctx_->start_observation("ip sharing", 2, to_srv, f, ctx_);
+		ctx_->start_observation(ctx_, "ip sharing", 2, to_srv, f);
 
 		reason = hd->nat_reasons;
 
@@ -1216,7 +1216,7 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 		if (score == 1)
 			return;
 
-		ctx_->start_observation("host change", 2, to_srv, f, ctx_);
+		ctx_->start_observation(ctx_, "host change", 2, to_srv, f);
 
 		hd->last_chg = get_unix_time();
 	}

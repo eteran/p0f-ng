@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_P0F_H_
-#define HAVE_P0F_H_
+#ifndef HAVE_LIB_P0F_H_
+#define HAVE_LIB_P0F_H_
 
 #include "fp_mtu.h"
 #include "process.h"
@@ -18,23 +18,19 @@
 #include <vector>
 
 struct libp0f_context_t {
-
+public:
 	libp0f_context_t() = default;
-
-	~libp0f_context_t() {
-		process_context.destroy_all_hosts();
-	}
-
-	void read_fingerprints(const char *filename) {
-		fp_context.read_config(filename);
-	}
+	~libp0f_context_t();
 
 public:
-	using observation_begin_t = void (*)(const char *, uint8_t, bool, const packet_flow *, libp0f_context_t *);
+	void read_fingerprints(const char *filename);
+
+public:
+	using observation_begin_t = void (*)(libp0f_context_t *, const char *, uint8_t, bool, const packet_flow *);
 	using observation_field_t = void (*)(const char *, const char *);
 
 	// Observation hooks
-	observation_begin_t start_observation = [](const char *, uint8_t, bool, const packet_flow *, libp0f_context_t *) {};
+	observation_begin_t start_observation = [](libp0f_context_t *, const char *, uint8_t, bool, const packet_flow *) {};
 	observation_field_t observation_field = [](const char *, const char *) {};
 
 	// Fill in by the one driving things
@@ -44,7 +40,6 @@ public:
 	uint32_t conn_max_age    = CONN_MAX_AGE;    // Maximum age of a connection entry
 	uint32_t host_idle_limit = HOST_IDLE_LIMIT; // Host cache idle timeout
 	int link_type            = 0;               // PCAP link type
-
 
 public:
 	// Results

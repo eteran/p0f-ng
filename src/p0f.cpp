@@ -45,7 +45,7 @@
 #include "p0f/api_client.h"
 #include "p0f/debug.h"
 #include "p0f/fp_http.h"
-#include "p0f/p0f.h"
+#include "p0f/libp0f.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
@@ -86,7 +86,7 @@ bool set_promisc      = false;        // Use promiscuous mode?
 uint8_t obs_fields    = 0;            // No of pending observation fields
 uint8_t daemon_mode   = 0;            // Running in daemon mode?
 
-void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f, libp0f_context_t *ctx);
+void start_observation(libp0f_context_t *ctx, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
 void add_observation_field(const char *key, const char *value);
 
 // Display usage information
@@ -817,7 +817,7 @@ void offline_event_loop(libp0f_context_t *ctx) {
 }
 
 // Open log entry.
-void start_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f, libp0f_context_t *ctx) {
+void start_observation(libp0f_context_t *ctx, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {
 
 	if (obs_fields) {
 		FATAL("Premature end of observation.");

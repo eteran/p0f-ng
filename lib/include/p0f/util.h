@@ -11,7 +11,7 @@
 #ifndef HAVE_UTIL_H_
 #define HAVE_UTIL_H_
 
-#include "p0f.h"
+#include "libp0f.h"
 #include "tcp.h"
 #include <ostream>
 
