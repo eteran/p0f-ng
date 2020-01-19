@@ -166,8 +166,8 @@ struct packet_flow {
 	uint16_t cli_port = 0; // Client port
 	uint16_t srv_port = 0; // Server port
 
-	bool acked      = false; // SYN+ACK received?
-	uint8_t sendsyn = 0;     // Created by p0f-sendsyn?
+	bool acked   = false; // SYN+ACK received?
+	bool sendsyn = false; // Created by p0f-sendsyn?
 
 	int16_t srv_tps = 0; // Computed TS divisor (-1 = bad)
 	int16_t cli_tps = 0;
@@ -234,7 +234,7 @@ private:
 	uint32_t host_cnt_ = 0;
 	uint32_t flow_cnt_ = 0;
 
-	uint8_t bad_packets_ = 0;  // Seen non-IP packets?
+	uint8_t bad_packets_ = 0; // Seen non-IP packets?
 
 private:
 	libp0f *ctx_ = nullptr;

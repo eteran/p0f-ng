@@ -926,7 +926,7 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 	 * handling to provide the user with response fingerprints, but not
 	 * interfere with NAT scores and such. */
 	if (pk->tcp_type == TCP_SYN && pk->win == SPECIAL_WIN && pk->mss == SPECIAL_MSS) {
-		f->sendsyn = 1;
+		f->sendsyn = true;
 	}
 
 	if (to_srv) {
