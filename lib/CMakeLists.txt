@@ -24,6 +24,7 @@ add_library(p0f-engine
     include/p0f/tcp.h
 	include/p0f/memory.h
     include/p0f/util.h
+	include/p0f/ip_address.h
 	include/p0f/config_http.h
     parser.cpp
     process.cpp

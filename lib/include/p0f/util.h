@@ -42,7 +42,9 @@ void report_observation(libp0f *libp0f_context, const char *key, const char *fmt
 }
 
 // Convert IPv4 or IPv6 address to a human-readable form.
-inline char *addr_to_str(const uint8_t *data, uint8_t ip_ver) {
+inline char *addr_to_str(const void *addr, uint8_t ip_ver) {
+
+	auto data = static_cast<const uint8_t *>(addr);
 
 	static char tmp[128];
 
@@ -59,6 +61,14 @@ inline char *addr_to_str(const uint8_t *data, uint8_t ip_ver) {
 	}
 
 	return tmp;
+}
+
+inline char *addr_to_str(const ip_address &addr, uint8_t ip_ver) {
+	if (ip_ver == IP_VER4) {
+		return addr_to_str(&addr.ipv4, ip_ver);
+	} else {
+		return addr_to_str(&addr.ipv6, ip_ver);
+	}
 }
 
 constexpr uint32_t InvalidId = static_cast<uint32_t>(-1);

@@ -45,9 +45,9 @@ uint32_t get_flow_bucket(packet_data *pk) {
 	uint32_t bucket;
 
 	if (pk->ip_ver == IP_VER4) {
-		bucket = hash32(pk->src, 4) ^ hash32(pk->dst, 4);
+		bucket = hash32(&pk->src.ipv4, 4) ^ hash32(&pk->dst.ipv4, 4);
 	} else {
-		bucket = hash32(pk->src, 16) ^ hash32(pk->dst, 16);
+		bucket = hash32(&pk->src.ipv6, 16) ^ hash32(&pk->dst.ipv6, 16);
 	}
 
 	bucket ^= hash32(&pk->sport, 2) ^ hash32(&pk->dport, 2);
@@ -56,13 +56,22 @@ uint32_t get_flow_bucket(packet_data *pk) {
 }
 
 // Calculate hash bucket for host_data.
-uint32_t get_host_bucket(const uint8_t *addr, uint8_t ip_ver) {
-	uint32_t bucket = hash32(addr, (ip_ver == IP_VER4) ? 4 : 16);
+uint32_t get_host_bucket(const ip_address &addr, uint8_t ip_ver) {
+	uint32_t bucket = (ip_ver == IP_VER4) ? hash32(&addr.ipv4, 4) : hash32(&addr.ipv6, 16);
+
 	return bucket % HOST_BUCKETS;
 }
 
-bool compare_ips(uint8_t lhs[16], uint8_t rhs[16], uint8_t ip_ver) {
-	return memcmp(lhs, rhs, (ip_ver == IP_VER4) ? 4 : 16) == 0;
+bool compare_ips(const ip_address &lhs, const ip_address &rhs, uint8_t ip_ver) {
+
+	switch (ip_ver) {
+	case IP_VER4:
+		return memcmp(&lhs.ipv4, &rhs.ipv4, 4) == 0;
+	case IP_VER6:
+		return memcmp(&lhs.ipv6, &rhs.ipv6, 16) == 0;
+	}
+
+	return -1;
 }
 
 }
@@ -246,7 +255,7 @@ void process_context_t::nuke_hosts() {
 }
 
 // Create a minimal host data.
-host_data *process_context_t::create_host(uint8_t *addr, uint8_t ip_ver) {
+host_data *process_context_t::create_host(const ip_address &addr, uint8_t ip_ver) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
 
@@ -279,7 +288,7 @@ host_data *process_context_t::create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	// Populate other data.
 	nh->ip_ver = ip_ver;
-	memcpy(nh->addr, addr, (ip_ver == IP_VER4) ? 4 : 16);
+	nh->addr   = addr;
 
 	nh->last_seen = nh->first_seen = get_unix_time();
 
@@ -685,8 +694,8 @@ void process_context_t::parse_packet_frame(struct timeval ts, const uint8_t *dat
 
 		pk.ip_opt_len = hdr_len - 20;
 
-		memcpy(pk.src, ip4->src, 4);
-		memcpy(pk.dst, ip4->dst, 4);
+		memcpy(&pk.src.ipv4, ip4->src, 4);
+		memcpy(&pk.dst.ipv4, ip4->dst, 4);
 
 		pk.tos = ip4->tos_ecn >> 2;
 
@@ -764,8 +773,8 @@ void process_context_t::parse_packet_frame(struct timeval ts, const uint8_t *dat
 
 		pk.ip_opt_len = 0;
 
-		memcpy(pk.src, ip6->src, 16);
-		memcpy(pk.dst, ip6->dst, 16);
+		memcpy(&pk.src.ipv6, ip6->src, 16);
+		memcpy(&pk.dst.ipv6, ip6->dst, 16);
 
 		pk.tos = (ver_tos >> 22) & 0x3F;
 
@@ -1061,16 +1070,20 @@ void process_context_t::parse_packet_frame(struct timeval ts, const uint8_t *dat
 }
 
 // Look up host data.
-host_data *process_context_t::lookup_host(const uint8_t *addr, uint8_t ip_ver) {
+host_data *process_context_t::lookup_host(const ip_address &addr, uint8_t ip_ver) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
-	host_data *h    = host_b_[bucket];
 
+	host_data *h = host_b_[bucket];
 	while (h) {
-
-		if (ip_ver == h->ip_ver &&
-			!memcmp(addr, h->addr, (h->ip_ver == IP_VER4) ? 4 : 16)) {
-			return h;
+		if (ip_ver == IP_VER4) {
+			if (ip_ver == h->ip_ver && !memcmp(&addr.ipv4, &h->addr.ipv4, 4)) {
+				return h;
+			}
+		} else {
+			if (ip_ver == h->ip_ver && !memcmp(&addr.ipv6, &h->addr.ipv6, 16)) {
+				return h;
+			}
 		}
 
 		h = h->next;

@@ -11,6 +11,7 @@
 #ifndef HAVE_API_H_
 #define HAVE_API_H_
 
+#include "ip_address.h"
 #include <cstdint>
 #include <ctime>
 
@@ -33,8 +34,9 @@ constexpr uint8_t P0F_MATCH_GENERIC = 0x02;
 struct p0f_api_query {
 	uint32_t magic;    // Must be P0F_QUERY_MAGIC
 	uint8_t addr_type; // P0F_ADDR_*
-	uint8_t addr[16];  // IP address (big endian left align)
-} __attribute__((packed));
+	uint8_t reserved[3];
+	ip_address addr; // IP address (big endian left align)
+};
 
 struct p0f_api_response {
 	uint32_t magic;  // Must be P0F_RESP_MAGIC
@@ -55,15 +57,12 @@ struct p0f_api_response {
 	uint8_t bad_sw;     // Host is lying about U-A / Server
 	uint8_t os_match_q; // Match quality
 
-	char os_name[P0F_STR_MAX + 1];   // Name of detected OS
-	char os_flavor[P0F_STR_MAX + 1]; // Flavor of detected OS
-
+	char os_name[P0F_STR_MAX + 1];     // Name of detected OS
+	char os_flavor[P0F_STR_MAX + 1];   // Flavor of detected OS
 	char http_name[P0F_STR_MAX + 1];   // Name of detected HTTP app
 	char http_flavor[P0F_STR_MAX + 1]; // Flavor of detected HTTP app
-
-	char link_type[P0F_STR_MAX + 1]; // Link type
-
-	char language[P0F_STR_MAX + 1]; // Language
-} __attribute__((packed));
+	char link_type[P0F_STR_MAX + 1];   // Link type
+	char language[P0F_STR_MAX + 1];    // Language
+};
 
 #endif

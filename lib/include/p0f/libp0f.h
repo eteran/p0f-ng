@@ -68,9 +68,9 @@ public:
 		(void)alert;
 		(void)count;
 	}
+
 private:
 	void begin_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
-
 
 public:
 	// Results

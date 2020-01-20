@@ -16,6 +16,7 @@
 
 #include "fp_http.h"
 #include "fp_tcp.h"
+#include "ip_address.h"
 
 struct tcp_sig;
 struct libp0f;
@@ -26,8 +27,8 @@ struct packet_data {
 	uint8_t ip_ver   = 0; // IP_VER4, IP_VER6
 	uint8_t tcp_type = 0; // TCP_SYN, ACK, FIN, RST
 
-	uint8_t src[16] = {}; // Source address (left-aligned)
-	uint8_t dst[16] = {}; // Destination address (left-aligned
+	ip_address src = {}; // Source address (left-aligned)
+	ip_address dst = {}; // Destination address (left-aligned
 
 	uint16_t sport = 0; // Source port
 	uint16_t dport = 0; // Destination port
@@ -93,8 +94,8 @@ struct host_data {
 	time_t last_seen    = 0; // Host last seen (unix time)
 	uint32_t total_conn = 0; // Total number of connections ever
 
-	uint8_t ip_ver   = 0;  // Address type
-	uint8_t addr[16] = {}; // Host address data
+	uint8_t ip_ver  = 0;  // Address type
+	ip_address addr = {}; // Host address data
 
 	std::unique_ptr<tcp_sig> last_syn;    // Sig of the most recent SYN
 	std::unique_ptr<tcp_sig> last_synack; // Sig of the most recent SYN+ACK
@@ -202,7 +203,7 @@ public:
 	time_t get_unix_time();
 	void add_nat_score(bool to_srv, const packet_flow *f, uint16_t reason, uint8_t score);
 	void verify_tool_class(bool to_srv, const packet_flow *f, const std::vector<uint32_t> &sys);
-	host_data *lookup_host(const uint8_t *addr, uint8_t ip_ver);
+	host_data *lookup_host(const ip_address &addr, uint8_t ip_ver);
 	void destroy_all_hosts();
 
 private:
@@ -212,7 +213,7 @@ private:
 	void nuke_flows(bool silent);
 	void destroy_host(host_data *h);
 	void nuke_hosts();
-	host_data *create_host(uint8_t *addr, uint8_t ip_ver);
+	host_data *create_host(const ip_address &addr, uint8_t ip_ver);
 	void flow_dispatch(packet_data *pk);
 	packet_flow *create_flow_from_syn(packet_data *pk);
 	void expire_cache();

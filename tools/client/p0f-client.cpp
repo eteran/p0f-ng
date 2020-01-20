@@ -32,12 +32,13 @@
 namespace {
 
 /* Parse IPv4 address into a buffer. */
-void parse_addr4(const char *str, uint8_t *ret) {
+void parse_addr4(const char *str, in_addr *ret) {
 
 	uint32_t a1;
 	uint32_t a2;
 	uint32_t a3;
 	uint32_t a4;
+	uint8_t buffer[sizeof(in_addr)];
 
 	if (sscanf(str, "%u.%u.%u.%u", &a1, &a2, &a3, &a4) != 4) {
 		FATAL("Malformed IPv4 address.");
@@ -47,17 +48,21 @@ void parse_addr4(const char *str, uint8_t *ret) {
 		FATAL("Malformed IPv4 address.");
 	}
 
-	ret[0] = a1;
-	ret[1] = a2;
-	ret[2] = a3;
-	ret[3] = a4;
+	buffer[0] = static_cast<uint8_t>(a1);
+	buffer[1] = static_cast<uint8_t>(a2);
+	buffer[2] = static_cast<uint8_t>(a3);
+	buffer[3] = static_cast<uint8_t>(a4);
+
+	memcpy(ret, buffer, sizeof(in_addr));
 }
 
 /* Parse IPv6 address into a buffer. */
-void parse_addr6(const char *str, uint8_t *ret) {
+void parse_addr6(const char *str, in6_addr *ret) {
 
 	uint32_t seg = 0;
 	uint32_t val;
+
+	uint8_t buffer[sizeof(in6_addr)];
 
 	while (*str) {
 		if (seg == 8) {
@@ -68,8 +73,8 @@ void parse_addr6(const char *str, uint8_t *ret) {
 			FATAL("Malformed IPv6 address (bad octet value).");
 		}
 
-		ret[seg * 2]     = val >> 8;
-		ret[seg * 2 + 1] = val;
+		buffer[seg * 2]     = val >> 8;
+		buffer[seg * 2 + 1] = val;
 
 		seg++;
 
@@ -85,6 +90,8 @@ void parse_addr6(const char *str, uint8_t *ret) {
 	if (seg != 8) {
 		FATAL("Malformed IPv6 address (don't abbreviate).");
 	}
+
+	memcpy(ret, buffer, sizeof(in6_addr));
 }
 
 }
@@ -100,10 +107,10 @@ int main(int argc, char **argv) {
 	q.magic = P0F_QUERY_MAGIC;
 
 	if (strchr(argv[2], ':')) {
-		parse_addr6(argv[2], q.addr);
+		parse_addr6(argv[2], &q.addr.ipv6);
 		q.addr_type = P0F_ADDR_IPV6;
 	} else {
-		parse_addr4(argv[2], q.addr);
+		parse_addr4(argv[2], &q.addr.ipv4);
 		q.addr_type = P0F_ADDR_IPV4;
 	}
 
