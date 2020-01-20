@@ -290,9 +290,9 @@ void list_interfaces() {
 
 		if (a) {
 			if (a->addr->sa_family == PF_INET) {
-				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 4, IP_VER4));
+				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<const uint8_t *>(a->addr) + 4, IP_VER4));
 			} else {
-				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<uint8_t *>(a->addr) + 8, IP_VER6));
+				SAYF("     IP address  : %s\n", addr_to_str(reinterpret_cast<const uint8_t *>(a->addr) + 8, IP_VER6));
 			}
 
 		} else {
@@ -585,7 +585,7 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 }
 
 // Find link-specific offset (pcap knows, but won't tell).
-int8_t find_offset(const uint8_t *data, uint32_t total_len) {
+int find_offset(const uint8_t *data, size_t total_len) {
 
 	// Check hardcoded values for some of the most common options.
 	switch (link_type) {
@@ -664,8 +664,8 @@ int8_t find_offset(const uint8_t *data, uint32_t total_len) {
 
 /* Parse PCAP input, with plenty of sanity checking. Store interesting details
  * in a protocol-agnostic buffer that will be then examined upstream. */
-void parse_packet(u_char *junk, const pcap_pkthdr *hdr, const u_char *data) {
-	auto ctx = reinterpret_cast<libp0f *>(junk);
+void parse_packet(u_char *user, const pcap_pkthdr *hdr, const u_char *data) {
+	auto ctx = reinterpret_cast<libp0f *>(user);
 
 	static int link_off_ = -1;
 

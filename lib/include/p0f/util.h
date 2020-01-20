@@ -42,7 +42,7 @@ void report_observation(libp0f *libp0f_context, const char *key, const char *fmt
 }
 
 // Convert IPv4 or IPv6 address to a human-readable form.
-inline char *addr_to_str(uint8_t *data, uint8_t ip_ver) {
+inline char *addr_to_str(const uint8_t *data, uint8_t ip_ver) {
 
 	static char tmp[128];
 
