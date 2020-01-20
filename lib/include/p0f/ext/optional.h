@@ -1,6 +1,6 @@
 
-#ifndef OPTIONAL_H_
-#define OPTIONAL_H_
+#ifndef P0F_EXT_OPTIONAL_H_
+#define P0F_EXT_OPTIONAL_H_
 
 #include <boost/optional.hpp>
 
