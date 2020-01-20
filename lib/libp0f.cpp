@@ -25,7 +25,7 @@ void libp0f::begin_observation(const char *keyword, uint8_t field_cnt, bool to_s
 // Process API queries.
 void libp0f::handle_query(const p0f_api_query *q, p0f_api_response *r) {
 
-	r        = {};
+	*r        = {};
 	r->magic = P0F_RESP_MAGIC;
 
 	if (q->magic != P0F_QUERY_MAGIC) {
