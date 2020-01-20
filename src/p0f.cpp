@@ -8,13 +8,7 @@
 
  */
 
-#include <cerrno>
-#include <clocale>
 #include <csignal>
-#include <cstdio>
-#include <cstdlib>
-#include <ctime>
-#include <memory>
 
 #include <dirent.h>
 #include <getopt.h>
@@ -23,16 +17,11 @@
 #include <pwd.h>
 #include <unistd.h>
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-
 #include <sys/fcntl.h>
 #include <sys/file.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
-#include <sys/wait.h>
 
 #include <pcap/pcap.h>
 
@@ -70,6 +59,7 @@ const char *orig_rule = nullptr; // Original filter rule
 const char *log_file  = nullptr; // Binary log file name
 const char *api_sock  = nullptr; // API socket file name
 const char *fp_file   = nullptr; // Location of p0f.fp
+const char *read_file = nullptr; // File to read pcap data from
 
 std::unique_ptr<api_client[]> api_cl; // Array with API client state
 FILE *lf   = nullptr;                 // Log file stream
@@ -306,13 +296,12 @@ void list_interfaces() {
 }
 
 // Initialize PCAP capture
-int prepare_pcap(const char *read_file) {
+int prepare_pcap(const char *filename) {
 
 	char pcap_err[PCAP_ERRBUF_SIZE];
 	const std::string orig_iface = use_iface;
 
-	if (read_file) {
-
+	if (filename) {
 		if (set_promisc) {
 			FATAL("Dude, how am I supposed to make a file promiscuous?");
 		}
@@ -321,17 +310,17 @@ int prepare_pcap(const char *read_file) {
 			FATAL("Options -i and -r are mutually exclusive.");
 		}
 
-		if (access(read_file, R_OK)) {
-			PFATAL("Can't access file '%s'.", read_file);
+		if (access(filename, R_OK)) {
+			PFATAL("Can't access file '%s'.", filename);
 		}
 
-		pt = pcap_open_offline(read_file, pcap_err);
+		pt = pcap_open_offline(filename, pcap_err);
 
 		if (!pt) {
 			FATAL("pcap_open_offline: %s", pcap_err);
 		}
 
-		SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
+		SAYF("[+] Will read pcap data from file '%s'.\n", filename);
 
 	} else {
 		if (use_iface.empty()) {
@@ -890,6 +879,23 @@ void offline_event_loop(libp0f *ctx) {
 //
 struct libp0f_app : public libp0f {
 public:
+	void alert(Alert alert, uint32_t count) override {
+		switch (alert) {
+		case Alert::TooManyHosts:
+			if (!read_file) {
+				WARN("Too many host entries, deleting %u. Use -m to adjust.", count);
+			}
+			break;
+		case Alert::TooManyConnections:
+			if (!read_file) {
+				WARN("Too many tracked connections, deleting %u. Use -m to adjust.",
+					 count);
+			}
+			break;
+		}
+	}
+
+public:
 	// Open log entry.
 	void start_observation(time_t time, const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) override {
 
@@ -1043,10 +1049,10 @@ int main(int argc, char *argv[]) {
 			set_promisc = true;
 			break;
 		case 'r':
-			if (p0f.read_file) {
+			if (read_file) {
 				FATAL("Multiple -r options not supported.");
 			}
-			p0f.read_file = optarg;
+			read_file = optarg;
 			break;
 		case 's':
 			if (api_sock) {
@@ -1088,7 +1094,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (p0f.read_file && api_sock) {
+	if (read_file && api_sock) {
 		FATAL("API mode looks down on ofline captures.");
 	}
 
@@ -1098,7 +1104,7 @@ int main(int argc, char *argv[]) {
 
 	if (daemon_mode) {
 
-		if (p0f.read_file) {
+		if (read_file) {
 			FATAL("Daemon mode and offline captures don't mix.");
 		}
 
@@ -1117,9 +1123,9 @@ int main(int argc, char *argv[]) {
 	close_spare_fds();
 
 	// Initialize the p0f library
-	p0f.read_fingerprints(fp_file ? fp_file : FP_FILE);
+	p0f.read_fingerprints(fp_file);
 
-	link_type = prepare_pcap(p0f.read_file);
+	link_type = prepare_pcap(read_file);
 	prepare_bpf();
 
 	if (log_file) {
@@ -1149,7 +1155,7 @@ int main(int argc, char *argv[]) {
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
 
-	if (p0f.read_file) {
+	if (read_file) {
 		offline_event_loop(&p0f);
 	} else {
 		live_event_loop(&p0f);

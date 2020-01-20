@@ -9,7 +9,7 @@ libp0f::~libp0f() {
 }
 
 void libp0f::read_fingerprints(const char *filename) {
-	fp_context.read_config(filename);
+	fp_context.read_config(filename ? filename : FP_FILE);
 }
 
 void libp0f::begin_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {

@@ -175,9 +175,8 @@ void process_context_t::nuke_flows(bool silent) {
 
 	if (silent) {
 		DEBUG("[#] Pruning connections - trying to delete %u...\n", kcnt);
-	} else if (!ctx_->read_file) {
-		WARN("Too many tracked connections, deleting %u. Use -m to adjust.",
-			 kcnt);
+	} else {
+		ctx_->alert(Alert::TooManyConnections, kcnt);
 	}
 
 	while (kcnt-- && flow_by_age_) {
@@ -232,9 +231,7 @@ void process_context_t::nuke_hosts() {
 	uint32_t kcnt     = 1 + (host_cnt_ * KILL_PERCENT / 100);
 	host_data *target = host_by_age_;
 
-	if (!ctx_->read_file) {
-		WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
-	}
+	ctx_->alert(Alert::TooManyHosts, kcnt);
 
 	nuke_flows(true);
 

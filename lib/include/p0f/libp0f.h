@@ -20,6 +20,11 @@
 struct p0f_api_query;
 struct p0f_api_response;
 
+enum class Alert {
+	TooManyHosts,
+	TooManyConnections,
+};
+
 struct libp0f {
 public:
 	libp0f() = default;
@@ -47,8 +52,12 @@ public:
 		(void)value;
 	}
 
+	virtual void alert(Alert alert, uint32_t count) {
+		(void)alert;
+		(void)count;
+	}
+
 	// Fill in by the one driving things
-	const char *read_file    = nullptr;         // File to read pcap data from
 	uint32_t max_conn        = MAX_CONN;        // Connection entry count limit
 	uint32_t max_hosts       = MAX_HOSTS;       // Host cache entry count limit
 	uint32_t conn_max_age    = CONN_MAX_AGE;    // Maximum age of a connection entry
