@@ -677,7 +677,7 @@ void parse_packet(u_char *user, const pcap_pkthdr *hdr, const u_char *data) {
 		packet_len -= link_off_;
 	}
 
-	ctx->process_context.parse_packet_frame(hdr->ts, data, packet_len);
+	ctx->parse_packet_frame(hdr->ts, data, packet_len);
 }
 
 // Event loop! Accepts and dispatches pcap data, API queries, etc.
@@ -879,6 +879,15 @@ void offline_event_loop(libp0f *ctx) {
 //
 struct libp0f_app : public libp0f {
 public:
+	libp0f_app(const char *filename)
+		: libp0f(filename) {
+	}
+
+	libp0f_app(const char *filename, const libp0f_settings &new_settings)
+		: libp0f(filename, new_settings) {
+	}
+
+public:
 	void alert(Alert alert, uint32_t count) override {
 		switch (alert) {
 		case Alert::TooManyHosts:
@@ -971,7 +980,7 @@ public:
 // Main entry point
 int main(int argc, char *argv[]) {
 
-	libp0f_app p0f;
+	libp0f_settings p0f_settings;
 
 	setlinebuf(stdout);
 
@@ -1023,13 +1032,13 @@ int main(int argc, char *argv[]) {
 			use_iface = optarg;
 			break;
 		case 'm':
-			if (p0f.max_conn != MAX_CONN || p0f.max_hosts != MAX_HOSTS) {
+			if (p0f_settings.max_conn != MAX_CONN || p0f_settings.max_hosts != MAX_HOSTS) {
 				FATAL("Multiple -m options not supported.");
 			}
 
-			if (sscanf(optarg, "%u,%u", &p0f.max_conn, &p0f.max_hosts) != 2 ||
-				!p0f.max_conn || p0f.max_conn > 100000 ||
-				!p0f.max_hosts || p0f.max_hosts > 500000) {
+			if (sscanf(optarg, "%u,%u", &p0f_settings.max_conn, &p0f_settings.max_hosts) != 2 ||
+				!p0f_settings.max_conn || p0f_settings.max_conn > 100000 ||
+				!p0f_settings.max_hosts || p0f_settings.max_hosts > 500000) {
 				FATAL("Outlandish value specified for -m.");
 			}
 
@@ -1063,13 +1072,11 @@ int main(int argc, char *argv[]) {
 			break;
 		case 't':
 
-			if (p0f.conn_max_age != CONN_MAX_AGE || p0f.host_idle_limit != HOST_IDLE_LIMIT) {
+			if (p0f_settings.conn_max_age != CONN_MAX_AGE || p0f_settings.host_idle_limit != HOST_IDLE_LIMIT) {
 				FATAL("Multiple -t options not supported.");
 			}
 
-			if (sscanf(optarg, "%u,%u", &p0f.conn_max_age, &p0f.host_idle_limit) != 2 ||
-				!p0f.conn_max_age || p0f.conn_max_age > 1000000 ||
-				!p0f.host_idle_limit || p0f.host_idle_limit > 1000000) {
+			if (sscanf(optarg, "%u,%u", &p0f_settings.conn_max_age, &p0f_settings.host_idle_limit) != 2 || !p0f_settings.conn_max_age || p0f_settings.conn_max_age > 1000000 || !p0f_settings.host_idle_limit || p0f_settings.host_idle_limit > 1000000) {
 				FATAL("Outlandish value specified for -t.");
 			}
 
@@ -1123,7 +1130,7 @@ int main(int argc, char *argv[]) {
 	close_spare_fds();
 
 	// Initialize the p0f library
-	p0f.read_fingerprints(fp_file);
+	libp0f_app p0f(fp_file, p0f_settings);
 
 	link_type = prepare_pcap(read_file);
 	prepare_bpf();

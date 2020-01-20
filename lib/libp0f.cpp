@@ -4,12 +4,18 @@
 #include "p0f/debug.h"
 #include "p0f/util.h"
 
-libp0f::~libp0f() {
-	process_context.destroy_all_hosts();
+libp0f::libp0f(const char *filename, const libp0f_settings &new_settings)
+	: settings(new_settings) {
+
+	fp_context.read_config(filename ? filename : FP_FILE);
 }
 
-void libp0f::read_fingerprints(const char *filename) {
+libp0f::libp0f(const char *filename) {
 	fp_context.read_config(filename ? filename : FP_FILE);
+}
+
+libp0f::~libp0f() {
+	process_context.destroy_all_hosts();
 }
 
 void libp0f::begin_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f) {
@@ -90,4 +96,8 @@ void libp0f::handle_query(const p0f_api_query *q, p0f_api_response *r) {
 	if (h->last_up_min != -1) {
 		r->uptime_min = h->last_up_min;
 	}
+}
+
+void libp0f::parse_packet_frame(struct timeval ts, const uint8_t *data, size_t packet_len) {
+	process_context.parse_packet_frame(ts, data, packet_len);
 }

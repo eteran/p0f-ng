@@ -250,7 +250,7 @@ host_data *process_context_t::create_host(uint8_t *addr, uint8_t ip_ver) {
 
 	uint32_t bucket = get_host_bucket(addr, ip_ver);
 
-	if (host_cnt_ > ctx_->max_hosts) {
+	if (host_cnt_ > ctx_->settings.max_hosts) {
 		nuke_hosts();
 	}
 
@@ -299,7 +299,7 @@ packet_flow *process_context_t::create_flow_from_syn(packet_data *pk) {
 
 	uint32_t bucket = get_flow_bucket(pk);
 
-	if (flow_cnt_ > ctx_->max_conn) {
+	if (flow_cnt_ > ctx_->settings.max_conn) {
 		nuke_flows(false);
 	}
 
@@ -572,13 +572,13 @@ void process_context_t::expire_cache() {
 
 	DEBUG("[#] Cache expiration kicks in...\n");
 
-	while (flow_by_age_ && ct - flow_by_age_->created > ctx_->conn_max_age) {
+	while (flow_by_age_ && ct - flow_by_age_->created > ctx_->settings.conn_max_age) {
 		destroy_flow(flow_by_age_);
 	}
 
 	host_data *target = host_by_age_;
 
-	while (target && ct - target->last_seen > ctx_->host_idle_limit * 60) {
+	while (target && ct - target->last_seen > ctx_->settings.host_idle_limit * 60) {
 		host_data *newer = target->newer;
 		if (!target->use_cnt) {
 			destroy_host(target);

@@ -25,17 +25,29 @@ enum class Alert {
 	TooManyConnections,
 };
 
+struct libp0f_settings {
+	uint32_t max_conn        = MAX_CONN;        // Connection entry count limit
+	uint32_t max_hosts       = MAX_HOSTS;       // Host cache entry count limit
+	uint32_t conn_max_age    = CONN_MAX_AGE;    // Maximum age of a connection entry
+	uint32_t host_idle_limit = HOST_IDLE_LIMIT; // Host cache idle timeout
+	int link_type            = 0;               // PCAP link type
+};
+
 struct libp0f {
+	friend struct http_context_t;
+	friend struct mtu_context_t;
+	friend struct tcp_context_t;
+	friend struct process_context_t;
+	friend struct fp_context_t;
+
 public:
-	libp0f() = default;
+	libp0f(const char *filename);
+	libp0f(const char *filename, const libp0f_settings &new_settings);
 	virtual ~libp0f();
 
 public:
-	void read_fingerprints(const char *filename);
 	void handle_query(const p0f_api_query *q, p0f_api_response *r);
-
-public:
-	void begin_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
+	void parse_packet_frame(struct timeval ts, const uint8_t *data, size_t packet_len);
 
 public:
 	// Observation hooks
@@ -56,24 +68,21 @@ public:
 		(void)alert;
 		(void)count;
 	}
+private:
+	void begin_observation(const char *keyword, uint8_t field_cnt, bool to_srv, const packet_flow *f);
 
-	// Fill in by the one driving things
-	uint32_t max_conn        = MAX_CONN;        // Connection entry count limit
-	uint32_t max_hosts       = MAX_HOSTS;       // Host cache entry count limit
-	uint32_t conn_max_age    = CONN_MAX_AGE;    // Maximum age of a connection entry
-	uint32_t host_idle_limit = HOST_IDLE_LIMIT; // Host cache idle timeout
-	int link_type            = 0;               // PCAP link type
 
 public:
 	// Results
 	uint64_t packet_cnt = 0; // Total number of packets processed
 
-public:
+private:
 	http_context_t http_context{this};
 	mtu_context_t mtu_context{this};
 	tcp_context_t tcp_context{this};
 	process_context_t process_context{this};
 	fp_context_t fp_context{this};
+	libp0f_settings settings;
 };
 
 #endif
