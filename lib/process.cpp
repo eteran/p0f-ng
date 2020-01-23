@@ -1122,7 +1122,7 @@ void process_context_t::add_nat_score(bool to_srv, const packet_flow *f, uint16_
 		return;
 	}
 
-	for (i = 0; i < NAT_SCORES; i++) {
+	for (i = 0; i < NAT_SCORES; ++i) {
 		uint8_t temp_score = scores[i];
 		if (temp_score >= 6) {
 			over_5++;
@@ -1230,7 +1230,7 @@ void process_context_t::verify_tool_class(bool to_srv, const packet_flow *f, con
 	}
 
 	uint32_t i = 0;
-	for (i = 0; i < sys.size(); i++) {
+	for (i = 0; i < sys.size(); ++i) {
 		if ((sys[i] & SYS_CLASS_FLAG)) {
 			if (SYS_NF(sys[i]) == hd->last_class_id) {
 				break;

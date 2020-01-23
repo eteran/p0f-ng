@@ -125,7 +125,7 @@ void close_spare_fds() {
 	DIR *d         = opendir("/proc/self/fd");
 	if (!d) {
 		// Best we could do...
-		for (int i = 3; i < 256; i++) {
+		for (int i = 3; i < 256; ++i) {
 			if (!close(i)) {
 				// TODO(eteran): Why count this, it seems we never output this number from this path
 				++closed;
@@ -236,7 +236,7 @@ void open_api(const char *socket_name) {
 
 	api_cl = std::make_unique<api_client[]>(api_max_conn);
 
-	for (uint32_t i = 0; i < api_max_conn; i++) {
+	for (uint32_t i = 0; i < api_max_conn; ++i) {
 		api_cl[i].fd = -1;
 	}
 
@@ -552,7 +552,7 @@ uint32_t regen_pfds(const std::unique_ptr<struct pollfd[]> &pfds, const std::uni
 	pfds[1].events = (POLLIN | POLLERR | POLLHUP);
 
 	uint32_t count = 2;
-	for (uint32_t i = 0; i < api_max_conn; i++) {
+	for (uint32_t i = 0; i < api_max_conn; ++i) {
 		if (api_cl[i].fd == -1) {
 			continue;
 		}
@@ -729,7 +729,7 @@ void live_event_loop(libp0f *ctx) {
 		}
 
 		// Examine pfds...
-		for (uint32_t cur = 0; cur < pfd_count; cur++) {
+		for (uint32_t cur = 0; cur < pfd_count; ++cur) {
 			if (pfds[cur].revents & (POLLERR | POLLHUP)) {
 				switch (cur) {
 				case 0:
@@ -794,7 +794,7 @@ void live_event_loop(libp0f *ctx) {
 
 					if (pfd_count - 2 < api_max_conn) {
 						uint32_t i;
-						for (i = 0; i < api_max_conn && api_cl[i].fd >= 0; i++) {
+						for (i = 0; i < api_max_conn && api_cl[i].fd >= 0; ++i) {
 						}
 
 						if (i == api_max_conn) {

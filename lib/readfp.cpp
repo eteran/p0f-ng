@@ -161,7 +161,7 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 		uint32_t i;
 		if (is_cl) {
 
-			for (i = 0; i < os_classes_.size(); i++) {
+			for (i = 0; i < os_classes_.size(); ++i) {
 				if (string_equals(class_name, os_classes_[i])) {
 					break;
 				}
@@ -175,7 +175,7 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 
 		} else {
 
-			for (i = 0; i < os_names_.size(); i++) {
+			for (i = 0; i < os_names_.size(); ++i) {
 				if (string_equals(class_name, os_names_[i])) {
 					break;
 				}
@@ -381,7 +381,7 @@ uint32_t fp_context_t::lookup_name_id(ext::string_view n) {
 
 	uint32_t i;
 
-	for (i = 0; i < os_names_.size(); i++) {
+	for (i = 0; i < os_names_.size(); ++i) {
 		if (string_equals(n, os_names_[i])) {
 			break;
 		}

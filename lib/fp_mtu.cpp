@@ -69,7 +69,7 @@ void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f
 	const uint32_t bucket = mtu % SIG_BUCKETS;
 
 	uint32_t i;
-	for (i = 0; i < sigs_[bucket].size(); i++) {
+	for (i = 0; i < sigs_[bucket].size(); ++i) {
 		if (sigs_[bucket][i].mtu == mtu) {
 			break;
 		}

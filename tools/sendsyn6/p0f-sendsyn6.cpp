@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
 	tcp->flags     = TCP_SYN;
 	tcp->win       = htons(SPECIAL_WIN);
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < 8; ++i) {
 
 		tcp->sport = htons(65535 - i);
 

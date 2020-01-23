@@ -163,7 +163,7 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 
 				/* If this is an optional header, check that it doesn't appear
 				 * anywhere else. */
-				for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ts_hdr++) {
+				for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ++ts_hdr) {
 					if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id) {
 						goto next_sig;
 					}
@@ -185,7 +185,7 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 		/* Check that the headers forbidden in p0f.fp don't appear in the traffic.
 		 * We first check if they seem to appear in ts->hdr_bloom4, and only if so,
 		 * we do a full check. */
-		for (rs_hdr = 0; rs_hdr < rs->miss.size(); rs_hdr++) {
+		for (rs_hdr = 0; rs_hdr < rs->miss.size(); ++rs_hdr) {
 
 			uint64_t miss_bloom4 = bloom4_64(rs->miss[rs_hdr]);
 
@@ -194,7 +194,7 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 			}
 
 			// Okay, possible instance of a banned header - scan list...
-			for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ts_hdr++) {
+			for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ++ts_hdr) {
 				if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id) {
 					goto next_sig;
 				}
@@ -210,9 +210,9 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 				goto next_sig;
 			}
 
-			for (rs_hdr = 0; rs_hdr < rs->miss.size(); rs_hdr++) {
+			for (rs_hdr = 0; rs_hdr < rs->miss.size(); ++rs_hdr) {
 
-				for (ts_hdr = 0; ts_hdr < ts->miss.size(); ts_hdr++) {
+				for (ts_hdr = 0; ts_hdr < ts->miss.size(); ++ts_hdr) {
 					if (rs->miss[rs_hdr] == ts->miss[ts_hdr]) {
 						break;
 					}
@@ -265,7 +265,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 	std::stringstream ss;
 	append_format(ss, "%u:", hsig->http_ver);
 
-	for (size_t i = 0; i < hsig->hdr.size(); i++) {
+	for (size_t i = 0; i < hsig->hdr.size(); ++i) {
 
 		if (hsig->hdr[i].id != InvalidId) {
 
@@ -367,7 +367,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 	while (list->name) {
 		uint32_t i;
-		for (i = 0; i < hsig->hdr.size(); i++) {
+		for (i = 0; i < hsig->hdr.size(); ++i) {
 			if (hsig->hdr[i].id == list->id) {
 				break;
 			}
@@ -509,7 +509,7 @@ void http_context_t::score_nat(bool to_srv, const packet_flow *f) {
 
 		size_t i;
 
-		for (i = 0; i < ua_map_.size(); i++) {
+		for (i = 0; i < ua_map_.size(); ++i) {
 			if (strstr(f->http_tmp.sw->c_str(), ua_map_[i].name.c_str())) {
 				break;
 			}

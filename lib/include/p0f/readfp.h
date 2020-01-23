@@ -59,10 +59,10 @@ private:
 private:
 	size_t sig_cnt_ = 0; // Total number of p0f.fp sigs
 
-	uint8_t state_      = CF_NEED_SECT; // Parser state (CF_NEED_*)
-	uint8_t mod_type_   = 0;            // Current module (CF_MOD_*)
-	bool mod_to_srv_ = false;            // Traffic direction
-	uint8_t generic_    = 0;            // Generic signature?
+	uint8_t state_    = CF_NEED_SECT; // Parser state (CF_NEED_*)
+	uint8_t mod_type_ = 0;            // Current module (CF_MOD_*)
+	bool mod_to_srv_  = false;        // Traffic direction
+	uint8_t generic_  = 0;            // Generic signature?
 
 	uint32_t sig_class_ = 0;                // Signature class ID (-1 = userland)
 	uint32_t sig_name_  = 0;                // Signature name

@@ -142,7 +142,7 @@ std::string dump_sig(const packet_data *pk, const std::unique_ptr<tcp_sig> &ts, 
 
 	append_format(ss, ",%u:", pk->wscale);
 
-	for (i = 0; i < pk->opt_layout.size(); i++) {
+	for (i = 0; i < pk->opt_layout.size(); ++i) {
 
 		switch (pk->opt_layout[i]) {
 		case TCPOPT_EOL:
@@ -1086,7 +1086,7 @@ void tcp_context_t::tcp_find_match(bool to_srv, const std::unique_ptr<tcp_sig> &
 	bool use_mtu      = false;
 	int16_t win_multi = detect_win_multi(ts, &use_mtu, syn_mss);
 
-	for (size_t i = 0; i < sigs_[to_srv][bucket].size(); i++) {
+	for (size_t i = 0; i < sigs_[to_srv][bucket].size(); ++i) {
 
 		tcp_sig_record *ref                  = &sigs_[to_srv][bucket][i];
 		const std::unique_ptr<tcp_sig> &refs = ref->sig;
