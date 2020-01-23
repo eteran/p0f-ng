@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_UTIL_H_
-#define HAVE_UTIL_H_
+#ifndef P0F_UTIL_H_
+#define P0F_UTIL_H_
 
 #include "libp0f.h"
 #include "tcp.h"

@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_CONFIG_H_
-#define HAVE_CONFIG_H_
+#ifndef P0F_CONFIG_H_
+#define P0F_CONFIG_H_
 
 #include <cstddef>
 

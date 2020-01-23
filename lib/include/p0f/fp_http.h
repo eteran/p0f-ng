@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_FP_HTTP_H_
-#define HAVE_FP_HTTP_H_
+#ifndef P0F_FP_HTTP_H_
+#define P0F_FP_HTTP_H_
 
 #include "config.h"
 #include "config_http.h"

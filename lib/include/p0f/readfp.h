@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_READFP_H_
-#define HAVE_READFP_H_
+#ifndef P0F_READFP_H_
+#define P0F_READFP_H_
 
 #include "ext/optional.h"
 #include "ext/string_view.h"

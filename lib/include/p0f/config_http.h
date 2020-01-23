@@ -1,6 +1,6 @@
 
-#ifndef CONFIG_HTTP_H_
-#define CONFIG_HTTP_H_
+#ifndef P0F_CONFIG_HTTP_H_
+#define P0F_CONFIG_HTTP_H_
 
 #include "config.h"
 #include "fp_http.h"

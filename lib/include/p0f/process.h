@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_PROCESS_H_
-#define HAVE_PROCESS_H_
+#ifndef P0F_PROCESS_H_
+#define P0F_PROCESS_H_
 
 #include <string>
 #include <vector>

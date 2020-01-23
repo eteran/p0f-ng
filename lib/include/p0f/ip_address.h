@@ -1,6 +1,6 @@
 
-#ifndef HAS_IP_ADDRESS_H_
-#define HAS_IP_ADDRESS_H_
+#ifndef P0F_IP_ADDRESS_H_
+#define P0F_IP_ADDRESS_H_
 
 #include <netinet/in.h>
 

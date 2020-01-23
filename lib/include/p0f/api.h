@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_API_H_
-#define HAVE_API_H_
+#ifndef P0F_API_H_
+#define P0F_API_H_
 
 #include "ip_address.h"
 #include <cstdint>

@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_LANGUAGES_H_
-#define HAVE_LANGUAGES_H_
+#ifndef P0F_LANGUAGES_H_
+#define P0F_LANGUAGES_H_
 
 #include <cstdint>
 

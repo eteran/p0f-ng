@@ -1,6 +1,6 @@
 
-#ifndef PARSER_H_
-#define PARSER_H_
+#ifndef P0F_PARSER_H_
+#define P0F_PARSER_H_
 
 #include "ext/string_view.h"
 #include <cstddef>

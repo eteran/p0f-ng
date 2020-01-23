@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_MEMORY_H_
-#define HAVE_MEMORY_H_
+#ifndef P0F_MEMORY_H_
+#define P0F_MEMORY_H_
 
 #include <cstdint>
 #include <cstring>

@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_LIB_P0F_H_
-#define HAVE_LIB_P0F_H_
+#ifndef P0F_LIB_P0F_H_
+#define P0F_LIB_P0F_H_
 
 #include "fp_mtu.h"
 #include "process.h"

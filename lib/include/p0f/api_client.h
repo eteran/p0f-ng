@@ -8,8 +8,8 @@
 
  */
 
-#ifndef HAVE_API_CLIENT_H_
-#define HAVE_API_CLIENT_H_
+#ifndef P0F_API_CLIENT_H_
+#define P0F_API_CLIENT_H_
 
 #include "api.h"
 #include <cstddef>

@@ -9,8 +9,8 @@
 
  */
 
-#ifndef HAVE_HASH_H_
-#define HAVE_HASH_H_
+#ifndef P0F_HASH_H_
+#define P0F_HASH_H_
 
 #include "memory.h"
 
