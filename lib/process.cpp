@@ -24,12 +24,12 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#include "hash.h"
 #include "p0f/config.h"
 #include "p0f/debug.h"
 #include "p0f/fp_http.h"
 #include "p0f/fp_mtu.h"
 #include "p0f/fp_tcp.h"
-#include "hash.h"
 #include "p0f/libp0f.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"

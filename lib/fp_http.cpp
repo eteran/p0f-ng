@@ -20,18 +20,18 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
+#include "hash.h"
+#include "languages.h"
 #include "p0f/api.h"
 #include "p0f/config.h"
 #include "p0f/debug.h"
 #include "p0f/fp_http.h"
-#include "hash.h"
-#include "languages.h"
 #include "p0f/libp0f.h"
-#include "parser.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
+#include "parser.h"
 
 namespace {
 
@@ -294,7 +294,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 			if (hsig->hdr[i].value) {
 
-				const char *val = hsig->hdr[i].value->c_str();
+				ext::string_view val = *hsig->hdr[i].value;
 
 				// Next, make sure that the value is not on the ignore list.
 				if (optional) {
@@ -317,15 +317,15 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 				/* Looks like it's not on the list, so let's output a cleaned-up
 				 * version up to HTTP_MAX_SHOW. */
 				std::string tmp;
-				for (const char *ptr = val;; ++ptr) {
+				for (char ch : val) {
 					if (tmp.size() >= HTTP_MAX_SHOW) {
 						break;
 					}
 
-					if (*ptr < 0x20 || static_cast<uint8_t>(*ptr) >= 0x80 || *ptr == ']' || *ptr == '|') {
+					if (ch < 0x20 || static_cast<uint8_t>(ch) >= 0x80 || ch == ']' || ch == '|') {
 						break;
 					}
-					tmp.push_back(*ptr);
+					tmp.push_back(ch);
 				}
 
 				if (!tmp.empty()) {
@@ -339,18 +339,18 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 			if (hsig->hdr[i].value) {
 
-				const char *val = hsig->hdr[i].value->c_str();
+				ext::string_view val = *hsig->hdr[i].value;
 
 				std::string tmp;
-				for (const char *ptr = val;; ++ptr) {
+				for (char ch : val) {
 					if (tmp.size() >= HTTP_MAX_SHOW) {
 						break;
 					}
 
-					if (*ptr < 0x20 || static_cast<uint8_t>(*ptr) >= 0x80 || *ptr == ']') {
+					if (ch < 0x20 || static_cast<uint8_t>(ch) >= 0x80 || ch == ']') {
 						break;
 					}
-					tmp.push_back(*ptr);
+					tmp.push_back(ch);
 				}
 
 				if (!tmp.empty()) {
@@ -385,18 +385,18 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 	if (hsig->sw) {
 
-		const char *val = hsig->sw->c_str();
+		ext::string_view val = *hsig->sw;
 
 		std::string tmp;
-		for (const char *ptr = val;; ++ptr) {
+		for (char ch : val) {
 			if (tmp.size() >= HTTP_MAX_SHOW) {
 				break;
 			}
 
-			if (*ptr < 0x20 || static_cast<uint8_t>(*ptr) >= 0x80 || *ptr == ']') {
+			if (ch < 0x20 || static_cast<uint8_t>(ch) >= 0x80 || ch == ']') {
 				break;
 			}
-			tmp.push_back(*ptr);
+			tmp.push_back(ch);
 		}
 
 		if (!tmp.empty()) {

@@ -20,11 +20,11 @@
 #include "p0f/debug.h"
 #include "p0f/fp_mtu.h"
 #include "p0f/libp0f.h"
-#include "parser.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
+#include "parser.h"
 
 // Register a new MTU signature.
 void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext::string_view val, uint32_t line_no) {

@@ -31,22 +31,20 @@
 #include "p0f/fp_mtu.h"
 #include "p0f/fp_tcp.h"
 #include "p0f/libp0f.h"
-#include "parser.h"
 #include "p0f/readfp.h"
 #include "p0f/util.h"
+#include "parser.h"
 
 namespace {
 
 bool string_equals(ext::string_view lhs, ext::string_view rhs) {
-	if(lhs.size() != rhs.size()) {
+	if (lhs.size() != rhs.size()) {
 		return false;
 	}
 
 	return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), [](char a, char b) {
 		return tolower(a) == tolower(b);
 	});
-
-
 }
 
 }
@@ -384,7 +382,7 @@ uint32_t fp_context_t::lookup_name_id(ext::string_view n) {
 	uint32_t i;
 
 	for (i = 0; i < fp_os_names_.size(); i++) {
-		if(string_equals(n, fp_os_names_[i])) {
+		if (string_equals(n, fp_os_names_[i])) {
 			break;
 		}
 	}
