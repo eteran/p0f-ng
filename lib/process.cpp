@@ -29,7 +29,7 @@
 #include "p0f/fp_http.h"
 #include "p0f/fp_mtu.h"
 #include "p0f/fp_tcp.h"
-#include "p0f/hash.h"
+#include "hash.h"
 #include "p0f/libp0f.h"
 #include "p0f/process.h"
 #include "p0f/readfp.h"

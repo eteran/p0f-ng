@@ -12,7 +12,7 @@
 #ifndef P0F_HASH_H_
 #define P0F_HASH_H_
 
-#include "memory.h"
+#include "p0f/memory.h"
 
 constexpr uint32_t ROL32(uint32_t value, unsigned r) {
 	return (value << r) | (value >> (32 - r));
