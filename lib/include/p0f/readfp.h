@@ -55,7 +55,6 @@ private:
 	void config_parse_label(ext::string_view value);
 	void config_parse_sys(ext::string_view value);
 	void config_parse_line(ext::string_view line);
-	uint32_t lookup_name_id(const char *name, size_t len);
 
 private:
 	uint32_t sig_cnt_ = 0; // Total number of p0f.fp sigs

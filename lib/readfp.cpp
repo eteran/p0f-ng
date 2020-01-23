@@ -35,6 +35,22 @@
 #include "p0f/readfp.h"
 #include "p0f/util.h"
 
+namespace {
+
+bool string_equals(ext::string_view lhs, ext::string_view rhs) {
+	if(lhs.size() != rhs.size()) {
+		return false;
+	}
+
+	return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), [](char a, char b) {
+		return tolower(a) == tolower(b);
+	});
+
+
+}
+
+}
+
 // Parse 'classes' parameter by populating fp_os_classes_.
 void fp_context_t::config_parse_classes(ext::string_view value) {
 
@@ -91,7 +107,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 		sig_class_ = InvalidId;
 	} else if (in.match([](char ch) { return isalnum(ch); }, &class_name)) {
 		auto it = std::find_if(fp_os_classes_.begin(), fp_os_classes_.end(), [&class_name](const std::string &os_class) {
-			return strcasecmp(class_name.c_str(), os_class.c_str()) == 0;
+			return string_equals(class_name, os_class);
 		});
 
 		if (it == fp_os_classes_.end()) {
@@ -148,7 +164,7 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 		if (is_cl) {
 
 			for (i = 0; i < fp_os_classes_.size(); i++) {
-				if (!strcasecmp(class_name.c_str(), fp_os_classes_[i].c_str())) {
+				if (string_equals(class_name, fp_os_classes_[i])) {
 					break;
 				}
 			}
@@ -162,7 +178,7 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 		} else {
 
 			for (i = 0; i < fp_os_names_.size(); i++) {
-				if (!strcasecmp(class_name.c_str(), fp_os_names_[i].c_str())) {
+				if (string_equals(class_name, fp_os_names_[i])) {
 					break;
 				}
 			}
@@ -363,26 +379,22 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 }
 
 // Look up or create OS or application id.
-uint32_t fp_context_t::lookup_name_id(const char *name, size_t len) {
+uint32_t fp_context_t::lookup_name_id(ext::string_view n) {
 
 	uint32_t i;
 
 	for (i = 0; i < fp_os_names_.size(); i++) {
-		if (!strncasecmp(name, fp_os_names_[i].c_str(), len) && !fp_os_names_[i][len]) {
+		if(string_equals(n, fp_os_names_[i])) {
 			break;
 		}
 	}
 
 	if (i == fp_os_names_.size()) {
 		sig_name_ = fp_os_names_.size();
-		fp_os_names_.push_back(std::string(name, len));
+		fp_os_names_.push_back(n.to_string());
 	}
 
 	return i;
-}
-
-uint32_t fp_context_t::lookup_name_id(ext::string_view name) {
-	return lookup_name_id(name.data(), name.size());
 }
 
 // Top-level file parsing.
