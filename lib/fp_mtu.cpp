@@ -48,7 +48,7 @@ void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext
 	sig.mtu  = static_cast<uint16_t>(mtu);
 	sig.name = name;
 
-	sigs_[bucket].push_back(sig);
+	sigs_[bucket].emplace_back(std::move(sig));
 }
 
 void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f) {
@@ -66,7 +66,7 @@ void mtu_context_t::fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f
 		mtu = pk->mss + MIN_TCP6;
 	}
 
-	const uint32_t bucket = (mtu) % SIG_BUCKETS;
+	const uint32_t bucket = mtu % SIG_BUCKETS;
 
 	uint32_t i;
 	for (i = 0; i < sigs_[bucket].size(); i++) {

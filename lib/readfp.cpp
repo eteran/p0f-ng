@@ -54,16 +54,16 @@ void fp_context_t::config_parse_classes(ext::string_view value) {
 
 	parser in(value);
 	do {
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		std::string class_name;
 		if (!in.match([](char ch) { return isalnum(ch); }, &class_name)) {
 			FATAL("Malformed class entry in line %u.", line_no_);
 		}
 
-		fp_os_classes_.push_back(std::move(class_name));
+		os_classes_.push_back(std::move(class_name));
 
-		in.consume(" \t");
+		in.consume_whitespace();
 	} while (in.match(','));
 
 	if (!in.eof()) {
@@ -104,15 +104,15 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 	if (in.match('!')) {
 		sig_class_ = InvalidId;
 	} else if (in.match([](char ch) { return isalnum(ch); }, &class_name)) {
-		auto it = std::find_if(fp_os_classes_.begin(), fp_os_classes_.end(), [&class_name](const std::string &os_class) {
+		auto it = std::find_if(os_classes_.begin(), os_classes_.end(), [&class_name](ext::string_view os_class) {
 			return string_equals(class_name, os_class);
 		});
 
-		if (it == fp_os_classes_.end()) {
+		if (it == os_classes_.end()) {
 			FATAL("Unknown class '%s' in line %u.", class_name.c_str(), line_no_);
 		}
 
-		sig_class_ = std::distance(fp_os_classes_.begin(), it);
+		sig_class_ = std::distance(os_classes_.begin(), it);
 	}
 
 	if (!in.match(':')) {
@@ -139,7 +139,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 		sig_flavor_ = {};
 	}
 
-	label_id_++;
+	++label_id_;
 }
 
 // Parse 'sys' parameter into cur_sys_[].
@@ -149,7 +149,7 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 
 	parser in(value);
 	do {
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		const bool is_cl = in.match('@');
 
@@ -161,13 +161,13 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 		uint32_t i;
 		if (is_cl) {
 
-			for (i = 0; i < fp_os_classes_.size(); i++) {
-				if (string_equals(class_name, fp_os_classes_[i])) {
+			for (i = 0; i < os_classes_.size(); i++) {
+				if (string_equals(class_name, os_classes_[i])) {
 					break;
 				}
 			}
 
-			if (i == fp_os_names_.size()) {
+			if (i == os_names_.size()) {
 				FATAL("Unknown class '%s' in line %u.", class_name.c_str(), line_no_);
 			}
 
@@ -175,20 +175,20 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 
 		} else {
 
-			for (i = 0; i < fp_os_names_.size(); i++) {
-				if (string_equals(class_name, fp_os_names_[i])) {
+			for (i = 0; i < os_names_.size(); i++) {
+				if (string_equals(class_name, os_names_[i])) {
 					break;
 				}
 			}
 
-			if (i == fp_os_names_.size()) {
-				fp_os_names_.push_back(class_name);
+			if (i == os_names_.size()) {
+				os_names_.push_back(class_name);
 			}
 		}
 
 		cur_sys_.push_back(i);
 
-		in.consume(" \t");
+		in.consume_whitespace();
 	} while (in.match(','));
 
 	if (!in.eof()) {
@@ -224,9 +224,9 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 		}
 
 		if (in.match("request]")) {
-			mod_to_srv_ = 1;
+			mod_to_srv_ = true;
 		} else if (in.match("response]")) {
-			mod_to_srv_ = 0;
+			mod_to_srv_ = false;
 		} else {
 			FATAL("Unrecognized traffic direction in line %u.", line_no_);
 		}
@@ -242,13 +242,13 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 			FATAL("misplaced 'classes' in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		if (!in.match('=')) {
 			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		std::string value;
 		in.match_any(&value);
@@ -260,13 +260,13 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 			FATAL("misplaced 'us_os' in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		if (!in.match('=')) {
 			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		std::string value;
 		in.match_any(&value);
@@ -282,13 +282,13 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 			FATAL("misplaced 'label' in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		if (!in.match('=')) {
 			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		std::string value;
 		in.match_any(&value);
@@ -306,13 +306,13 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 			FATAL("Misplaced 'sys' in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		if (!in.match('=')) {
 			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		std::string value;
 		in.match_any(&value);
@@ -325,13 +325,13 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 			FATAL("Misplaced 'sig' in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		if (!in.match('=')) {
 			FATAL("Unexpected statement in line %u.", line_no_);
 		}
 
-		in.consume(" \t");
+		in.consume_whitespace();
 
 		std::string value;
 		in.match_any(&value);
@@ -369,7 +369,7 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 			break;
 		}
 
-		sig_cnt_++;
+		++sig_cnt_;
 
 	} else {
 		FATAL("Unrecognized field '%s' in line %u.", line.to_string().c_str(), line_no_);
@@ -381,15 +381,15 @@ uint32_t fp_context_t::lookup_name_id(ext::string_view n) {
 
 	uint32_t i;
 
-	for (i = 0; i < fp_os_names_.size(); i++) {
-		if (string_equals(n, fp_os_names_[i])) {
+	for (i = 0; i < os_names_.size(); i++) {
+		if (string_equals(n, os_names_[i])) {
 			break;
 		}
 	}
 
-	if (i == fp_os_names_.size()) {
-		sig_name_ = fp_os_names_.size();
-		fp_os_names_.push_back(n.to_string());
+	if (i == os_names_.size()) {
+		sig_name_ = os_names_.size();
+		os_names_.push_back(n.to_string());
 	}
 
 	return i;
@@ -402,7 +402,7 @@ void fp_context_t::read_config(const char *fname) {
 	std::ifstream file(fname);
 	for (std::string line; std::getline(file, line);) {
 
-		line_no_++;
+		++line_no_;
 
 		ext::string_view line_view(line);
 		while (!line_view.empty() && isblank(line_view[0])) {
@@ -419,7 +419,7 @@ void fp_context_t::read_config(const char *fname) {
 	if (!sig_cnt_) {
 		SAYF("[!] No signatures found in '%s'.\n", fname);
 	} else {
-		SAYF("[+] Loaded %u signature%s from '%s'.\n", sig_cnt_,
+		SAYF("[+] Loaded %zu signature%s from '%s'.\n", sig_cnt_,
 			 sig_cnt_ == 1 ? "" : "s", fname);
 	}
 }

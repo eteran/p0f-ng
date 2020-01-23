@@ -298,7 +298,7 @@ host_data *process_context_t::create_host(const ip_address &addr, uint8_t ip_ver
 	nh->http_name_id  = InvalidId;
 	nh->distance      = -1;
 
-	host_cnt_++;
+	++host_cnt_;
 
 	return nh;
 }
@@ -368,7 +368,7 @@ packet_flow *process_context_t::create_flow_from_syn(packet_data *pk) {
 
 	nf->next_cli_seq = pk->seq + 1;
 
-	flow_cnt_++;
+	++flow_cnt_;
 	return nf;
 }
 
@@ -979,7 +979,7 @@ void process_context_t::parse_packet_frame(struct timeval ts, const uint8_t *dat
 				DEBUG("[#] SACKOK option expected to have 2 bytes, not %u.\n", *data);
 				pk.quirks |= QUIRK_OPT_BAD;
 			}
-			data++;
+			++data;
 			break;
 		case TCPOPT_SACK:
 			/* SACK is a variable-length option of 10 to 34 bytes.

@@ -80,7 +80,6 @@ int16_t detect_win_multi(const std::unique_ptr<tcp_sig> &ts, bool *use_mtu, uint
 
 	/* Some systems use MTU on the wrong interface, so let's check for the most
 	 * common case. */
-
 	RET_IF_DIV(1500 - MIN_TCP4, false, "MSS (MTU = 1500, IPv4)");
 	RET_IF_DIV(1500 - MIN_TCP4 - 12, false, "MSS (MTU = 1500, IPv4 - 12)");
 
@@ -146,35 +145,27 @@ std::string dump_sig(const packet_data *pk, const std::unique_ptr<tcp_sig> &ts, 
 	for (i = 0; i < pk->opt_layout.size(); i++) {
 
 		switch (pk->opt_layout[i]) {
-
 		case TCPOPT_EOL:
 			append_format(ss, "%seol+%u", i ? "," : "", pk->opt_eol_pad);
 			break;
-
 		case TCPOPT_NOP:
 			append_format(ss, "%snop", i ? "," : "");
 			break;
-
 		case TCPOPT_MAXSEG:
 			append_format(ss, "%smss", i ? "," : "");
 			break;
-
 		case TCPOPT_WSCALE:
 			append_format(ss, "%sws", i ? "," : "");
 			break;
-
 		case TCPOPT_SACKOK:
 			append_format(ss, "%ssok", i ? "," : "");
 			break;
-
 		case TCPOPT_SACK:
 			append_format(ss, "%ssack", i ? "," : "");
 			break;
-
 		case TCPOPT_TSTAMP:
 			append_format(ss, "%sts", i ? "," : "");
 			break;
-
 		default:
 			append_format(ss, "%s?%u", i ? "," : "", pk->opt_layout[i]);
 		}
@@ -184,72 +175,64 @@ std::string dump_sig(const packet_data *pk, const std::unique_ptr<tcp_sig> &ts, 
 
 	if (pk->quirks) {
 
-		uint8_t sp = 0;
+		bool sp = false;
 
-#define MAYBE_CM(_str)                   \
-	do {                                 \
-		if (sp)                          \
-			append_format(ss, "," _str); \
-		else                             \
-			append_format(ss, _str);     \
-		sp = 1;                          \
-	} while (0)
+		auto maybe_cm = [&ss, &sp](const char *str) {
+			append_format(ss, sp ? ",%s" : "%s", str);
+			sp = true;
+		};
 
 		if (pk->quirks & QUIRK_DF) {
-			MAYBE_CM("df");
+			maybe_cm("df");
 		}
 		if (pk->quirks & QUIRK_NZ_ID) {
-			MAYBE_CM("id+");
+			maybe_cm("id+");
 		}
 		if (pk->quirks & QUIRK_ZERO_ID) {
-			MAYBE_CM("id-");
+			maybe_cm("id-");
 		}
 		if (pk->quirks & QUIRK_ECN) {
-			MAYBE_CM("ecn");
+			maybe_cm("ecn");
 		}
 		if (pk->quirks & QUIRK_NZ_MBZ) {
-			MAYBE_CM("0+");
+			maybe_cm("0+");
 		}
 		if (pk->quirks & QUIRK_FLOW) {
-			MAYBE_CM("flow");
+			maybe_cm("flow");
 		}
-
 		if (pk->quirks & QUIRK_ZERO_SEQ) {
-			MAYBE_CM("seq-");
+			maybe_cm("seq-");
 		}
 		if (pk->quirks & QUIRK_NZ_ACK) {
-			MAYBE_CM("ack+");
+			maybe_cm("ack+");
 		}
 		if (pk->quirks & QUIRK_ZERO_ACK) {
-			MAYBE_CM("ack-");
+			maybe_cm("ack-");
 		}
 		if (pk->quirks & QUIRK_NZ_URG) {
-			MAYBE_CM("uptr+");
+			maybe_cm("uptr+");
 		}
 		if (pk->quirks & QUIRK_URG) {
-			MAYBE_CM("urgf+");
+			maybe_cm("urgf+");
 		}
 		if (pk->quirks & QUIRK_PUSH) {
-			MAYBE_CM("pushf+");
+			maybe_cm("pushf+");
 		}
-
 		if (pk->quirks & QUIRK_OPT_ZERO_TS1) {
-			MAYBE_CM("ts1-");
+			maybe_cm("ts1-");
 		}
 		if (pk->quirks & QUIRK_OPT_NZ_TS2) {
-			MAYBE_CM("ts2+");
+			maybe_cm("ts2+");
 		}
 		if (pk->quirks & QUIRK_OPT_EOL_NZ) {
-			MAYBE_CM("opt+");
+			maybe_cm("opt+");
 		}
 		if (pk->quirks & QUIRK_OPT_EXWS) {
-			MAYBE_CM("exws");
+			maybe_cm("exws");
 		}
 		if (pk->quirks & QUIRK_OPT_BAD) {
-			MAYBE_CM("bad");
+			maybe_cm("bad");
 		}
-
-#undef MAYBE_CM
 	}
 
 	if (pk->pay_len) {
@@ -265,8 +248,6 @@ std::string dump_sig(const packet_data *pk, const std::unique_ptr<tcp_sig> &ts, 
 std::string dump_flags(packet_data *pk, const std::unique_ptr<tcp_sig> &ts) {
 
 	std::ostringstream ss;
-
-	append_format(ss, "");
 
 	if (ts->matched) {
 		if (ts->matched->generic) {
@@ -940,7 +921,7 @@ std::unique_ptr<tcp_sig> tcp_context_t::fingerprint_tcp(bool to_srv, packet_data
 	const tcp_sig_record *const m = sig->matched;
 	if (m) {
 		report_observation(ctx_, (m->class_id == InvalidId || f->sendsyn) ? "app" : "os", "%s%s%s",
-						   ctx_->fp_context.fp_os_names_[m->name_id].c_str(),
+						   ctx_->fp_context.os_names_[m->name_id].c_str(),
 						   m->flavor ? " " : "",
 						   m->flavor ? m->flavor->c_str() : "");
 

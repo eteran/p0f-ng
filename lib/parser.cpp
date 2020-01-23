@@ -73,6 +73,21 @@ void parser::consume(ext::string_view chars) {
 }
 
 /**
+ * @brief parser::consume_whitespace
+ */
+void parser::consume_whitespace() {
+	while (!eof()) {
+		char ch = peek();
+
+		if (ch != ' ' && ch != '\t') {
+			break;
+		}
+
+		read();
+	}
+}
+
+/**
  * @brief parser::match_any
  * @param match
  * @return

@@ -128,7 +128,7 @@ void close_spare_fds() {
 		for (int i = 3; i < 256; i++) {
 			if (!close(i)) {
 				// TODO(eteran): Why count this, it seems we never output this number from this path
-				closed++;
+				++closed;
 			}
 		}
 		return;
@@ -137,7 +137,7 @@ void close_spare_fds() {
 	while (struct dirent *de = readdir(d)) {
 		const int i = atoi(de->d_name);
 		if (i > 2 && !close(i)) {
-			closed++;
+			++closed;
 		}
 	}
 
@@ -879,10 +879,6 @@ void offline_event_loop(libp0f *ctx) {
 //
 struct libp0f_app : public libp0f {
 public:
-	libp0f_app(const char *filename)
-		: libp0f(filename) {
-	}
-
 	libp0f_app(const char *filename, const libp0f_settings &new_settings)
 		: libp0f(filename, new_settings) {
 	}
@@ -892,7 +888,8 @@ public:
 		switch (alert) {
 		case Alert::TooManyHosts:
 			if (!read_file) {
-				WARN("Too many host entries, deleting %u. Use -m to adjust.", count);
+				WARN("Too many host entries, deleting %u. Use -m to adjust.",
+					 count);
 			}
 			break;
 		case Alert::TooManyConnections:

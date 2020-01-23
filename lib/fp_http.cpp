@@ -106,7 +106,7 @@ uint32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
 		if (hdr_names_[*p] == name) {
 			return *p;
 		}
-		p++;
+		++p;
 	}
 
 	// Not found!
@@ -152,7 +152,7 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 			uint32_t orig_ts = ts_hdr;
 
 			while (ts_hdr < ts->hdr.size() && rs->hdr[rs_hdr].id != ts->hdr[ts_hdr].id) {
-				ts_hdr++;
+				++ts_hdr;
 			}
 
 			if (ts_hdr == ts->hdr.size()) {
@@ -170,7 +170,7 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 				}
 
 				ts_hdr = orig_ts;
-				rs_hdr++;
+				++rs_hdr;
 				continue;
 			}
 
@@ -178,8 +178,8 @@ void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det
 				goto next_sig;
 			}
 
-			ts_hdr++;
-			rs_hdr++;
+			++ts_hdr;
+			++rs_hdr;
 		}
 
 		/* Check that the headers forbidden in p0f.fp don't appear in the traffic.
@@ -278,7 +278,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 				if (list->id == hsig->hdr[i].id) {
 					break;
 				}
-				list++;
+				++list;
 			}
 
 			if (list->name) {
@@ -307,7 +307,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 					if (list->id == hsig->hdr[i].id) {
 						break;
 					}
-					list++;
+					++list;
 				}
 
 				if (list->name) {
@@ -378,7 +378,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 			had_prev = 1;
 		}
 
-		list++;
+		++list;
 	}
 
 	append_format(ss, ":");
@@ -582,7 +582,7 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 	if ((m = f->http_tmp.matched)) {
 
 		report_observation(ctx_, (m->class_id == InvalidId) ? "app" : "os", "%s%s%s",
-						   ctx_->fp_context.fp_os_names_[m->name_id].c_str(),
+						   ctx_->fp_context.os_names_[m->name_id].c_str(),
 						   m->flavor ? " " : "",
 						   m->flavor ? m->flavor->c_str() : "");
 
@@ -738,8 +738,8 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more)
 		while ((isalnum(pay[off]) || pay[off] == '-' || pay[off] == '_') &&
 			   off < plen && nlen <= HTTP_MAX_HDR_NAME) {
 
-			off++;
-			nlen++;
+			++off;
+			++nlen;
 		}
 
 		if (off == plen) {
@@ -766,10 +766,10 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more)
 
 		/* At this point, header name starts at f->http_pos, and has nlen bytes.
 		 * Skip ':' and a subsequent whitespace next. */
-		off++;
+		++off;
 
 		if (off < plen && isblank(pay[off])) {
-			off++;
+			++off;
 		}
 
 		uint32_t vstart = off;
@@ -777,8 +777,8 @@ bool http_context_t::parse_pairs(bool to_srv, packet_flow *f, bool can_get_more)
 
 		// Find the next \n.
 		while (off < plen && vlen <= HTTP_MAX_HDR_VAL && pay[off] != '\n') {
-			off++;
-			vlen++;
+			++off;
+			++vlen;
 		}
 
 		if (vlen > HTTP_MAX_HDR_VAL) {
@@ -893,37 +893,37 @@ http_context_t::http_context_t(libp0f *ctx)
 	i = 0;
 	while (req_optional_[i].name) {
 		req_optional_[i].id = lookup_hdr(req_optional_[i].name, true);
-		i++;
+		++i;
 	}
 
 	i = 0;
 	while (resp_optional_[i].name) {
 		resp_optional_[i].id = lookup_hdr(resp_optional_[i].name, true);
-		i++;
+		++i;
 	}
 
 	i = 0;
 	while (req_skipval_[i].name) {
 		req_skipval_[i].id = lookup_hdr(req_skipval_[i].name, true);
-		i++;
+		++i;
 	}
 
 	i = 0;
 	while (resp_skipval_[i].name) {
 		resp_skipval_[i].id = lookup_hdr(resp_skipval_[i].name, true);
-		i++;
+		++i;
 	}
 
 	i = 0;
 	while (req_common_[i].name) {
 		req_common_[i].id = lookup_hdr(req_common_[i].name, true);
-		i++;
+		++i;
 	}
 
 	i = 0;
 	while (resp_common_[i].name) {
 		resp_common_[i].id = lookup_hdr(resp_common_[i].name, true);
-		i++;
+		++i;
 	}
 }
 
@@ -1083,7 +1083,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 		ua_map_record record;
 		record.id   = id;
-		record.name = (!name) ? ctx_->fp_context.fp_os_names_[id] : *name;
+		record.name = (!name) ? ctx_->fp_context.os_names_[id] : *name;
 		ua_map_.push_back(record);
 
 	} while (in.match(','));
@@ -1140,7 +1140,7 @@ bool http_context_t::process_http(bool to_srv, packet_flow *f) {
 					return false;
 				}
 
-				off++;
+				++off;
 			}
 
 			// Newline too far or too close?
@@ -1214,7 +1214,7 @@ bool http_context_t::process_http(bool to_srv, packet_flow *f) {
 					return false;
 				}
 
-				off++;
+				++off;
 			}
 
 			// Newline too far or too close?

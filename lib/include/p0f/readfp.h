@@ -57,11 +57,11 @@ private:
 	void config_parse_line(ext::string_view line);
 
 private:
-	uint32_t sig_cnt_ = 0; // Total number of p0f.fp sigs
+	size_t sig_cnt_ = 0; // Total number of p0f.fp sigs
 
 	uint8_t state_      = CF_NEED_SECT; // Parser state (CF_NEED_*)
 	uint8_t mod_type_   = 0;            // Current module (CF_MOD_*)
-	uint8_t mod_to_srv_ = 0;            // Traffic direction
+	bool mod_to_srv_ = false;            // Traffic direction
 	uint8_t generic_    = 0;            // Generic signature?
 
 	uint32_t sig_class_ = 0;                // Signature class ID (-1 = userland)
@@ -74,10 +74,10 @@ private:
 	uint32_t line_no_  = 0; // Current line number
 
 	// Map of OS classes
-	std::vector<std::string> fp_os_classes_;
+	std::vector<std::string> os_classes_;
 
 public:
-	std::vector<std::string> fp_os_names_;
+	std::vector<std::string> os_names_;
 
 private:
 	libp0f *ctx_ = nullptr;

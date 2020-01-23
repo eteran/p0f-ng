@@ -15,6 +15,7 @@ public:
 	char peek() const;
 	char read();
 	void consume(ext::string_view chars);
+	void consume_whitespace();
 	bool match(char ch);
 	bool match(ext::string_view s);
 	bool match_any(std::string *match);
