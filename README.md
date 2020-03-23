@@ -6,9 +6,9 @@ with a socket API, it proves very difficult to use as a library.
 
 This project aims to bring p0f into the modern age.
 
-It has been ported to C++, it no longer uses any compiler extensions beyond
+It has been ported to C++14, it no longer uses any compiler extensions beyond
 structure packing, and functions as a true library which can be built into
-any C++ project easily.
+any C++14 project easily.
 
 Additionally, the build system has been updated to use CMake.
 
