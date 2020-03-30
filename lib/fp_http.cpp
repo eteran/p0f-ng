@@ -44,7 +44,7 @@ constexpr int HDR_DAT = 5;
 
 /* Ghetto Bloom filter 4-out-of-64 bitmask generator for adding 32-bit header
  * IDs to a set. We expect around 10 members in a set. */
-constexpr uint64_t bloom4_64(uint32_t val) {
+uint64_t bloom4_64(uint32_t val) {
 	const uint32_t hash = hash32(&val, 4);
 	uint64_t ret        = (1ULL << (hash & 63));
 	ret ^= (1ULL << ((hash >> 8) & 63));

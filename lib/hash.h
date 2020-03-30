@@ -18,7 +18,7 @@ constexpr uint32_t ROL32(uint32_t value, unsigned r) {
 	return (value << r) | (value >> (32 - r));
 }
 
-constexpr uint32_t hash32(const void *key, uint32_t len) {
+inline uint32_t hash32(const void *key, uint32_t len) {
 
 	uint32_t seed = 0;
 
