@@ -1,0 +1,17 @@
+Installation guide:
+  Debian 10:
+    You need this packages installed at your system:
+      root@pof:/home/pof/# apt-get install cmake build-essential python-dev libpcap-dev libboost-all-dev
+
+      Let's clone actual repo:
+          root@pof:/home/pof/# git clone https://github.com/eteran/p0f-ng.git
+          root@pof:/home/pof/# cd p0f-ng/
+
+      If you need only p0f package:
+          root@pof:/home/pof/# cmake .
+
+      If you need tools:
+          root@pof:/home/pof/# cmake -D P0F_BUILD_TOOLS=ON .
+
+      And finally run make
+          root@pof:/home/pof/# make
