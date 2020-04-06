@@ -6,7 +6,6 @@ add_library(p0f-engine
     fp_http.cpp
     fp_mtu.cpp
     fp_tcp.cpp
-    include/p0f/api_client.h
     include/p0f/api.h
     include/p0f/config.h
     include/p0f/debug.h

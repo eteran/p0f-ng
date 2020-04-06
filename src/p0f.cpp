@@ -8,6 +8,8 @@
 
  */
 
+#include "api_client.h"
+
 #include <csignal>
 
 #include <dirent.h>
@@ -32,7 +34,6 @@
 #endif
 
 #include "p0f/api.h"
-#include "p0f/api_client.h"
 #include "p0f/config.h"
 #include "p0f/debug.h"
 #include "p0f/libp0f.h"

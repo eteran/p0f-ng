@@ -11,7 +11,7 @@
 #ifndef P0F_API_CLIENT_H_
 #define P0F_API_CLIENT_H_
 
-#include "api.h"
+#include "p0f/api.h"
 #include <cstddef>
 
 struct api_client {

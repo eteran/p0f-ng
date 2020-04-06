@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 add_executable(p0f
+	api_client.h
 	p0f.cpp
 )
 
