@@ -99,14 +99,15 @@ uint32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
 	std::hash<std::string> hasher;
 	uint32_t bucket = hasher(name) % SIG_BUCKETS;
 
-	uint32_t *p = &hdr_by_hash_[bucket][0];
-	size_t i    = hdr_by_hash_[bucket].size();
+	if (size_t i = hdr_by_hash_[bucket].size()) {
 
-	while (i--) {
-		if (hdr_names_[*p] == name) {
-			return *p;
+		uint32_t *p = &hdr_by_hash_[bucket][0];
+		while (i--) {
+			if (hdr_names_[*p] == name) {
+				return *p;
+			}
+			++p;
 		}
-		++p;
 	}
 
 	// Not found!
@@ -126,121 +127,123 @@ uint32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
 void http_context_t::http_find_match(bool to_srv, http_sig *ts, uint8_t dupe_det) {
 
 	http_sig_record *gmatch = nullptr;
-	http_sig_record *ref    = &sigs_[to_srv][0];
-	size_t cnt              = sigs_[to_srv].size();
 
-	while (cnt--) {
+	if (size_t cnt = sigs_[to_srv].size()) {
 
-		std::unique_ptr<http_sig> &rs = ref->sig;
-		uint32_t ts_hdr               = 0;
-		uint32_t rs_hdr               = 0;
+		http_sig_record *ref = &sigs_[to_srv][0];
+		while (cnt--) {
 
-		if (rs->http_ver != -1 && rs->http_ver != ts->http_ver) {
-			goto next_sig;
-		}
+			std::unique_ptr<http_sig> &rs = ref->sig;
+			uint32_t ts_hdr               = 0;
+			uint32_t rs_hdr               = 0;
 
-		/* Check that all the headers listed for the p0f.fp signature (probably)
-		 * appear in the examined traffic. */
-		if ((ts->hdr_bloom4 & rs->hdr_bloom4) != rs->hdr_bloom4) {
-			goto next_sig;
-		}
-
-		/* Confirm the ordering and values of headers (this is relatively slow,
-		 * hence the Bloom filter first). */
-		while (rs_hdr < rs->hdr.size()) {
-
-			uint32_t orig_ts = ts_hdr;
-
-			while (ts_hdr < ts->hdr.size() && rs->hdr[rs_hdr].id != ts->hdr[ts_hdr].id) {
-				++ts_hdr;
+			if (rs->http_ver != -1 && rs->http_ver != ts->http_ver) {
+				goto next_sig;
 			}
 
-			if (ts_hdr == ts->hdr.size()) {
+			/* Check that all the headers listed for the p0f.fp signature (probably)
+			 * appear in the examined traffic. */
+			if ((ts->hdr_bloom4 & rs->hdr_bloom4) != rs->hdr_bloom4) {
+				goto next_sig;
+			}
 
-				if (!rs->hdr[rs_hdr].optional) {
+			/* Confirm the ordering and values of headers (this is relatively slow,
+			 * hence the Bloom filter first). */
+			while (rs_hdr < rs->hdr.size()) {
+
+				uint32_t orig_ts = ts_hdr;
+
+				while (ts_hdr < ts->hdr.size() && rs->hdr[rs_hdr].id != ts->hdr[ts_hdr].id) {
+					++ts_hdr;
+				}
+
+				if (ts_hdr == ts->hdr.size()) {
+
+					if (!rs->hdr[rs_hdr].optional) {
+						goto next_sig;
+					}
+
+					/* If this is an optional header, check that it doesn't appear
+					 * anywhere else. */
+					for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ++ts_hdr) {
+						if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id) {
+							goto next_sig;
+						}
+					}
+
+					ts_hdr = orig_ts;
+					++rs_hdr;
+					continue;
+				}
+
+				if (rs->hdr[rs_hdr].value && (!ts->hdr[ts_hdr].value || !strstr(ts->hdr[ts_hdr].value->c_str(), rs->hdr[rs_hdr].value->c_str()))) {
 					goto next_sig;
 				}
 
-				/* If this is an optional header, check that it doesn't appear
-				 * anywhere else. */
+				++ts_hdr;
+				++rs_hdr;
+			}
+
+			/* Check that the headers forbidden in p0f.fp don't appear in the traffic.
+			 * We first check if they seem to appear in ts->hdr_bloom4, and only if so,
+			 * we do a full check. */
+			for (rs_hdr = 0; rs_hdr < rs->miss.size(); ++rs_hdr) {
+
+				uint64_t miss_bloom4 = bloom4_64(rs->miss[rs_hdr]);
+
+				if ((ts->hdr_bloom4 & miss_bloom4) != miss_bloom4) {
+					continue;
+				}
+
+				// Okay, possible instance of a banned header - scan list...
 				for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ++ts_hdr) {
-					if (rs->hdr[rs_hdr].id == ts->hdr[ts_hdr].id) {
+					if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id) {
 						goto next_sig;
 					}
 				}
-
-				ts_hdr = orig_ts;
-				++rs_hdr;
-				continue;
 			}
 
-			if (rs->hdr[rs_hdr].value && (!ts->hdr[ts_hdr].value || !strstr(ts->hdr[ts_hdr].value->c_str(), rs->hdr[rs_hdr].value->c_str()))) {
-				goto next_sig;
-			}
+			/* When doing dupe detection, we want to allow a signature with
+			 * additional banned headers to precede one with fewer,
+			 * or with a different set. */
+			if (dupe_det) {
 
-			++ts_hdr;
-			++rs_hdr;
-		}
-
-		/* Check that the headers forbidden in p0f.fp don't appear in the traffic.
-		 * We first check if they seem to appear in ts->hdr_bloom4, and only if so,
-		 * we do a full check. */
-		for (rs_hdr = 0; rs_hdr < rs->miss.size(); ++rs_hdr) {
-
-			uint64_t miss_bloom4 = bloom4_64(rs->miss[rs_hdr]);
-
-			if ((ts->hdr_bloom4 & miss_bloom4) != miss_bloom4) {
-				continue;
-			}
-
-			// Okay, possible instance of a banned header - scan list...
-			for (ts_hdr = 0; ts_hdr < ts->hdr.size(); ++ts_hdr) {
-				if (rs->miss[rs_hdr] == ts->hdr[ts_hdr].id) {
+				if (rs->miss.size() > ts->miss.size()) {
 					goto next_sig;
 				}
-			}
-		}
 
-		/* When doing dupe detection, we want to allow a signature with
-		 * additional banned headers to precede one with fewer,
-		 * or with a different set. */
-		if (dupe_det) {
+				for (rs_hdr = 0; rs_hdr < rs->miss.size(); ++rs_hdr) {
 
-			if (rs->miss.size() > ts->miss.size()) {
-				goto next_sig;
-			}
+					for (ts_hdr = 0; ts_hdr < ts->miss.size(); ++ts_hdr) {
+						if (rs->miss[rs_hdr] == ts->miss[ts_hdr]) {
+							break;
+						}
+					}
 
-			for (rs_hdr = 0; rs_hdr < rs->miss.size(); ++rs_hdr) {
-
-				for (ts_hdr = 0; ts_hdr < ts->miss.size(); ++ts_hdr) {
-					if (rs->miss[rs_hdr] == ts->miss[ts_hdr]) {
-						break;
+					// One of the reference headers doesn't appear in current sig!
+					if (ts_hdr == ts->miss.size()) {
+						goto next_sig;
 					}
 				}
+			}
 
-				// One of the reference headers doesn't appear in current sig!
-				if (ts_hdr == ts->miss.size()) {
-					goto next_sig;
+			// Whoa, a match.
+			if (!ref->generic) {
+				ts->matched = ref;
+
+				if (rs->sw && ts->sw && !strstr(ts->sw->c_str(), rs->sw->c_str())) {
+					ts->dishonest = 1;
 				}
-			}
-		}
 
-		// Whoa, a match.
-		if (!ref->generic) {
-			ts->matched = ref;
+				return;
 
-			if (rs->sw && ts->sw && !strstr(ts->sw->c_str(), rs->sw->c_str())) {
-				ts->dishonest = 1;
+			} else if (!gmatch) {
+				gmatch = ref;
 			}
 
-			return;
-
-		} else if (!gmatch) {
-			gmatch = ref;
+		next_sig:
+			ref = ref + 1;
 		}
-
-	next_sig:
-		ref = ref + 1;
 	}
 
 	// A generic signature is the best we could find.
@@ -625,9 +628,9 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 		f->server->http_resp = std::make_shared<http_sig>(f->http_tmp);
 
 		f->server->http_resp->hdr.clear();
-		f->server->http_resp->sw   = {};
-		f->server->http_resp->lang = {};
-		f->server->http_resp->via  = {};
+		f->server->http_resp->sw   = boost::none;
+		f->server->http_resp->lang = boost::none;
+		f->server->http_resp->via  = boost::none;
 
 		f->server->http_resp_port = f->srv_port;
 
@@ -669,9 +672,9 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 				f->client->http_req_os = std::make_shared<http_sig>(f->http_tmp);
 
 				f->client->http_req_os->hdr.clear();
-				f->client->http_req_os->sw   = {};
-				f->client->http_req_os->lang = {};
-				f->client->http_req_os->via  = {};
+				f->client->http_req_os->sw   = boost::none;
+				f->client->http_req_os->lang = boost::none;
+				f->client->http_req_os->via  = boost::none;
 				f->client->last_class_id     = m->class_id;
 				f->client->last_name_id      = m->name_id;
 				f->client->last_flavor       = m->flavor;

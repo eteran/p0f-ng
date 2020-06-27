@@ -136,7 +136,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 	if (in.match_any(&flavor)) {
 		sig_flavor_ = flavor;
 	} else {
-		sig_flavor_ = {};
+		sig_flavor_ = boost::none;
 	}
 
 	++label_id_;
