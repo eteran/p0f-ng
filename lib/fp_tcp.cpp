@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
+#include "Reader.h"
 #include "hash.h"
 #include "p0f/api.h"
 #include "p0f/config.h"
@@ -29,7 +30,6 @@
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
-#include "parser.h"
 
 namespace {
 
@@ -533,7 +533,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	std::vector<uint8_t> opt_layout;
 	uint8_t bad_ttl = 0;
 
-	parser in(value);
+	Reader in(value);
 
 	// IP version
 	if (in.match('4')) {
@@ -551,11 +551,11 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	}
 
 	// Initial TTL (possibly ttl+dist or ttl-)
-	std::string ttl;
-	if (!in.match([](char ch) { return isdigit(ch); }, &ttl)) {
+	auto ttl = in.match_if([](char ch) { return isdigit(ch); });
+	if (!ttl) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
-	int ittl = stoi(ttl);
+	int ittl = stoi(*ttl);
 	if (ittl < 1 || ittl > 255) {
 		FATAL("Bogus initial TTL in line %u.", line_no);
 	}
@@ -563,11 +563,11 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	if (in.match('-')) {
 		bad_ttl = 1;
 	} else if (in.match('+')) {
-		std::string ttl_add;
-		if (!in.match([](char ch) { return isdigit(ch); }, &ttl_add)) {
+		auto ttl_add = in.match_if([](char ch) { return isdigit(ch); });
+		if (!ttl_add) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
-		int ittl_add = stoi(ttl_add);
+		int ittl_add = stoi(*ttl_add);
 
 		if (ittl_add < 0 || ittl + ittl_add > 255) {
 			FATAL("Bogus initial TTL in line %u.", line_no);
@@ -581,12 +581,12 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	}
 
 	// Length of IP options
-	std::string olen_str;
-	if (!in.match([](char ch) { return isdigit(ch); }, &olen_str)) {
+	auto olen_str = in.match_if([](char ch) { return isdigit(ch); });
+	if (!olen_str) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
 
-	int olen = stoi(olen_str);
+	int olen = stoi(*olen_str);
 	if (olen < 0 || olen > 255) {
 		FATAL("Bogus IP option length in line %u.", line_no);
 	}
@@ -600,12 +600,12 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	if (in.match('*')) {
 		mss = -1;
 	} else {
-		std::string mss_str;
-		if (!in.match([](char ch) { return isdigit(ch); }, &mss_str)) {
+		auto mss_str = in.match_if([](char ch) { return isdigit(ch); });
+		if (!mss_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		mss = stoi(mss_str);
+		mss = stoi(*mss_str);
 		if (mss < 0 || mss > 65535) {
 			FATAL("Bogus MSS in line %u.", line_no);
 		}
@@ -623,48 +623,48 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	} else if (in.match('%')) {
 		win_type = WIN_TYPE_MOD;
 
-		std::string win_str;
-		if (!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+		auto win_str = in.match_if([](char ch) { return isdigit(ch); });
+		if (!win_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		win = stoi(win_str);
+		win = stoi(*win_str);
 		if (win < 2 || win > 65535) {
 			FATAL("Bogus '%%' value in line %u.", line_no);
 		}
 	} else if (in.match("mss*")) {
 		win_type = WIN_TYPE_MSS;
 
-		std::string win_str;
-		if (!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+		auto win_str = in.match_if([](char ch) { return isdigit(ch); });
+		if (!win_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		win = stoi(win_str);
+		win = stoi(*win_str);
 		if (win < 1 || win > 1000) {
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
 		}
 	} else if (in.match("mtu*")) {
 		win_type = WIN_TYPE_MTU;
 
-		std::string win_str;
-		if (!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+		auto win_str = in.match_if([](char ch) { return isdigit(ch); });
+		if (!win_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		win = stoi(win_str);
+		win = stoi(*win_str);
 		if (win < 1 || win > 1000) {
 			FATAL("Bogus MSS/MTU multiplier in line %u.", line_no);
 		}
 	} else {
 		win_type = WIN_TYPE_NORMAL;
 
-		std::string win_str;
-		if (!in.match([](char ch) { return isdigit(ch); }, &win_str)) {
+		auto win_str = in.match_if([](char ch) { return isdigit(ch); });
+		if (!win_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		win = stoi(win_str);
+		win = stoi(*win_str);
 		if (win < 0 || win > 65535) {
 			FATAL("Bogus window size in line %u.", line_no);
 		}
@@ -679,12 +679,12 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	if (in.match('*')) {
 		scale = -1;
 	} else {
-		std::string scale_str;
-		if (!in.match([](char ch) { return isdigit(ch); }, &scale_str)) {
+		auto scale_str = in.match_if([](char ch) { return isdigit(ch); });
+		if (!scale_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
 
-		scale = stoi(scale_str);
+		scale = stoi(*scale_str);
 		if (scale < 0 || scale > 255) {
 			FATAL("Bogus window scale in line %u.", line_no);
 		}
@@ -709,12 +709,12 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 				FATAL("Malformed EOL option in line %u.", line_no);
 			}
 
-			std::string eol_str;
-			if (!in.match([](char ch) { return isdigit(ch); }, &eol_str)) {
+			auto eol_str = in.match_if([](char ch) { return isdigit(ch); });
+			if (!eol_str) {
 				FATAL("Truncated options in line %u.", line_no);
 			}
 
-			opt_eol_pad = stoi(eol_str);
+			opt_eol_pad = stoi(*eol_str);
 			if (opt_eol_pad < 0 || opt_eol_pad > 255) {
 				FATAL("Bogus EOL padding in line %u.", line_no);
 			}
@@ -736,12 +736,12 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 			opt_layout.push_back(TCPOPT_TSTAMP);
 		} else if (in.match('?')) {
 
-			std::string opt_str;
-			if (!in.match([](char ch) { return isdigit(ch); }, &opt_str)) {
+			auto opt_str = in.match_if([](char ch) { return isdigit(ch); });
+			if (!opt_str) {
 				FATAL("Malformed '?' option in line %u.", line_no);
 			}
 
-			const int optno = stoi(opt_str);
+			const int optno = stoi(*opt_str);
 			if (optno < 0 || optno > 255) {
 				FATAL("Bogus '?' option in line %u.", line_no);
 			}

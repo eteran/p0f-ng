@@ -20,6 +20,7 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
+#include "Reader.h"
 #include "hash.h"
 #include "languages.h"
 #include "p0f/api.h"
@@ -31,7 +32,6 @@
 #include "p0f/readfp.h"
 #include "p0f/tcp.h"
 #include "p0f/util.h"
-#include "parser.h"
 
 namespace {
 
@@ -935,7 +935,7 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 
 	auto hsig = std::make_unique<http_sig>();
 
-	parser in(value);
+	Reader in(value);
 
 	// http_ver
 	if (in.match('0')) {
@@ -961,12 +961,15 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 
 			bool optional = in.match('?');
 
-			std::string horder_key;
-			if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &horder_key)) {
+			auto horder_key = in.match_if([](char ch) {
+				return isalnum(ch) || ch == '-' || ch == '_';
+			});
+
+			if (!horder_key) {
 				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			const uint32_t id = lookup_hdr(horder_key, true);
+			const uint32_t id = lookup_hdr(*horder_key, true);
 
 			http_hdr new_hdr;
 			new_hdr.id       = id;
@@ -981,12 +984,15 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 					FATAL("Missing '[' after '=' in line %u.", line_no);
 				}
 
-				std::string horder_value;
-				if (!in.match([](char ch) { return ch != ']'; }, &horder_value)) {
+				auto horder_value = in.match_if([](char ch) {
+					return ch != ']';
+				});
+
+				if (!horder_value) {
 					FATAL("Malformed signature in line %u.", line_no);
 				}
 
-				new_hdr.value = horder_value;
+				new_hdr.value = *horder_value;
 
 				if (!in.match(']')) {
 					FATAL("Malformed signature in line %u.", line_no);
@@ -1008,12 +1014,15 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 				FATAL("Too many headers listed in line %u.", line_no);
 			}
 
-			std::string habsent_key;
-			if (!in.match([](char ch) { return isalnum(ch) || ch == '-' || ch == '_'; }, &habsent_key)) {
+			auto habsent_key = in.match_if([](char ch) {
+				return isalnum(ch) || ch == '-' || ch == '_';
+			});
+
+			if (!habsent_key) {
 				FATAL("Malformed header name in line %u.", line_no);
 			}
 
-			uint32_t id = lookup_hdr(habsent_key, true);
+			uint32_t id = lookup_hdr(*habsent_key, true);
 			hsig->miss.push_back(id);
 		} while (in.match(','));
 	}
@@ -1023,12 +1032,12 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 	}
 
 	// exp_sw
-	std::string exp_sw;
-	if (in.match_any(&exp_sw)) {
-		if (exp_sw.find(':') != std::string::npos) {
+	auto exp_sw = in.match_any();
+	if (exp_sw) {
+		if (exp_sw->find(':') != std::string::npos) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
-		hsig->sw = exp_sw;
+		hsig->sw = *exp_sw;
 	}
 
 	http_find_match(to_srv, hsig, 1);
@@ -1055,15 +1064,18 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 // Register new HTTP signature.
 void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 
-	parser in(value);
+	Reader in(value);
 	do {
 
-		std::string system_str;
-		if (!in.match([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); }, &system_str)) {
+		auto system_str = in.match_if([](char ch) {
+			return isalnum(ch) || strchr(NAME_CHARS, ch);
+		});
+
+		if (!system_str) {
 			FATAL("Malformed system name in line %u.", line_no);
 		}
 
-		uint32_t id = ctx_->fp_context.lookup_name_id(system_str);
+		uint32_t id = ctx_->fp_context.lookup_name_id(*system_str);
 
 		ext::optional<std::string> name;
 		if (in.match('=')) {
@@ -1072,8 +1084,8 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 				FATAL("Missing '[' after '=' in line %u.", line_no);
 			}
 
-			std::string value_str;
-			if (!in.match([](char ch) { return ch != ']'; }, &value_str)) {
+			auto value_str = in.match_if([](char ch) { return ch != ']'; });
+			if (!value_str) {
 				FATAL("Malformed signature in line %u.", line_no);
 			}
 
@@ -1081,7 +1093,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 				FATAL("Malformed signature in line %u.", line_no);
 			}
 
-			name = value_str;
+			name = *value_str;
 		}
 
 		ua_map_record record;

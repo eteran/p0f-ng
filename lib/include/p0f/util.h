@@ -16,7 +16,7 @@
 #include <ostream>
 
 template <class... T>
-void append_format(std::ostream &os, const char *fmt, T &&... args) {
+void append_format(std::ostream &os, const char *fmt, T &&...args) {
 	char *ptr = nullptr;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
@@ -29,7 +29,7 @@ void append_format(std::ostream &os, const char *fmt, T &&... args) {
 }
 
 template <class... T>
-void report_observation(libp0f *libp0f_context, const char *key, const char *fmt, T &&... args) {
+void report_observation(libp0f *libp0f_context, const char *key, const char *fmt, T &&...args) {
 	char *ptr = nullptr;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"

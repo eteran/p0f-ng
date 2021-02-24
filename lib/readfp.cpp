@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "Reader.h"
 #include "p0f/config.h"
 #include "p0f/debug.h"
 #include "p0f/ext/string_view.h"
@@ -33,7 +34,6 @@
 #include "p0f/libp0f.h"
 #include "p0f/readfp.h"
 #include "p0f/util.h"
-#include "parser.h"
 
 namespace {
 
@@ -52,16 +52,16 @@ bool string_equals(ext::string_view lhs, ext::string_view rhs) {
 // Parse 'classes' parameter by populating fp_os_classes_.
 void fp_context_t::config_parse_classes(ext::string_view value) {
 
-	parser in(value);
+	Reader in(value);
 	do {
 		in.consume_whitespace();
 
-		std::string class_name;
-		if (!in.match([](char ch) { return isalnum(ch); }, &class_name)) {
+		auto class_name = in.match_if([](char ch) { return isalnum(ch); });
+		if (!class_name) {
 			FATAL("Malformed class entry in line %u.", line_no_);
 		}
 
-		os_classes_.push_back(std::move(class_name));
+		os_classes_.push_back(std::move(*class_name));
 
 		in.consume_whitespace();
 	} while (in.match(','));
@@ -84,7 +84,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 		return;
 	}
 
-	parser in(value);
+	Reader in(value);
 
 	// type
 	if (in.match('g')) {
@@ -100,19 +100,22 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 	}
 
 	// class
-	std::string class_name;
+
 	if (in.match('!')) {
 		sig_class_ = InvalidId;
-	} else if (in.match([](char ch) { return isalnum(ch); }, &class_name)) {
-		auto it = std::find_if(os_classes_.begin(), os_classes_.end(), [&class_name](ext::string_view os_class) {
-			return string_equals(class_name, os_class);
-		});
+	} else {
+		auto class_name = in.match_if([](char ch) { return isalnum(ch); });
+		if (class_name) {
+			auto it = std::find_if(os_classes_.begin(), os_classes_.end(), [&class_name](ext::string_view os_class) {
+				return string_equals(*class_name, os_class);
+			});
 
-		if (it == os_classes_.end()) {
-			FATAL("Unknown class '%s' in line %u.", class_name.c_str(), line_no_);
+			if (it == os_classes_.end()) {
+				FATAL("Unknown class '%s' in line %u.", class_name->c_str(), line_no_);
+			}
+
+			sig_class_ = std::distance(os_classes_.begin(), it);
 		}
-
-		sig_class_ = std::distance(os_classes_.begin(), it);
 	}
 
 	if (!in.match(':')) {
@@ -120,25 +123,19 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 	}
 
 	// name
-	std::string name;
-	if (!in.match([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); }, &name)) {
+	auto name = in.match_if([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); });
+	if (!name) {
 		FATAL("Malformed name in line %u.", line_no_);
 	}
 
-	sig_name_ = lookup_name_id(name);
+	sig_name_ = lookup_name_id(*name);
 
 	if (!in.match(':')) {
 		FATAL("Malformed class entry in line %u.", line_no_);
 	}
 
 	// flavor
-	std::string flavor;
-	if (in.match_any(&flavor)) {
-		sig_flavor_ = flavor;
-	} else {
-		sig_flavor_ = boost::none;
-	}
-
+	sig_flavor_ = in.match_any();
 	++label_id_;
 }
 
@@ -147,14 +144,14 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 
 	cur_sys_.clear();
 
-	parser in(value);
+	Reader in(value);
 	do {
 		in.consume_whitespace();
 
 		const bool is_cl = in.match('@');
 
-		std::string class_name;
-		if (!in.match([](char ch) { return isalnum(ch) || (strchr(NAME_CHARS, ch)); }, &class_name)) {
+		auto class_name = in.match_if([](char ch) { return isalnum(ch) || (strchr(NAME_CHARS, ch)); });
+		if (!class_name) {
 			FATAL("Malformed sys entry in line %u.", line_no_);
 		}
 
@@ -162,13 +159,13 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 		if (is_cl) {
 
 			for (i = 0; i < os_classes_.size(); ++i) {
-				if (string_equals(class_name, os_classes_[i])) {
+				if (string_equals(*class_name, os_classes_[i])) {
 					break;
 				}
 			}
 
 			if (i == os_names_.size()) {
-				FATAL("Unknown class '%s' in line %u.", class_name.c_str(), line_no_);
+				FATAL("Unknown class '%s' in line %u.", class_name->c_str(), line_no_);
 			}
 
 			i |= SYS_CLASS_FLAG;
@@ -176,13 +173,13 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 		} else {
 
 			for (i = 0; i < os_names_.size(); ++i) {
-				if (string_equals(class_name, os_names_[i])) {
+				if (string_equals(*class_name, os_names_[i])) {
 					break;
 				}
 			}
 
 			if (i == os_names_.size()) {
-				os_names_.push_back(class_name);
+				os_names_.push_back(*class_name);
 			}
 		}
 
@@ -199,7 +196,7 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 // Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
 void fp_context_t::config_parse_line(ext::string_view line) {
 
-	parser in(line);
+	Reader in(line);
 
 	// Special handling for [module:direction]...
 	if (in.match('[')) {
@@ -250,9 +247,8 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 
 		in.consume_whitespace();
 
-		std::string value;
-		in.match_any(&value);
-		config_parse_classes(value);
+		auto value = in.match_any();
+		config_parse_classes(value ? *value : std::string());
 
 	} else if (in.match("ua_os")) {
 
@@ -268,10 +264,8 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 
 		in.consume_whitespace();
 
-		std::string value;
-		in.match_any(&value);
-
-		ctx_->http_context.http_parse_ua(value, line_no_);
+		auto value = in.match_any();
+		ctx_->http_context.http_parse_ua(value ? *value : std::string(), line_no_);
 
 	} else if (in.match("label")) {
 
@@ -290,10 +284,8 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 
 		in.consume_whitespace();
 
-		std::string value;
-		in.match_any(&value);
-
-		config_parse_label(value);
+		auto value = in.match_any();
+		config_parse_label(value ? *value : std::string());
 
 		if (mod_type_ != CF_MOD_MTU && sig_class_ == InvalidId) {
 			state_ = CF_NEED_SYS;
@@ -314,10 +306,8 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 
 		in.consume_whitespace();
 
-		std::string value;
-		in.match_any(&value);
-
-		config_parse_sys(value);
+		auto value = in.match_any();
+		config_parse_sys(value ? *value : std::string());
 		state_ = CF_NEED_SIG;
 	} else if (in.match("sig")) {
 
@@ -333,8 +323,7 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 
 		in.consume_whitespace();
 
-		std::string value;
-		in.match_any(&value);
+		auto value = in.match_any();
 
 		switch (mod_type_) {
 		case CF_MOD_TCP:
@@ -346,13 +335,13 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 				sig_flavor_,
 				label_id_,
 				cur_sys_,
-				value,
+				value ? *value : std::string(),
 				line_no_);
 			break;
 		case CF_MOD_MTU:
 			ctx_->mtu_context.mtu_register_sig(
 				sig_flavor_,
-				value,
+				value ? *value : std::string(),
 				line_no_);
 			break;
 		case CF_MOD_HTTP:
@@ -364,7 +353,7 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 				sig_flavor_,
 				label_id_,
 				cur_sys_,
-				value,
+				value ? *value : std::string(),
 				line_no_);
 			break;
 		}
