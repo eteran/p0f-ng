@@ -56,7 +56,7 @@ void fp_context_t::config_parse_classes(ext::string_view value) {
 	do {
 		in.consume_whitespace();
 
-		auto class_name = in.match_if([](char ch) { return isalnum(ch); });
+		auto class_name = in.match_while([](char ch) { return isalnum(ch); });
 		if (!class_name) {
 			FATAL("Malformed class entry in line %u.", line_no_);
 		}
@@ -104,7 +104,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 	if (in.match('!')) {
 		sig_class_ = InvalidId;
 	} else {
-		auto class_name = in.match_if([](char ch) { return isalnum(ch); });
+		auto class_name = in.match_while([](char ch) { return isalnum(ch); });
 		if (class_name) {
 			auto it = std::find_if(os_classes_.begin(), os_classes_.end(), [&class_name](ext::string_view os_class) {
 				return string_equals(*class_name, os_class);
@@ -123,7 +123,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 	}
 
 	// name
-	auto name = in.match_if([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); });
+	auto name = in.match_while([](char ch) { return isalnum(ch) || strchr(NAME_CHARS, ch); });
 	if (!name) {
 		FATAL("Malformed name in line %u.", line_no_);
 	}
@@ -150,7 +150,7 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 
 		const bool is_cl = in.match('@');
 
-		auto class_name = in.match_if([](char ch) { return isalnum(ch) || (strchr(NAME_CHARS, ch)); });
+		auto class_name = in.match_while([](char ch) { return isalnum(ch) || (strchr(NAME_CHARS, ch)); });
 		if (!class_name) {
 			FATAL("Malformed sys entry in line %u.", line_no_);
 		}

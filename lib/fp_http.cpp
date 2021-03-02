@@ -961,7 +961,7 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 
 			bool optional = in.match('?');
 
-			auto horder_key = in.match_if([](char ch) {
+			auto horder_key = in.match_while([](char ch) {
 				return isalnum(ch) || ch == '-' || ch == '_';
 			});
 
@@ -984,7 +984,7 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 					FATAL("Missing '[' after '=' in line %u.", line_no);
 				}
 
-				auto horder_value = in.match_if([](char ch) {
+				auto horder_value = in.match_while([](char ch) {
 					return ch != ']';
 				});
 
@@ -1014,7 +1014,7 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 				FATAL("Too many headers listed in line %u.", line_no);
 			}
 
-			auto habsent_key = in.match_if([](char ch) {
+			auto habsent_key = in.match_while([](char ch) {
 				return isalnum(ch) || ch == '-' || ch == '_';
 			});
 
@@ -1067,7 +1067,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 	Reader in(value);
 	do {
 
-		auto system_str = in.match_if([](char ch) {
+		auto system_str = in.match_while([](char ch) {
 			return isalnum(ch) || strchr(NAME_CHARS, ch);
 		});
 
@@ -1084,7 +1084,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 				FATAL("Missing '[' after '=' in line %u.", line_no);
 			}
 
-			auto value_str = in.match_if([](char ch) { return ch != ']'; });
+			auto value_str = in.match_while([](char ch) { return ch != ']'; });
 			if (!value_str) {
 				FATAL("Malformed signature in line %u.", line_no);
 			}

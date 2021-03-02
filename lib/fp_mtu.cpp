@@ -31,7 +31,7 @@ void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext
 
 	Reader in(val);
 
-	auto mtu_str = in.match_if([](char ch) { return isdigit(ch); });
+	auto mtu_str = in.match_while([](char ch) { return isdigit(ch); });
 	if (!mtu_str) {
 		FATAL("Malformed MTU value in line %u.", line_no);
 	}

@@ -551,7 +551,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	}
 
 	// Initial TTL (possibly ttl+dist or ttl-)
-	auto ttl = in.match_if([](char ch) { return isdigit(ch); });
+	auto ttl = in.match_while([](char ch) { return isdigit(ch); });
 	if (!ttl) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
@@ -563,7 +563,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	if (in.match('-')) {
 		bad_ttl = 1;
 	} else if (in.match('+')) {
-		auto ttl_add = in.match_if([](char ch) { return isdigit(ch); });
+		auto ttl_add = in.match_while([](char ch) { return isdigit(ch); });
 		if (!ttl_add) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
@@ -581,7 +581,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	}
 
 	// Length of IP options
-	auto olen_str = in.match_if([](char ch) { return isdigit(ch); });
+	auto olen_str = in.match_while([](char ch) { return isdigit(ch); });
 	if (!olen_str) {
 		FATAL("Malformed signature in line %u.", line_no);
 	}
@@ -600,7 +600,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	if (in.match('*')) {
 		mss = -1;
 	} else {
-		auto mss_str = in.match_if([](char ch) { return isdigit(ch); });
+		auto mss_str = in.match_while([](char ch) { return isdigit(ch); });
 		if (!mss_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
@@ -623,7 +623,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	} else if (in.match('%')) {
 		win_type = WIN_TYPE_MOD;
 
-		auto win_str = in.match_if([](char ch) { return isdigit(ch); });
+		auto win_str = in.match_while([](char ch) { return isdigit(ch); });
 		if (!win_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
@@ -635,7 +635,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	} else if (in.match("mss*")) {
 		win_type = WIN_TYPE_MSS;
 
-		auto win_str = in.match_if([](char ch) { return isdigit(ch); });
+		auto win_str = in.match_while([](char ch) { return isdigit(ch); });
 		if (!win_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
@@ -647,7 +647,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	} else if (in.match("mtu*")) {
 		win_type = WIN_TYPE_MTU;
 
-		auto win_str = in.match_if([](char ch) { return isdigit(ch); });
+		auto win_str = in.match_while([](char ch) { return isdigit(ch); });
 		if (!win_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
@@ -659,7 +659,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	} else {
 		win_type = WIN_TYPE_NORMAL;
 
-		auto win_str = in.match_if([](char ch) { return isdigit(ch); });
+		auto win_str = in.match_while([](char ch) { return isdigit(ch); });
 		if (!win_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
@@ -679,7 +679,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 	if (in.match('*')) {
 		scale = -1;
 	} else {
-		auto scale_str = in.match_if([](char ch) { return isdigit(ch); });
+		auto scale_str = in.match_while([](char ch) { return isdigit(ch); });
 		if (!scale_str) {
 			FATAL("Malformed signature in line %u.", line_no);
 		}
@@ -709,7 +709,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 				FATAL("Malformed EOL option in line %u.", line_no);
 			}
 
-			auto eol_str = in.match_if([](char ch) { return isdigit(ch); });
+			auto eol_str = in.match_while([](char ch) { return isdigit(ch); });
 			if (!eol_str) {
 				FATAL("Truncated options in line %u.", line_no);
 			}
@@ -736,7 +736,7 @@ void tcp_context_t::tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_
 			opt_layout.push_back(TCPOPT_TSTAMP);
 		} else if (in.match('?')) {
 
-			auto opt_str = in.match_if([](char ch) { return isdigit(ch); });
+			auto opt_str = in.match_while([](char ch) { return isdigit(ch); });
 			if (!opt_str) {
 				FATAL("Malformed '?' option in line %u.", line_no);
 			}
