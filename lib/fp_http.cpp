@@ -96,31 +96,20 @@ std::string dump_flags(const http_sig *hsig, const http_sig_record *m) {
 // Look up or register new header
 uint32_t http_context_t::lookup_hdr(const std::string &name, bool create) {
 
-	std::hash<std::string> hasher;
-	uint32_t bucket = hasher(name) % SIG_BUCKETS;
-
-	if (size_t i = hdr_by_hash_[bucket].size()) {
-
-		uint32_t *p = &hdr_by_hash_[bucket][0];
-		while (i--) {
-			if (hdr_names_[*p] == name) {
-				return *p;
-			}
-			++p;
-		}
+	auto it = hdr_ids_.find(name);
+	if (it != hdr_ids_.end()) {
+		return it->second;
 	}
 
-	// Not found!
 	if (!create) {
 		return InvalidId;
 	}
 
-	const size_t index = hdr_names_.size();
-
-	hdr_names_.push_back(name);
-	hdr_by_hash_[bucket].push_back(index);
-
-	return index;
+	// an ever increasing number starting at 0...
+	const uint32_t new_id = hdr_names_.size();
+	hdr_names_.emplace(new_id, name);
+	hdr_ids_.emplace(name, new_id);
+	return new_id;
 }
 
 // Find match for a signature.

@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <ctime>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 struct packet_flow;
@@ -105,8 +106,9 @@ private:
 	http_id req_skipval_[sizeof(req_skipval_init) / sizeof(http_id)];
 	http_id resp_skipval_[sizeof(resp_skipval_init) / sizeof(http_id)];
 
-	std::vector<std::string> hdr_names_;             // List of header names by ID
-	std::vector<uint32_t> hdr_by_hash_[SIG_BUCKETS]; // Hashed header names
+	// lookup a header by ID or name
+	std::unordered_map<uint32_t, std::string> hdr_names_; // header names by ID
+	std::unordered_map<std::string, uint32_t> hdr_ids_;   // header IDs by name
 
 	/* Signatures aren't bucketed due to the complex matching used; but we use
 	 * Bloom filters to go through them quickly. */
