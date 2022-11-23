@@ -286,7 +286,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 			if (hsig->hdr[i].value) {
 
-				ext::string_view val = *hsig->hdr[i].value;
+				std::string_view val = *hsig->hdr[i].value;
 
 				// Next, make sure that the value is not on the ignore list.
 				if (optional) {
@@ -331,7 +331,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 			if (hsig->hdr[i].value) {
 
-				ext::string_view val = *hsig->hdr[i].value;
+				std::string_view val = *hsig->hdr[i].value;
 
 				std::string tmp;
 				for (char ch : val) {
@@ -377,7 +377,7 @@ std::string http_context_t::dump_sig(bool to_srv, const http_sig *hsig) {
 
 	if (hsig->sw) {
 
-		ext::string_view val = *hsig->sw;
+		std::string_view val = *hsig->sw;
 
 		std::string tmp;
 		for (char ch : val) {
@@ -617,9 +617,9 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 		f->server->http_resp = std::make_shared<http_sig>(f->http_tmp);
 
 		f->server->http_resp->hdr.clear();
-		f->server->http_resp->sw   = boost::none;
-		f->server->http_resp->lang = boost::none;
-		f->server->http_resp->via  = boost::none;
+		f->server->http_resp->sw   = {};
+		f->server->http_resp->lang = {};
+		f->server->http_resp->via  = {};
 
 		f->server->http_resp_port = f->srv_port;
 
@@ -661,9 +661,9 @@ void http_context_t::fingerprint_http(bool to_srv, packet_flow *f) {
 				f->client->http_req_os = std::make_shared<http_sig>(f->http_tmp);
 
 				f->client->http_req_os->hdr.clear();
-				f->client->http_req_os->sw   = boost::none;
-				f->client->http_req_os->lang = boost::none;
-				f->client->http_req_os->via  = boost::none;
+				f->client->http_req_os->sw   = {};
+				f->client->http_req_os->lang = {};
+				f->client->http_req_os->via  = {};
 				f->client->last_class_id     = m->class_id;
 				f->client->last_name_id      = m->name_id;
 				f->client->last_flavor       = m->flavor;
@@ -920,7 +920,7 @@ http_context_t::http_context_t(libp0f *ctx)
 }
 
 // Register new HTTP signature.
-void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no) {
+void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const std::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, std::string_view value, uint32_t line_no) {
 
 	auto hsig = std::make_unique<http_sig>();
 
@@ -1051,7 +1051,7 @@ void http_context_t::http_register_sig(bool to_srv, uint8_t generic, uint32_t si
 }
 
 // Register new HTTP signature.
-void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
+void http_context_t::http_parse_ua(std::string_view value, uint32_t line_no) {
 
 	Reader in(value);
 	do {
@@ -1066,7 +1066,7 @@ void http_context_t::http_parse_ua(ext::string_view value, uint32_t line_no) {
 
 		uint32_t id = ctx_->fp_context.lookup_name_id(*system_str);
 
-		ext::optional<std::string> name;
+		std::optional<std::string> name;
 		if (in.match('=')) {
 
 			if (!in.match('[')) {

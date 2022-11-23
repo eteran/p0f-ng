@@ -5,7 +5,7 @@
  * @brief Reader::Reader
  * @param input
  */
-Reader::Reader(string_view input) noexcept
+Reader::Reader(std::string_view input) noexcept
 	: input_(input) {
 }
 
@@ -32,18 +32,7 @@ char Reader::read() noexcept {
 		return '\0';
 	}
 
-	char ch = input_[index_++];
-
-	switch (ch) {
-	case '\n':
-		++line_;
-		column_ = 0;
-		break;
-	default:
-		++column_;
-	}
-
-	return ch;
+	return input_[index_++];
 }
 
 /**
@@ -58,7 +47,7 @@ bool Reader::eof() const noexcept {
  * @brief Reader::consume
  * @param chars
  */
-size_t Reader::consume(string_view chars) noexcept {
+size_t Reader::consume(std::string_view chars) noexcept {
 
 	// consume while the next character is in the input set
 	return consume_while([chars](char ch) {
@@ -82,7 +71,7 @@ size_t Reader::consume_whitespace() noexcept {
  * @param match
  * @return
  */
-auto Reader::match_any() -> optional<std::string> {
+auto Reader::match_any() -> std::optional<std::string> {
 	std::string m;
 	while (!eof()) {
 		m.push_back(read());
@@ -100,7 +89,7 @@ auto Reader::match_any() -> optional<std::string> {
  * @param regex
  * @return
  */
-auto Reader::match(const std::regex &regex) -> optional<std::string> {
+auto Reader::match(const std::regex &regex) -> std::optional<std::string> {
 
 	std::cmatch matches;
 
@@ -109,7 +98,6 @@ auto Reader::match(const std::regex &regex) -> optional<std::string> {
 
 	if (std::regex_search(first, last, matches, regex, std::regex_constants::match_continuous)) {
 		std::string m = std::string(matches[0].first, matches[0].second);
-		column_ += m.size();
 		index_ += m.size();
 		return m;
 	}
@@ -122,33 +110,22 @@ auto Reader::match(const std::regex &regex) -> optional<std::string> {
  * @param s
  * @return
  */
-bool Reader::match(string_view s) noexcept {
+bool Reader::match(std::string_view s) noexcept {
 
 	if (index_ + s.size() > input_.size()) {
 		return false;
 	}
 
-	size_t new_index_  = index_ + s.size();
-	size_t new_line_   = line_;
-	size_t new_column_ = column_;
+	size_t new_index_ = index_ + s.size();
 
 	for (size_t i = 0; i < s.size(); ++i) {
 		const char ch = input_[index_ + i];
 		if (ch != s[i]) {
 			return false;
 		}
-
-		if (ch == '\n') {
-			new_column_ = 0;
-			++new_line_;
-		} else {
-			++new_column_;
-		}
 	}
 
-	line_   = new_line_;
-	column_ = new_column_;
-	index_  = new_index_;
+	index_ = new_index_;
 	return true;
 }
 
@@ -161,13 +138,6 @@ bool Reader::match(char ch) noexcept {
 
 	if (peek() != ch) {
 		return false;
-	}
-
-	if (ch == '\n') {
-		column_ = 0;
-		++line_;
-	} else {
-		++column_;
 	}
 
 	++index_;
@@ -183,17 +153,35 @@ size_t Reader::index() const noexcept {
 }
 
 /**
- * @brief Reader::line
- * @return
+ * @brief Reader::location
+ *
+ * @param index
+ * @return Reader::Location
  */
-size_t Reader::line() const noexcept {
-	return line_;
+Reader::Location Reader::location(size_t index) const noexcept {
+	size_t line = 1;
+	size_t col  = 1;
+
+	if (index < input_.size()) {
+
+		for (int i = 0; i < index; ++i) {
+			if (input_[i] == '\n') {
+				++line;
+				col = 1;
+			} else {
+				++col;
+			}
+		}
+	}
+
+	return Location{line, col};
 }
 
 /**
- * @brief Reader::column
- * @return
+ * @brief Reader::location
+ *
+ * @return Reader::Location
  */
-size_t Reader::column() const noexcept {
-	return column_;
+Reader::Location Reader::location() const noexcept {
+	return location(index_);
 }

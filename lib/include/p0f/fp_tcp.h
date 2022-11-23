@@ -11,8 +11,8 @@
 #ifndef P0F_FP_TCP_H_
 #define P0F_FP_TCP_H_
 
-#include "ext/optional.h"
-#include "ext/string_view.h"
+#include <optional>
+#include <string_view>
 #include "process.h"
 #include <cstdint>
 #include <memory>
@@ -66,7 +66,7 @@ struct tcp_sig_record {
 	uint8_t generic   = 0;             // Generic entry?
 	uint32_t class_id = 0;             // OS class ID (-1 = user)
 	uint32_t name_id  = 0;             // OS name ID
-	ext::optional<std::string> flavor; // Human-readable flavor string
+	std::optional<std::string> flavor; // Human-readable flavor string
 
 	uint32_t label_id = 0; // Signature label ID
 
@@ -85,7 +85,7 @@ public:
 		: ctx_(ctx) {}
 
 public:
-	void tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
+	void tcp_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const std::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, std::string_view value, uint32_t line_no);
 	std::unique_ptr<tcp_sig> fingerprint_tcp(bool to_srv, packet_data *pk, packet_flow *f);
 	void check_ts_tcp(bool to_srv, packet_data *pk, packet_flow *f);
 

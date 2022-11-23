@@ -27,7 +27,7 @@
 #include "p0f/util.h"
 
 // Register a new MTU signature.
-void mtu_context_t::mtu_register_sig(const ext::optional<std::string> &name, ext::string_view val, uint32_t line_no) {
+void mtu_context_t::mtu_register_sig(const std::optional<std::string> &name, std::string_view val, uint32_t line_no) {
 
 	Reader in(val);
 

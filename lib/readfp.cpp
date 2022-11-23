@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <unistd.h>
 #include <vector>
 
@@ -27,7 +28,6 @@
 #include "Reader.h"
 #include "p0f/config.h"
 #include "p0f/debug.h"
-#include "p0f/ext/string_view.h"
 #include "p0f/fp_http.h"
 #include "p0f/fp_mtu.h"
 #include "p0f/fp_tcp.h"
@@ -37,7 +37,7 @@
 
 namespace {
 
-bool string_equals(ext::string_view lhs, ext::string_view rhs) {
+bool string_equals(std::string_view lhs, std::string_view rhs) {
 	if (lhs.size() != rhs.size()) {
 		return false;
 	}
@@ -50,7 +50,7 @@ bool string_equals(ext::string_view lhs, ext::string_view rhs) {
 }
 
 // Parse 'classes' parameter by populating fp_os_classes_.
-void fp_context_t::config_parse_classes(ext::string_view value) {
+void fp_context_t::config_parse_classes(std::string_view value) {
 
 	Reader in(value);
 	do {
@@ -72,7 +72,7 @@ void fp_context_t::config_parse_classes(ext::string_view value) {
 }
 
 // Parse 'label' parameter by looking up ID and recording name / flavor.
-void fp_context_t::config_parse_label(ext::string_view value) {
+void fp_context_t::config_parse_label(std::string_view value) {
 
 	// Simplified handling for [mtu] signatures.
 	if (mod_type_ == CF_MOD_MTU) {
@@ -80,7 +80,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 			FATAL("Empty MTU label in line %u.\n", line_no_);
 		}
 
-		sig_flavor_ = value.to_string();
+		sig_flavor_ = std::string(value);
 		return;
 	}
 
@@ -106,7 +106,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 	} else {
 		auto class_name = in.match_while([](char ch) { return isalnum(ch); });
 		if (class_name) {
-			auto it = std::find_if(os_classes_.begin(), os_classes_.end(), [&class_name](ext::string_view os_class) {
+			auto it = std::find_if(os_classes_.begin(), os_classes_.end(), [&class_name](std::string_view os_class) {
 				return string_equals(*class_name, os_class);
 			});
 
@@ -140,7 +140,7 @@ void fp_context_t::config_parse_label(ext::string_view value) {
 }
 
 // Parse 'sys' parameter into cur_sys_[].
-void fp_context_t::config_parse_sys(ext::string_view value) {
+void fp_context_t::config_parse_sys(std::string_view value) {
 
 	cur_sys_.clear();
 
@@ -194,7 +194,7 @@ void fp_context_t::config_parse_sys(ext::string_view value) {
 }
 
 // Read p0f.fp line, dispatching it to fingerprinting modules as necessary.
-void fp_context_t::config_parse_line(ext::string_view line) {
+void fp_context_t::config_parse_line(std::string_view line) {
 
 	Reader in(line);
 
@@ -213,7 +213,7 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 		} else if (in.match("http")) {
 			mod_type_ = CF_MOD_HTTP;
 		} else {
-			FATAL("Unrecognized fingerprinting module '%s' in line %u.", line.to_string().c_str(), line_no_);
+			FATAL("Unrecognized fingerprinting module '%s' in line %u.", std::string(line).c_str(), line_no_);
 		}
 
 		if (!in.match(':')) {
@@ -361,12 +361,12 @@ void fp_context_t::config_parse_line(ext::string_view line) {
 		++sig_cnt_;
 
 	} else {
-		FATAL("Unrecognized field '%s' in line %u.", line.to_string().c_str(), line_no_);
+		FATAL("Unrecognized field '%s' in line %u.", std::string(line).c_str(), line_no_);
 	}
 }
 
 // Look up or create OS or application id.
-uint32_t fp_context_t::lookup_name_id(ext::string_view n) {
+uint32_t fp_context_t::lookup_name_id(std::string_view n) {
 
 	uint32_t i;
 
@@ -378,7 +378,7 @@ uint32_t fp_context_t::lookup_name_id(ext::string_view n) {
 
 	if (i == os_names_.size()) {
 		sig_name_ = os_names_.size();
-		os_names_.push_back(n.to_string());
+		os_names_.push_back(std::string(n));
 	}
 
 	return i;
@@ -393,7 +393,7 @@ void fp_context_t::read_config(const char *fname) {
 
 		++line_no_;
 
-		ext::string_view line_view(line);
+		std::string_view line_view(line);
 		while (!line_view.empty() && isblank(line_view[0])) {
 			line_view.remove_prefix(1);
 		}

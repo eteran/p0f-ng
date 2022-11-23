@@ -13,8 +13,8 @@
 
 #include "config.h"
 #include "config_http.h"
-#include "ext/optional.h"
-#include "ext/string_view.h"
+#include <optional>
+#include <string_view>
 #include <cstdint>
 #include <ctime>
 #include <memory>
@@ -33,8 +33,8 @@ struct ua_map_record {
 
 // HTTP header field:
 struct http_hdr {
-	ext::optional<std::string> name;  // Text name (nullptr = use lookup ID)
-	ext::optional<std::string> value; // Value, if any
+	std::optional<std::string> name;  // Text name (nullptr = use lookup ID)
+	std::optional<std::string> value; // Value, if any
 	uint32_t id   = 0;                // Lookup ID (-1 = none)
 	bool optional = false;            // Optional header?
 };
@@ -50,9 +50,9 @@ struct http_sig {
 
 	std::vector<uint32_t> miss; // Missing headers
 
-	ext::optional<std::string> sw;   // Software string (U-A or Server)
-	ext::optional<std::string> lang; // Accept-Language
-	ext::optional<std::string> via;  // Via or X-Forwarded-For
+	std::optional<std::string> sw;   // Software string (U-A or Server)
+	std::optional<std::string> lang; // Accept-Language
+	std::optional<std::string> via;  // Via or X-Forwarded-For
 
 	time_t date      = 0; // Parsed 'Date'
 	time_t recv_date = 0; // Actual receipt date
@@ -68,7 +68,7 @@ struct http_sig_record {
 
 	uint32_t class_id = 0;             // OS class ID (-1 = user)
 	uint32_t name_id  = 0;             // OS name ID
-	ext::optional<std::string> flavor; // Human-readable flavor string
+	std::optional<std::string> flavor; // Human-readable flavor string
 
 	uint32_t label_id = 0; // Signature label ID
 
@@ -86,8 +86,8 @@ public:
 
 public:
 	bool process_http(bool to_srv, packet_flow *f);
-	void http_parse_ua(ext::string_view value, uint32_t line_no);
-	void http_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const ext::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, ext::string_view value, uint32_t line_no);
+	void http_parse_ua(std::string_view value, uint32_t line_no);
+	void http_register_sig(bool to_srv, uint8_t generic, uint32_t sig_class, uint32_t sig_name, const std::optional<std::string> &sig_flavor, uint32_t label_id, const std::vector<uint32_t> &sys, std::string_view value, uint32_t line_no);
 
 private:
 	uint32_t lookup_hdr(const std::string &name, bool create);

@@ -4,6 +4,8 @@
 #include "p0f/debug.h"
 #include "p0f/util.h"
 
+#include <cstring>
+
 libp0f::libp0f(const char *filename, const libp0f_settings &new_settings)
 	: settings(new_settings) {
 

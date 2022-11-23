@@ -34,3 +34,4 @@ CMakeLists.txt.user*
 *.exe
 *.out
 *.app
+.vscode

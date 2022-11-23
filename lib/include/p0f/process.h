@@ -102,11 +102,11 @@ struct host_data {
 
 	uint32_t last_class_id = 0;             // OS class ID (-1 = not found)
 	uint32_t last_name_id  = 0;             // OS name ID (-1 = not found)
-	ext::optional<std::string> last_flavor; // Last OS flavor
+	std::optional<std::string> last_flavor; // Last OS flavor
 
 	uint8_t last_quality = 0; // Generic or fuzzy match?
 
-	ext::optional<std::string> link_type; // MTU-derived link type
+	std::optional<std::string> link_type; // MTU-derived link type
 
 	uint8_t cli_scores[NAT_SCORES] = {}; // Scoreboard for client NAT
 	uint8_t srv_scores[NAT_SCORES] = {}; // Scoreboard for server NAT
@@ -127,7 +127,7 @@ struct host_data {
 	std::shared_ptr<http_sig> http_resp;   // Last response
 
 	uint32_t http_name_id = 0;              // Client name ID (-1 = not found)
-	ext::optional<std::string> http_flavor; // Client flavor
+	std::optional<std::string> http_flavor; // Client flavor
 
 	const char *language = nullptr; // Detected language
 

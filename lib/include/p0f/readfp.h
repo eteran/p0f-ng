@@ -11,8 +11,8 @@
 #ifndef P0F_READFP_H_
 #define P0F_READFP_H_
 
-#include "ext/optional.h"
-#include "ext/string_view.h"
+#include <optional>
+#include <string_view>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -48,13 +48,13 @@ public:
 
 public:
 	void read_config(const char *fname);
-	uint32_t lookup_name_id(ext::string_view name);
+	uint32_t lookup_name_id(std::string_view name);
 
 private:
-	void config_parse_classes(ext::string_view value);
-	void config_parse_label(ext::string_view value);
-	void config_parse_sys(ext::string_view value);
-	void config_parse_line(ext::string_view line);
+	void config_parse_classes(std::string_view value);
+	void config_parse_label(std::string_view value);
+	void config_parse_sys(std::string_view value);
+	void config_parse_line(std::string_view line);
 
 private:
 	size_t sig_cnt_ = 0; // Total number of p0f.fp sigs
@@ -66,7 +66,7 @@ private:
 
 	uint32_t sig_class_ = 0;                // Signature class ID (-1 = userland)
 	uint32_t sig_name_  = 0;                // Signature name
-	ext::optional<std::string> sig_flavor_; // Signature flavor
+	std::optional<std::string> sig_flavor_; // Signature flavor
 
 	std::vector<uint32_t> cur_sys_; // Current 'sys' values
 

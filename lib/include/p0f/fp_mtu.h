@@ -11,8 +11,8 @@
 #ifndef P0F_FP_MTU_H_
 #define P0F_FP_MTU_H_
 
-#include "ext/optional.h"
-#include "ext/string_view.h"
+#include <optional>
+#include <string_view>
 #include "process.h"
 #include <cstdint>
 #include <string>
@@ -22,7 +22,7 @@ struct packet_flow;
 
 // Record for a TCP signature read from p0f.fp:
 struct mtu_sig_record {
-	ext::optional<std::string> name;
+	std::optional<std::string> name;
 	uint16_t mtu;
 };
 
@@ -32,7 +32,7 @@ public:
 		: ctx_(ctx) {}
 
 public:
-	void mtu_register_sig(const ext::optional<std::string> &name, ext::string_view val, uint32_t line_no);
+	void mtu_register_sig(const std::optional<std::string> &name, std::string_view val, uint32_t line_no);
 	void fingerprint_mtu(bool to_srv, packet_data *pk, packet_flow *f);
 
 private:
