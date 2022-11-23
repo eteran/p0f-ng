@@ -76,7 +76,7 @@ constexpr int MAX_TCP_OPT = 24;
 constexpr double MIN_TSCALE = 0.7;
 constexpr int MAX_TSCALE    = 1500;
 
-/* Minimum and maximum interval (ms) for measuring timestamp progrssion. This
+/* Minimum and maximum interval (ms) for measuring timestamp progression. This
  * is used to make sure the timestamps are fresh enough to be of any value,
  * and that the measurement is not affected by network performance too
  * severely. */
