@@ -1,14 +1,14 @@
 # p0f-ng
 
 [p0f](http://lcamtuf.coredump.cx/p0f3/) is a wonderful tool. Unfortunately,
-because of some of the core design decisions, specifically it being a service 
+because of some of the core design decisions, specifically it being a service
 with a socket API, it proves very difficult to use as a library.
 
 This project aims to bring p0f into the modern age.
 
-It has been ported to C++14, it no longer uses any compiler extensions beyond
+It has been ported to C++17, it no longer uses any compiler extensions beyond
 structure packing, and functions as a true library which can be built into
-any C++14 project easily.
+any C++17 project easily.
 
 Additionally, the build system has been updated to use CMake.
 
