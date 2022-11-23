@@ -2,37 +2,23 @@
 #ifndef READER_H_
 #define READER_H_
 
-#if __cplusplus >= 201703L
-#include <optional>
-#include <string_view>
-#else
-#include <boost/optional.hpp>
-#include <boost/utility/string_view.hpp>
-#endif
-
 #include <cstddef>
+#include <optional>
 #include <regex>
 #include <string>
+#include <string_view>
 
 class Reader {
 public:
-#if __cplusplus >= 201703L
-	using string_view = std::string_view;
-
-	template <class T>
-	using optional = std::optional<T>;
-#else
-	using string_view = boost::string_view;
-
-	template <class T>
-	using optional = boost::optional<T>;
-
-#endif
+	struct Location {
+		size_t line;
+		size_t column;
+	};
 
 public:
 	Reader() = default;
-	explicit Reader(string_view input) noexcept;
-	Reader(const Reader &other) = default;
+	explicit Reader(std::string_view input) noexcept;
+	Reader(const Reader &other)          = default;
 	Reader &operator=(const Reader &rhs) = default;
 	~Reader()                            = default;
 
@@ -40,7 +26,7 @@ public:
 	bool eof() const noexcept;
 	char peek() const noexcept;
 	char read() noexcept;
-	size_t consume(string_view chars) noexcept;
+	size_t consume(std::string_view chars) noexcept;
 	size_t consume_whitespace() noexcept;
 
 	template <class Pred>
@@ -60,13 +46,13 @@ public:
 	}
 
 	bool match(char ch) noexcept;
-	bool match(string_view s) noexcept;
-	optional<std::string> match_any();
+	bool match(std::string_view s) noexcept;
+	std::optional<std::string> match_any();
 
-	optional<std::string> match(const std::regex &regex);
+	std::optional<std::string> match(const std::regex &regex);
 
 	template <class Pred>
-	optional<std::string> match_while(Pred pred) {
+	std::optional<std::string> match_while(Pred pred) {
 		std::string m;
 		while (!eof()) {
 			const char ch = peek();
@@ -84,14 +70,12 @@ public:
 	}
 
 	size_t index() const noexcept;
-	size_t line() const noexcept;
-	size_t column() const noexcept;
+	Location location() const noexcept;
+	Location location(size_t index) const noexcept;
 
 private:
-	string_view input_;
-	size_t index_  = 0;
-	size_t line_   = 1;
-	size_t column_ = 1;
+	std::string_view input_;
+	size_t index_ = 0;
 };
 
 #endif
