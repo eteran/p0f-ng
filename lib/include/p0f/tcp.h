@@ -74,8 +74,8 @@ struct ipv6_hdr {
 	uint8_t dst[16];  // Destination IP
 
 	/* Dword-aligned options may follow if proto != PROTO_TCP and are
-     included in total_length; but we won't be seeing such traffic due
-     to BPF rules. */
+	 included in total_length; but we won't be seeing such traffic due
+	 to BPF rules. */
 
 } __attribute__((packed));
 

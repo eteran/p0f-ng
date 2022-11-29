@@ -11,11 +11,11 @@
 #ifndef P0F_FP_TCP_H_
 #define P0F_FP_TCP_H_
 
-#include <optional>
-#include <string_view>
 #include "process.h"
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <vector>
 
 struct packet_data;

@@ -11,11 +11,11 @@
 #ifndef P0F_FP_MTU_H_
 #define P0F_FP_MTU_H_
 
-#include <optional>
-#include <string_view>
 #include "process.h"
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
 
 struct packet_data;
 struct packet_flow;

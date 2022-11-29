@@ -34,13 +34,13 @@
 
 // Default connection and host cache sizes (adjustable via -m):
 #ifndef MAX_HOSTS
-#define MAX_CONN 1000
+#define MAX_CONN  1000
 #define MAX_HOSTS 10000
 #endif
 
 // Default connection and host time limits (adjustable via -t):
 #ifndef HOST_IDLE_LIMIT
-#define CONN_MAX_AGE 30     // seconds
+#define CONN_MAX_AGE    30  // seconds
 #define HOST_IDLE_LIMIT 120 // minutes
 #endif
 

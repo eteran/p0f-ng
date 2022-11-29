@@ -11,10 +11,10 @@
 #ifndef P0F_READFP_H_
 #define P0F_READFP_H_
 
-#include <optional>
-#include <string_view>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 struct libp0f;

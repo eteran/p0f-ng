@@ -3,8 +3,8 @@
 #define P0F_CONFIG_HTTP_H_
 
 #include "config.h"
-#include <string_view>
 #include "fp_http.h"
+#include <string_view>
 
 /* Headers that should be tagged as optional by the HTTP fingerprinter in any
  * generated signatures: */

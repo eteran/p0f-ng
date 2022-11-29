@@ -22,7 +22,7 @@
 #endif
 
 #define ERRORF(...) fprintf(stderr, __VA_ARGS__)
-#define SAYF(...) printf(__VA_ARGS__)
+#define SAYF(...)   printf(__VA_ARGS__)
 
 #define WARN(...)                            \
 	do {                                     \
