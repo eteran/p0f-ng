@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <optional>
 #include <regex>
+#include <stack>
 #include <string>
 #include <string_view>
 
@@ -73,9 +74,14 @@ public:
 	Location location() const noexcept;
 	Location location(size_t index) const noexcept;
 
+	void push_state();
+	void pop_state();
+	void restore_state();
+
 private:
 	std::string_view input_;
 	size_t index_ = 0;
+	std::stack<size_t> state_;
 };
 
 #endif

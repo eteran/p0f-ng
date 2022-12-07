@@ -185,3 +185,28 @@ Reader::Location Reader::location(size_t index) const noexcept {
 Reader::Location Reader::location() const noexcept {
 	return location(index_);
 }
+
+/**
+ * @brief Reader::push_state
+ *
+ */
+void Reader::push_state() {
+	state_.push(index_);
+}
+
+/**
+ * @brief Reader::pop_state
+ *
+ */
+void Reader::pop_state() {
+	state_.pop();
+}
+
+/**
+ * @brief Reader::restore_stat
+ *
+ */
+void Reader::restore_state() {
+	index_ = state_.top();
+	state_.pop();
+}
